@@ -2,20 +2,52 @@
           [ read_model/3,
             run/3
           ]).
+:- use_module(library(apply)).
+:- use_module(library(error)).
+:- use_module(library(option)).
+:- use_module(library(readutil)).
+:- use_module(library(terms)).
 
 /** <module> Numerical simulation
 
 @tbd Formula representation?
 */
 
-run(File, Series, Options) :-
-    option(steps(Count), Options, 100),
-    read_model(File, Formulas, State),
+%!  run(+Model, -Series, +Options) is det.
+%
+%   Compile and run Model, producing Series as a list of states.
+%
+%   Options:
+%
+%     - iterations(+Count)
+%       Number of iterations.  Default is 100.
+
+run(From, Series, Options) :-
+    option(iterations(Count), Options, 100),
+    read_model(From, Formulas, State),
     steps(Count, Formulas, State, Series).
 
 read_model(From, Formulas, State) :-
-    read_file_to_terms(From, Terms, [module(gsim)]),
+    read_to_terms(From, Terms),
     foldl(model_expression, Terms, m(f{}, s{}), m(Formulas, State)).
+
+read_to_terms(file(File), Terms) :-
+    read_file_to_terms(File, Terms, [module(gsim)]).
+read_to_terms(string(String), Terms) :-
+    setup_call_cleanup(
+        open_string(String, In),
+        read_stream_to_terms(In, Terms, [module(gsim)]),
+        close(In)).
+
+read_stream_to_terms(In, Terms, Options) :-
+    read_term(In, T0, Options),
+    read_stream_to_terms_(T0, In, Terms, Options).
+
+read_stream_to_terms_(end_of_file, _, [], _) :-
+    !.
+read_stream_to_terms_(T0, In, [T0|Terms], Options) :-
+    read_term(In, T1, Options),
+    read_stream_to_terms_(T1, In, Terms, Options).
 
 model_expression(Term, m(FormulasIn, StateIn),  m(Formulas, State)) :-
     model_expression(Term, FormulasIn, Formulas, StateIn, State).

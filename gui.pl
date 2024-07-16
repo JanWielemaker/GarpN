@@ -6,6 +6,13 @@
 :- use_module(library(http/htmx)).
 :- use_module(library(http/http_json)).
 :- use_module(library(option)).
+:- use_module(library(http/js_write)).
+:- use_module(library(apply)).
+:- use_module(library(dicts)).
+:- use_module(library(optparse)).
+:- use_module(library(readutil)).
+
+:- use_module(gsim).
 
 http:location(htmx, root(htmx), []).
 
@@ -63,14 +70,19 @@ home -->
                                 name(iterations),
                                 min(10),
                                 value(100),
-                                max(1000)
+                                max(100000)
                               ]),
                         input([ type(submit),
                                 value("Run!")
                               ])
                       ])
                 ]),
-           div([id(plot)], [])
+           div([id(plot)], []),
+           \js_script({|javascript||
+                       let data;
+                       let layout;
+                       let plot;
+                      |})
          ]).
 
 model_area -->
@@ -93,4 +105,29 @@ run(Request) :-
                     [ iterations(Iterations, [integer]),
                       model(Model, [])
                     ]),
-    reply_htmx([div(Iterations),pre(Model)]).
+    run(string(Model), Series,
+        [ iterations(Iterations)
+        ]),
+    plotly_traces(Series, Traces),
+    reply_htmx(\plot(Traces)).
+
+plot(Traces) -->
+    js_script({|javascript(Traces)||
+               data = Traces;
+               layout = {
+                         title: "Nice plot"
+                     };
+               plot = Plotly.newPlot('plot', data, layout);
+              |}).
+
+plotly_traces(Series, Traces) :-
+    Series = [First|_],
+    dict_keys(First, Keys),
+    convlist(serie(Series), Keys, Traces).
+
+serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key}) :-
+    Key \== t,
+    maplist(get_dict(t), Series, Times),
+    maplist(get_dict(Key), Series, Values),
+    \+ sort(Values, [_]).               % Constant
+
