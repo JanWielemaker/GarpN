@@ -21,11 +21,15 @@
 %
 %     - iterations(+Count)
 %       Number of iterations.  Default is 100.
+%     - sample(+Size)
+%       Add the state after each Size iterations to Series. Default is
+%       1 (all).
 
 run(From, Series, Options) :-
     option(iterations(Count), Options, 100),
+    option(sample(Sample), Options, 1),
     read_model(From, Formulas, State),
-    steps(Count, Formulas, State, Series).
+    steps(0, Count, Sample, Formulas, State, Series).
 
 read_model(From, Formulas, State) :-
     read_to_terms(From, Terms),
@@ -68,13 +72,20 @@ to_id(number_of(X), Id), atom(X) => atom_concat(number_of_, X, Id).
 to_id(growth(X), Id), atom(X) => atom_concat(growth_, X, Id).
 to_id(_, _) => fail.
 
-steps(0, _, State, [State]) :-
-    !.
-steps(N, Formulas, State, [State|Series]) :-
+steps(I, N, Sample, Formulas, State, Series) :-
+    I < N,
+    !,
+    (   (   I mod Sample =:= 0
+        ;   I =:= N-1
+        )
+    ->  Series = [State|SeriesT]
+    ;   SeriesT = Series
+    ),
     must_be(positive_integer, N),
     step(Formulas, State, State1),
-    N1 is N - 1,
-    steps(N1, Formulas, State1, Series).
+    I1 is I+1,
+    steps(I1, N, Sample, Formulas, State1, SeriesT).
+steps(_, _, _, _, _, []).
 
 step(F, S0, S) :-
     dict_pairs(F, _, Pairs),

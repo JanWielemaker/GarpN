@@ -70,7 +70,7 @@ home -->
                                 name(iterations),
                                 min(10),
                                 value(100),
-                                max(100000)
+                                max(100_000)
                               ]),
                         input([ type(submit),
                                 value("Run!")
@@ -105,8 +105,10 @@ run(Request) :-
                     [ iterations(Iterations, [integer]),
                       model(Model, [])
                     ]),
+    Sample is ceiling(Iterations/1000),
     run(string(Model), Series,
-        [ iterations(Iterations)
+        [ iterations(Iterations),
+          sample(Sample)
         ]),
     plotly_traces(Series, Traces),
     reply_htmx(\plot(Traces)).
