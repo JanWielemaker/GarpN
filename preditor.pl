@@ -20,7 +20,7 @@ t := 0.
 number_of(predator) := 900.
 number_of(prey) := 900.
 c_birthrate_prey := 0.067.
-c_birthrate_prey := 0.000135.
+c_deathrate_prey := 0.000135.
 c_birthrate_predator := 0.0000375.
-c_birthrate_predator := 0.05.
+c_deathrate_predator := 0.05.
 
