@@ -7,8 +7,8 @@ number_of(prey) := number_of(prey) + growth(prey) * δt.
 
 t := t + δt.
 
-growth(predator) := (number_of(predator) * number_of(prey)*c_birthrate_predator)-(number_of(predator)*c_deathrate_predator).
-growth(prey) := (number_of(prey) * c_birthrate_prey)-(number_of(predator)*number_of(prey)*c_deathrate_prey).
+growth(predator) := (number_of(predator) * number_of(prey) * c_birthrate_predator) - (number_of(predator) * c_deathrate_predator).
+growth(prey) := (number_of(prey) * c_birthrate_prey) - (number_of(predator)*number_of(prey)*c_deathrate_prey).
 
 		 /*******************************
 		 *         INITIAL VALUES	*
