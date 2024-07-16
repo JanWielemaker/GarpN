@@ -4,19 +4,30 @@
 :- use_module(library(http/http_server)).
 :- use_module(library(http/http_files)).
 :- use_module(library(http/htmx)).
+:- use_module(library(http/http_json)).
 :- use_module(library(option)).
 
 http:location(htmx, root(htmx), []).
 
 :- initialization(main, main).
+:- dynamic model_file/1.
 
 main(Argv) :-
-    argv_options(Argv, _Pos, Options),
+    argv_options(Argv, Pos, Options),
+    set_model_file(Pos),
     http_server(Options),
     (   option(interactive(true), Options)
     ->  cli_enable_development_system
     ;   thread_get_message(quit)
     ).
+
+opt_type(port,        port,        integer).
+opt_type(p,           port,        integer).
+opt_type(interactive, interactive, boolean).
+opt_type(i,           interactive, boolean).
+
+set_model_file([File]) :-
+    asserta(model_file(File)).
 
 :- http_handler(root(.),    http_redirect(see_other, root(home)), []).
 :- http_handler(root(home), home, []).
@@ -40,4 +51,46 @@ home(_Request) :-
                     ]).
 
 home -->
-    html(h1("Hello")).
+    html([ h1("Garp numerical simulator"),
+           form(['hx-post'('/htmx/run'),
+                 'hx-target'('#plot')
+                ],
+                [ \model_area,
+                  div(class(controls),
+                      [ label(for(iterations),
+                              '# Iterations'),
+                        input([ type(number),
+                                name(iterations),
+                                min(10),
+                                value(100),
+                                max(1000)
+                              ]),
+                        input([ type(submit),
+                                value("Run!")
+                              ])
+                      ])
+                ]),
+           div([id(plot)], [])
+         ]).
+
+model_area -->
+    { default_model(Model)
+    },
+    html(div(class(model),
+             textarea([ name(model)
+                      ], Model))).
+
+default_model(Model) :-
+    model_file(File),
+    !,
+    read_file_to_string(File, Model, []).
+default_model("").
+
+:- http_handler(htmx(run), run, []).
+
+run(Request) :-
+    http_parameters(Request,
+                    [ iterations(Iterations, [integer]),
+                      model(Model, [])
+                    ]),
+    reply_htmx([div(Iterations),pre(Model)]).

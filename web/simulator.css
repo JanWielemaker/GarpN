@@ -1,0 +1,17 @@
+div.model {
+    width: 90%;
+    height: 25ex;
+    sizing: border-box;
+    margin: auto;
+}
+
+div.model textarea {
+    width: 100%;
+    height: 100%;
+    sizing: border-box;
+}
+
+div.controls {
+    margin-top: 1ex;
+    margin-left: 5%;
+}
