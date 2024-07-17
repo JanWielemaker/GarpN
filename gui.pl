@@ -117,7 +117,7 @@ plot(Traces) -->
     js_script({|javascript(Traces)||
                data = Traces;
                layout = {
-                         title: "Nice plot"
+                         // title: "Nice plot"
                      };
                plot = Plotly.newPlot('plot', data, layout);
               |}).
