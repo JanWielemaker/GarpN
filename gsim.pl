@@ -7,6 +7,7 @@
 :- use_module(library(option)).
 :- use_module(library(readutil)).
 :- use_module(library(terms)).
+:- use_module(library(lists)).
 
 /** <module> Numerical simulation
 
@@ -55,8 +56,17 @@ run(From, Series, Options) :-
     steps(0, Count, Method, Sample, Formulas, State, Series).
 
 read_model(From, Formulas, State) :-
-    read_to_terms(From, Terms),
-    foldl(model_expression, Terms, m(f{}, s{}), m(Formulas, State)).
+    read_to_terms(From, Terms0),
+    maplist(quantity, Terms0, Quantities0),
+    sort(Quantities0, Sorted),
+    maplist(q_term, Sorted, Quantities1),
+    maplist(intern_model_term(Quantities1), Terms0, Terms1),
+    maplist(is_valid_model_term, Terms1),
+    foldl(model_expression, Terms1, m(f{}, s{}), m(Formulas, State)).
+
+%!  read_to_terms(++Input, -Terms) is det.
+%
+%   Read the input into a list of Prolog terms.
 
 read_to_terms(file(File), Terms) :-
     read_file_to_terms(File, Terms, [module(gsim)]).
@@ -76,24 +86,77 @@ read_stream_to_terms_(T0, In, [T0|Terms], Options) :-
     read_term(In, T1, Options),
     read_stream_to_terms_(T1, In, Terms, Options).
 
+%!  quantity(++ModelTerm, -Quantity) is det.
+
+quantity(Q := _Expr, Out), ground(Q) =>
+    Out = Q.
+quantity(Invalid, _) =>
+    type_error(model_term, Invalid).
+
+q_term(Q, q(Q,Id,_)) :-
+    to_id(Q, Id).
+
+to_id(Term, Id) :-
+    format(atom(Id), '~q', Term).
+
+%!  intern_model_term(+Quantities, +TermIn, -TermOutBindings)
+%
+%   @arg Quantities is a list q(Q,Id,Var)
+%   @arg TermIn is a model term in grounded notation
+%   @arg TermOutBindings is a term `TermOut-Dict`, Where
+%        TermOut is the original formula with all
+%        quantities replaced by variables and Dict maps
+%        quantity-ids to the variable.
+
+intern_model_term(Quantities, Term0, Term-Bindings) :-
+    foldsubterms(intern(Quantities), Term0, Term, [], Pairs0),
+    sort(1, @<, Pairs0, Pairs),
+    dict_pairs(Bindings, #, Pairs).
+
+intern(Quantities, Q, V, B0, B), ground(Q), memberchk(q(Q,Id,Var),Quantities) =>
+    V = Var,
+    B = [Id-V|B0].
+intern(_, _, _, _, _) =>
+    fail.
+
+%!  is_valid_model_term(+TermAndBindings) is det.
+%
+%   Validate the model term, raising an exception on errors.
+
+is_valid_model_term((Left:=Right)-_Bindings), var(Left) =>
+    is_valid_model_term_(Right).
+
+is_valid_model_term_(Term), compound(Term), current_arithmetic_function(Term) =>
+    compound_name_arguments(Term, _, Args),
+    maplist(is_valid_model_term_, Args).
+is_valid_model_term_(Term), atom(Term), current_arithmetic_function(Term) =>
+    true.                                         % i.e., `pi`, `e`
+is_valid_model_term_(Term), number(Term) =>
+    true.
+is_valid_model_term_(Term), var(Term) =>
+    true.
+is_valid_model_term_(_Term) =>
+    fail.
+
+%!  model_expression(+TermAndBindings, +Model0, -Model1)
+
 model_expression(Term, m(FormulasIn, StateIn),  m(Formulas, State)) :-
     model_expression(Term, FormulasIn, Formulas, StateIn, State).
 
-model_expression(Left := Right, FormulasIn, Formulas, StateIn, State),
-    number(Right) =>
+model_expression((Left := Right)-Bindings, FormulasIn, Formulas, StateIn, State),
+    dict_pairs(Bindings, #, [Id-Left]) =>
     Formulas = FormulasIn,
-    to_id(Left, Id),
-    State = StateIn.put(Id, Right).
-model_expression(Formula, FormulasIn, Formulas, StateIn, State) =>
+    Value is Right,
+    State = StateIn.put(Id, Value).
+model_expression((Left := Right)-Bindings, FormulasIn, Formulas, StateIn, State) =>
     State = StateIn,
-    mapsubterms(to_id, Formula, Interned),
-    Interned = (Left := Right),
-    Formulas = FormulasIn.put(Left, Right).
+    dict_pairs(Bindings, #, Pairs),
+    member(Id-Var, Pairs),
+    Var == Left,
+    !,
+    Formulas = FormulasIn.put(Id, formula(Right, Bindings)).
 
-to_id(Term, Id), atom(Term) => Id = Term.
-to_id(number_of(X), Id), atom(X) => atom_concat(number_of_, X, Id).
-to_id(growth(X), Id), atom(X) => atom_concat(growth_, X, Id).
-to_id(_, _) => fail.
+%!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
 
 steps(I, N, Method, Sample, Formulas, State, Series) :-
     I < N,
