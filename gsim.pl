@@ -1,6 +1,6 @@
 :- module(gsim,
-          [ read_model/3,
-            run/3
+          [ read_model/4,                         % +Source, -Formulas, -Constants, -State0
+            run/3                                 % +Model, -Series, +Options
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -53,17 +53,26 @@ run(From, Series, Options) :-
     option(method(Method), Options, euler),
     must_be(positive_integer, Count),
     must_be(positive_integer, Sample),
-    read_model(From, Formulas, State),
-    steps(0, Count, Method, Sample, Formulas, State, Series).
+    read_model(From, Formulas, Constants, State),
+    intern_constants(Constants, Formulas, Formulas1),
+    steps(0, Count, Method, Sample, Formulas1, State, Series).
 
-read_model(From, Formulas, State) :-
+%!  read_model(+Source, -Formulas, -Constants, -State0) is det.
+%
+%   @arg Formulas is a dict `QuantityId` -> formula(Expression,
+%   Bindings), where Bindings is a dict `QuantityId` -> `Var`.
+%   @arg Constants is a dict `ConstantId` -> `Value`.
+%   @arg State0 is a dict `QuantityId` -> `Value`.
+
+read_model(From, Formulas, Constants, State) :-
     read_to_terms(From, Terms0),
     maplist(quantity, Terms0, Quantities0),
     sort(Quantities0, Sorted),
     maplist(q_term, Sorted, Quantities1),
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
     maplist(is_valid_model_term, Terms1),
-    foldl(model_expression, Terms1, m(f{}, s{}), m(Formulas, State)).
+    foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas, Init)),
+    split_init(Init, Formulas, Constants, State).
 
 %!  read_to_terms(++Input, -Terms) is det.
 %
@@ -141,16 +150,18 @@ is_valid_model_term_(_Term) =>
 
 %!  model_expression(+TermAndBindings, +Model0, -Model1)
 
-model_expression(Term, m(FormulasIn, StateIn),  m(Formulas, State)) :-
-    model_expression(Term, FormulasIn, Formulas, StateIn, State).
+model_expression(Term, m(FormulasIn, InitIn),  m(Formulas, Init)) :-
+    model_expression(Term, FormulasIn, Formulas, InitIn, Init).
 
-model_expression((Left := Right)-Bindings, FormulasIn, Formulas, StateIn, State),
+model_expression((Left := Right)-Bindings,
+                 FormulasIn, Formulas, InitIn, Init),
     dict_pairs(Bindings, _, [Id-Left]) =>
     Formulas = FormulasIn,
     Value is Right,
-    State = StateIn.put(Id, Value).
-model_expression((Left := Right)-Bindings, FormulasIn, Formulas, StateIn, State) =>
-    State = StateIn,
+    Init = InitIn.put(Id, Value).
+model_expression((Left := Right)-Bindings,
+                 FormulasIn, Formulas, InitIn, Init) =>
+    InitIn = Init,
     dict_pairs(Bindings, _, Pairs),
     select(Id-Var, Pairs, Pairs1),
     Var == Left,
@@ -167,7 +178,36 @@ same_variables(T1, T2) :-
     term_variables(T2, V2), sort(V2, Vs2),
     Vs1 == Vs2.
 
-%!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
+split_init(Init, Formulas, Constants, State) :-
+    dict_pairs(Init, _, Pairs),
+    split_init_(Pairs, Formulas, ConstantPairs, StatePairs),
+    dict_pairs(Constants, c, ConstantPairs),
+    dict_pairs(State, s, StatePairs).
+
+split_init_([], _, [], []).
+split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
+    get_dict(Id, Formulas, _),
+    !,
+    split_init_(T, Formulas, ConstantPairs, StatePairs).
+split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
+    split_init_(T, Formulas, ConstantPairs, StatePairs).
+
+intern_constants(Constants, Formulas0, Formulas1) :-
+    dict_pairs(Formulas0, f, Pairs0),
+    maplist(intern_constants_(Constants), Pairs0, Pairs1),
+    dict_pairs(Formulas1, f, Pairs1).
+
+intern_constants_(Constants,
+                  Id-formula(Expr, Bindings),
+                  Id-formula(Expr, Bindings1)) :-
+    Bindings >:< Constants,
+    dict_pairs(Bindings, _, Pairs),
+    exclude(instantiated_binding, Pairs, Pairs1),
+    dict_pairs(Bindings1, _, Pairs1).
+
+instantiated_binding(_-I) => nonvar(I).
+
+%! steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
 
 steps(I, N, Method, Sample, Formulas, State, Series) :-
     I < N,
@@ -183,8 +223,8 @@ steps(I, N, Method, Sample, Formulas, State, Series) :-
     steps(I1, N, Method, Sample, Formulas, State1, SeriesT).
 steps(_, _, _, _, _, _, []).
 
-step(Method, F, S0, S) :-
-    dict_pairs(F, _, Pairs),
+step(Method, Formulas, S0, S) :-
+    dict_pairs(Formulas, _, Pairs),
     foldl(eval(Method), Pairs, S0, S).
 
 %!  eval(+Method, +Pair, +S0, -S) is det.
