@@ -10,6 +10,18 @@
 
 /** <module> Numerical simulation
 
+Formulas are represented as
+
+    Quantity := Expression.
+
+Where Quantity is a ground Prolog term.
+
+Time is represented as
+
+    t := t + δt.
+    t := 0.
+    δt := 0.1.
+
 @tbd Formula representation?
 */
 
@@ -26,6 +38,12 @@
 %       1 (all).
 %     - method(+Method)
 %       Approximation method.  One of `rk4` or 'euler` (default)
+%
+%   @arg Model is either term file(FileName) or term string(Text), where
+%   the content must be a valid set of Prolog terms.
+%   @arg Series is a list of dicts, each dict mapping quatities to their
+%   current value. The first dict _only_ contains the keys that belong
+%   to quantities that have an initial value.
 
 run(From, Series, Options) :-
     option(iterations(Count), Options, 100),
