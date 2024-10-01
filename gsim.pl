@@ -8,6 +8,7 @@
 :- use_module(library(readutil)).
 :- use_module(library(terms)).
 :- use_module(library(lists)).
+:- use_module(library(debug)).
 
 /** <module> Numerical simulation
 
@@ -111,7 +112,7 @@ to_id(Term, Id) :-
 intern_model_term(Quantities, Term0, Term-Bindings) :-
     foldsubterms(intern(Quantities), Term0, Term, [], Pairs0),
     sort(1, @<, Pairs0, Pairs),
-    dict_pairs(Bindings, #, Pairs).
+    dict_pairs(Bindings, _, Pairs).
 
 intern(Quantities, Q, V, B0, B), ground(Q), memberchk(q(Q,Id,Var),Quantities) =>
     V = Var,
@@ -144,17 +145,27 @@ model_expression(Term, m(FormulasIn, StateIn),  m(Formulas, State)) :-
     model_expression(Term, FormulasIn, Formulas, StateIn, State).
 
 model_expression((Left := Right)-Bindings, FormulasIn, Formulas, StateIn, State),
-    dict_pairs(Bindings, #, [Id-Left]) =>
+    dict_pairs(Bindings, _, [Id-Left]) =>
     Formulas = FormulasIn,
     Value is Right,
     State = StateIn.put(Id, Value).
 model_expression((Left := Right)-Bindings, FormulasIn, Formulas, StateIn, State) =>
     State = StateIn,
-    dict_pairs(Bindings, #, Pairs),
-    member(Id-Var, Pairs),
+    dict_pairs(Bindings, _, Pairs),
+    select(Id-Var, Pairs, Pairs1),
     Var == Left,
     !,
-    Formulas = FormulasIn.put(Id, formula(Right, Bindings)).
+    (   same_variables(Right, Pairs)
+    ->  RightBindings = Bindings
+    ;   assertion(same_variables(Right, Pairs1)),
+        dict_pairs(RightBindings, _, Pairs1)
+    ),
+    Formulas = FormulasIn.put(Id, formula(Right, RightBindings)).
+
+same_variables(T1, T2) :-
+    term_variables(T1, V1), sort(V1, Vs1),
+    term_variables(T2, V2), sort(V2, Vs2),
+    Vs1 == Vs2.
 
 %!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
 
@@ -199,8 +210,9 @@ eval(rk4, Left-Right, S0, S) =>
     Value is Y+(H/6)*(K1 + 2*K2 + 2*K3 + K4),
     S = S0.put(Left, Value).
 
-eval_formula(Right, S0, Value) :-
-    mapsubterms(value_from(S0), Right, Expr),
+eval_formula(Formula, S0, Value) :-
+    copy_term(Formula, formula(Expr, Bindings)),
+    Bindings :< S0,
     Value is Expr.
 
 eval_formula_(Right, S0, Mod, Value) :-
@@ -209,8 +221,4 @@ eval_formula_(Right, S0, Mod, Value) :-
 
 mod(Key-Value, S0, S) :-
     put_dict(Key, S0, Value, S).
-
-value_from(S, Id, Value) :-
-    atom(Id),
-    Value = S.Id.
 
