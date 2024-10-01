@@ -1,6 +1,7 @@
 :- module(gsim,
           [ read_model/4,                         % +Source, -Formulas, -Constants, -State0
-            run/3                                 % +Model, -Series, +Options
+            run/3,                                % +Model, -Series, +Options
+            add_derivative/2                      % +Series, -DSeries
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -291,3 +292,45 @@ eval_formula_(Right, S0, Mod, Value) :-
 mod(Key-Value, S0, S) :-
     put_dict(Key, S0, Value, S).
 
+%!  add_derivative(+Series, -DSeries) is det.
+%
+%   Add the derivatives to a Series by replacing the value with a term
+%   d(V,D1,...).
+
+add_derivative([], []).
+add_derivative(L, D) :-
+    L = [H|_],
+    nth_derivative(H, N),
+    derivative(L, N, D).
+
+derivative([H1,H2|T0], N, [DH|T]) :-
+    !,
+    derivative_1(H1, H2, N, DH),
+    derivative([H2|T0], N, T).
+derivative([_], _, []).
+
+
+nth_derivative(S, N), get_dict(_, S, T) =>
+    nth_derivative_(T, N).
+
+nth_derivative_(d(_,_), D)  => D = 1.
+nth_derivative_(d(_,_,_), D) => D = 2.
+nth_derivative_(V, D), number(V) => D = 0.
+
+derivative_1(D1, D2, N, D) :-
+    dict_pairs(D1, T, P1),
+    maplist(derivative_v(N, D2), P1, P),
+    dict_pairs(D, T, P).
+
+derivative_v(2, Dict, K-d(V,D1), K-R) =>
+    R = K-d(V,D1,D2),
+    get_dict(K, Dict, d(_,D1b)),
+    D2 is D1b-D1.
+derivative_v(1, Dict, K-d(V,D1,D2), R) =>
+    R = K-d(V,D1,D2,D3),
+    get_dict(K, Dict, d(_,_,D2b)),
+    D3 is D2b-D2.
+derivative_v(0, Dict, K-V, R) =>
+    R = K-d(V,D1),
+    get_dict(K, Dict, Vb),
+    D1 is Vb-V.
