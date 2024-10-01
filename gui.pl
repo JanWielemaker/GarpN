@@ -135,6 +135,5 @@ plotly_traces(Series, Traces) :-
 serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key}) :-
     Key \== t,
     maplist(get_dict(t), Series, Times),
-    maplist(get_dict(Key), Series, Values),
-    \+ sort(Values, [_]).               % Constant
+    maplist(get_dict(Key), Series, Values).
 

@@ -178,6 +178,12 @@ same_variables(T1, T2) :-
     term_variables(T2, V2), sort(V2, Vs2),
     Vs1 == Vs2.
 
+%!  split_init(+Init, +Formulas, -Constants, -State) is det.
+%
+%   Split the quatities for which we found  an initial value into a dict
+%   with constants and the initial  state  dict.   Both  map  an id to a
+%   concrete number.
+
 split_init(Init, Formulas, Constants, State) :-
     dict_pairs(Init, _, Pairs),
     split_init_(Pairs, Formulas, ConstantPairs, StatePairs),
@@ -191,6 +197,11 @@ split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
     split_init_(T, Formulas, ConstantPairs, StatePairs).
 split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
     split_init_(T, Formulas, ConstantPairs, StatePairs).
+
+%!  intern_constants(+Constants, +FormualsIn, -Formuals) is det.
+%
+%   Simplify FormualsIn by binding the constants  and removing them from
+%   the bindings term of the formulas.
 
 intern_constants(Constants, Formulas0, Formulas1) :-
     dict_pairs(Formulas0, f, Pairs0),
@@ -207,7 +218,19 @@ intern_constants_(Constants,
 
 instantiated_binding(_-I) => nonvar(I).
 
-%! steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
+%!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
+%
+%   Run the actual simulation.
+%
+%   @arg I numbers the simulation steps (0..)
+%   @arg N ends the simulation
+%   @arg Method is one of `euler` or `rk4`
+%   @arg Sample indicates that we create the output Series
+%   by sampling every N iterations.
+%   @arg Formulas is a dict `Id` -> formula(Expr,Bindings)
+%   @arg State is a dict `Id` -> `Value`
+%   @arg Series is a list of dicts with the same state as
+%        `State` but different values.
 
 steps(I, N, Method, Sample, Formulas, State, Series) :-
     I < N,
