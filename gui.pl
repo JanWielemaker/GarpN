@@ -9,7 +9,6 @@
 :- use_module(library(http/js_write)).
 :- use_module(library(apply)).
 :- use_module(library(dicts)).
-:- use_module(library(optparse)).
 :- use_module(library(readutil)).
 
 :- use_module(gsim).
@@ -33,8 +32,14 @@ opt_type(p,           port,        integer).
 opt_type(interactive, interactive, boolean).
 opt_type(i,           interactive, boolean).
 
-set_model_file([File]) :-
+opt_help(help(usage),
+         " [option..] file").
+
+set_model_file([File]) =>
     asserta(model_file(File)).
+set_model_file(_) =>
+    argv_usage(debug),
+    halt(1).
 
 :- http_handler(root(.),    http_redirect(see_other, root(home)), []).
 :- http_handler(root(home), home, []).
