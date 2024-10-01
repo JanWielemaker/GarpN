@@ -16,15 +16,17 @@ Formulas are represented as
 
     Quantity := Expression.
 
-Where Quantity is a ground Prolog term.
+Where Quantity is  a  ground  Prolog   term.  The  system  rewrites  all
+`Expression`  instances  by  replacing  quantities    found   by  Prolog
+variables.  The  resulting  Expression  is   verified  to  only  contain
+functions known to Prolog.
 
-Time is represented as
+Time is represented as below. Note that `δt`  is just an atom to Prolog,
+so `dt` also works.  The variable name `t` however is reserved.
 
     t := t + δt.
     t := 0.
     δt := 0.1.
-
-@tbd Formula representation?
 */
 
 %!  run(+Model, -Series, +Options) is det.
@@ -34,12 +36,15 @@ Time is represented as
 %   Options:
 %
 %     - iterations(+Count)
-%       Number of iterations.  Default is 100.
+%       Number of iterations.  Default is 1000.
 %     - sample(+Size)
 %       Add the state after each Size iterations to Series. Default is
 %       1 (all).
 %     - method(+Method)
 %       Approximation method.  One of `rk4` or 'euler` (default)
+%     - constants(-Constants)
+%       Unify Constants with a dict `Id` -> `Value`.  Note that the
+%       discovered initial state is the first element of Series.
 %
 %   @arg Model is either term file(FileName) or term string(Text), where
 %   the content must be a valid set of Prolog terms.
@@ -48,9 +53,10 @@ Time is represented as
 %   to quantities that have an initial value.
 
 run(From, Series, Options) :-
-    option(iterations(Count), Options, 100),
+    option(iterations(Count), Options, 1000),
     option(sample(Sample), Options, 1),
     option(method(Method), Options, euler),
+    option(constants(Constants), Options, _),
     must_be(positive_integer, Count),
     must_be(positive_integer, Sample),
     read_model(From, Formulas, Constants, State),
