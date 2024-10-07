@@ -74,7 +74,72 @@ q_series(QSeries, Options) :-
     simulate(Series, Options),
     add_derivative(Series, SeriesD1),
     add_derivative(SeriesD1, SeriesD2),
-    series_qualitative(SeriesD2, QSeries).
+    series_qualitative(SeriesD2, QSeries0),
+    simplify_qseries(QSeries0, QSeries).
+
+%!  simplify_qseries(+QSeries0, -QSeries) is det.
+%
+%   Tasks:
+%
+%     - Remove subsequent qualitative states that are equal.
+%     - Add intermediates if a continuous quantity moves in
+%       the quantity space.
+
+simplify_qseries(Series0, Series) :-
+    removes_equal_sequences(Series0, Series1),
+    insert_points(Series1, Series).
+
+removes_equal_sequences([], T) => T = [].
+removes_equal_sequences([S1,S2|T0], T), same_qstate(S1, S2) =>
+    removes_equal_sequences([S1|T0], T).
+removes_equal_sequences([S1|T0], T) =>
+    T = [S1|T1],
+    removes_equal_sequences(T0, T1).
+
+same_qstate(S1, S2),
+    is_dict(S1, Tag),
+    is_dict(S2, Tag),
+    del_dict(t, S1, _, A),
+    del_dict(t, S2, _, B) =>
+    A == B.
+
+insert_points([], []).
+insert_points([S1,S2|T0], [S1,Si|T]) :-
+    insert_point(S1, S2, Si),
+    !,
+    insert_points([S2|T0], T).
+insert_points([S1|T0], [S1|T]) :-
+    insert_points(T0, T).
+
+insert_point(S1, S2, Si) :-
+    dict_pairs(S1, _, Pairs),
+    maplist(insert_value(S2, Done), Pairs, PairsI),
+    Done == true,
+    dict_pairs(Si, _, PairsI).
+
+:- det(insert_value/4).
+insert_value(S2, _, t-V1, t-Vi) :-
+    !,
+    get_dict(t, S2, V2),
+    Vi is (V1+V2)/2.
+insert_value(S2, Done, K-V1, K-Vi) :-
+    get_dict(K, S2, V2),
+    insert_value_(V1, V2, Vi, Done).
+
+insert_value_(d(V1,D11,D12), d(V2,D21,D22), R, Done) =>
+    R = d(Vi, D1i, D2i),
+    insert_value_(V1, V2, Vi, Done),
+    insert_value_(D11, D21, D1i, Done),
+    insert_value_(D12, D22, D2i, Done).
+insert_value_(d(V1,D11), d(V2,D21), R, Done) =>
+    R = d(Vi, D1i),
+    insert_value_(V1, V2, Vi, Done),
+    insert_value_(D11, D21, D1i, Done).
+insert_value_(min, plus, Vi, Done) => Vi = zero, Done = true.
+insert_value_(plus, min, Vi, Done) => Vi = zero, Done = true.
+insert_value_(V, V, Vi, _Done) => Vi = V.
+insert_value_(Var, _, _, _Done), var(Var) => true.
+insert_value_(_, Var, _, _Done), var(Var) => true.
 
 simulate(Series, Options) :-
     id_mapping(Mapping),
