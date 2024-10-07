@@ -1,7 +1,7 @@
 :- module(gsim,
-          [ read_model/4,                         % +Source, -Formulas, -Constants, -State0
-            run/3,                                % +Model, -Series, +Options
-            add_derivative/2                      % +Series, -DSeries
+          [ read_model/5,         % +Source, -Formulas, -Constants, -State0, +Opts
+            simulate/3,           % +ModelSrc, -Series, +Options
+            add_derivative/2      % +Series, -DSeries
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -31,7 +31,7 @@ so `dt` also works.  The variable name `t` however is reserved.
     δt := 0.1.
 */
 
-%!  run(+Model, -Series, +Options) is det.
+%!  simulate(+Model, -Series, +Options) is det.
 %
 %   Compile and run Model, producing Series as a list of states.
 %
@@ -46,6 +46,8 @@ so `dt` also works.  The variable name `t` however is reserved.
 %       Determines what is tracked in the Series.  Default are all
 %       quantities that have an initial and a formula.  Alternative
 %       is currently `all` to track all quantities that have a formula.
+%     - id_mapping(+Dict)
+%       Maps integer ids to terms number_of(Q) or growth(Q).
 %     - method(+Method)
 %       Approximation method.  One of `rk4` or 'euler` (default)
 %     - constants(-Constants)
@@ -58,30 +60,30 @@ so `dt` also works.  The variable name `t` however is reserved.
 %   current value. The first dict _only_ contains the keys that belong
 %   to quantities that have an initial value.
 
-run(From, Series, Options) :-
+simulate(From, Series, Options) :-
     option(iterations(Count), Options, 1000),
     option(sample(Sample), Options, 1),
     option(method(Method), Options, euler),
     option(constants(Constants), Options, _),
     must_be(positive_integer, Count),
     must_be(positive_integer, Sample),
-    read_model(From, Formulas, Constants, State0),
+    read_model(From, Formulas, Constants, State0, Options),
     add_tracking(Formulas, State0, State, Options),
     intern_constants(Constants, Formulas, Formulas1),
     steps(0, Count, Method, Sample, Formulas1, State, Series).
 
-%!  read_model(+Source, -Formulas, -Constants, -State0) is det.
+% ! read_model(+Source, -Formulas, -Constants, -State0, +Options) is det.
 %
 %   @arg Formulas is a dict `QuantityId` -> formula(Expression,
 %   Bindings), where Bindings is a dict `QuantityId` -> `Var`.
 %   @arg Constants is a dict `ConstantId` -> `Value`.
 %   @arg State0 is a dict `QuantityId` -> `Value`.
 
-read_model(From, Formulas, Constants, State) :-
+read_model(From, Formulas, Constants, State, Options) :-
     read_to_terms(From, Terms0),
     maplist(quantity, Terms0, Quantities0),
     sort(Quantities0, Sorted),
-    maplist(q_term, Sorted, Quantities1),
+    maplist(q_term(Options), Sorted, Quantities1),
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
     maplist(is_valid_model_term, Terms1),
     foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas, Init)),
@@ -91,9 +93,9 @@ read_model(From, Formulas, Constants, State) :-
 %
 %   Read the input into a list of Prolog terms.
 
-read_to_terms(file(File), Terms) :-
+read_to_terms(file(File), Terms) =>
     read_file_to_terms(File, Terms, [module(gsim)]).
-read_to_terms(string(String), Terms) :-
+read_to_terms(string(String), Terms) =>
     setup_call_cleanup(
         open_string(String, In),
         read_stream_to_terms(In, Terms, [module(gsim)]),
@@ -116,7 +118,11 @@ quantity(Q := _Expr, Out), ground(Q) =>
 quantity(Invalid, _) =>
     type_error(model_term, Invalid).
 
-q_term(Q, q(Q,Id,_)) :-
+q_term(Options, Q, q(Q,Id,_)) :-
+    option(id_mapping(Mapping), Options),
+    get_dict(Id, Mapping, Q),
+    !.
+q_term(_Options, Q, q(Q,Id,_)) :-
     to_id(Q, Id).
 
 to_id(Term, Id) :-

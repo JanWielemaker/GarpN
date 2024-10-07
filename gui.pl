@@ -13,6 +13,7 @@
 :- use_module(library(pairs)).
 
 :- use_module(gsim).
+:- use_module(map).
 
 http:location(htmx, root(htmx), []).
 
@@ -122,11 +123,13 @@ run(Request) :-
     ->  Sample is ceiling(Iterations/1000)
     ;   true
     ),
-    run(string(Model), Series,
-        [ iterations(Iterations),
-          track(Track),
-          sample(Sample)
-        ]),
+    id_mapping(IdMapping),
+    simulate(string(Model), Series,
+             [ iterations(Iterations),
+               track(Track),
+               sample(Sample),
+               id_mapping(IdMapping)
+             ]),
     plotly_traces(Series, Traces),
     reply_htmx(\plot(Traces)).
 
