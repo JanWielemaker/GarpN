@@ -10,6 +10,7 @@
 :- use_module(library(apply)).
 :- use_module(library(dicts)).
 :- use_module(library(readutil)).
+:- use_module(library(pairs)).
 
 :- use_module(gsim).
 
@@ -74,8 +75,12 @@ home -->
                         input([ type(number),
                                 name(iterations),
                                 min(10),
-                                value(100),
+                                value(1000),
                                 max(100_000)
+                              ]),
+                        input([ type(hidden),
+                                name(track),
+                                value(all)
                               ]),
                         input([ type(submit),
                                 value("Run!")
@@ -108,11 +113,18 @@ default_model("").
 run(Request) :-
     http_parameters(Request,
                     [ iterations(Iterations, [integer]),
+                      track(Track, [oneof([all,initialized]),
+                                    default(initialized)]),
+                      sample(Sample, [integer, optional(true)]),
                       model(Model, [])
                     ]),
-    Sample is ceiling(Iterations/1000),
+    (   var(Sample)
+    ->  Sample is ceiling(Iterations/1000)
+    ;   true
+    ),
     run(string(Model), Series,
         [ iterations(Iterations),
+          track(Track),
           sample(Sample)
         ]),
     plotly_traces(Series, Traces),
@@ -134,6 +146,10 @@ plotly_traces(Series, Traces) :-
 
 serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key}) :-
     Key \== t,
-    maplist(get_dict(t), Series, Times),
-    maplist(get_dict(Key), Series, Values).
+    convlist(tv(Key), Series, TVs),
+    pairs_keys_values(TVs, Times, Values).
 
+tv(Key, State, T-V) :-
+    get_dict(t, State, T),
+    get_dict(Key, State, V),
+    number(V).

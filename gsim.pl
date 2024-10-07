@@ -10,6 +10,7 @@
 :- use_module(library(terms)).
 :- use_module(library(lists)).
 :- use_module(library(debug)).
+:- use_module(library(dicts)).
 
 /** <module> Numerical simulation
 
@@ -41,6 +42,10 @@ so `dt` also works.  The variable name `t` however is reserved.
 %     - sample(+Size)
 %       Add the state after each Size iterations to Series. Default is
 %       1 (all).
+%     - track(+What)
+%       Determines what is tracked in the Series.  Default are all
+%       quantities that have an initial and a formula.  Alternative
+%       is currently `all` to track all quantities that have a formula.
 %     - method(+Method)
 %       Approximation method.  One of `rk4` or 'euler` (default)
 %     - constants(-Constants)
@@ -60,7 +65,8 @@ run(From, Series, Options) :-
     option(constants(Constants), Options, _),
     must_be(positive_integer, Count),
     must_be(positive_integer, Sample),
-    read_model(From, Formulas, Constants, State),
+    read_model(From, Formulas, Constants, State0),
+    add_tracking(Formulas, State0, State, Options),
     intern_constants(Constants, Formulas, Formulas1),
     steps(0, Count, Method, Sample, Formulas1, State, Series).
 
@@ -187,7 +193,7 @@ same_variables(T1, T2) :-
 
 %!  split_init(+Init, +Formulas, -Constants, -State) is det.
 %
-%   Split the quatities for which we found  an initial value into a dict
+%   Split the quantities for which we found an initial value into a dict
 %   with constants and the initial  state  dict.   Both  map  an id to a
 %   concrete number.
 
@@ -224,6 +230,22 @@ intern_constants_(Constants,
     dict_pairs(Bindings1, _, Pairs1).
 
 instantiated_binding(_-I) => nonvar(I).
+
+%!  add_tracking(+Formulas:dict, +State0, -State, +Options) is det.
+%
+%   When track(all) is given, track the values for all formulas
+
+add_tracking(Formulas, State0, State, Options) :-
+    option(track(all), Options),
+    !,
+    dict_keys(Formulas, FKeys),
+    maplist(unknown, FKeys, Pairs),
+    dict_pairs(FState, _, Pairs),
+    State = FState.put(State0).
+add_tracking(_, State, State, _).
+
+unknown(Key, Key-_).
+
 
 %!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
 %
