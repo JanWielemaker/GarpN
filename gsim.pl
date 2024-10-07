@@ -72,7 +72,7 @@ simulate(From, Series, Options) :-
     intern_constants(Constants, Formulas, Formulas1),
     steps(0, Count, Method, Sample, Formulas1, State, Series).
 
-% ! read_model(+Source, -Formulas, -Constants, -State0, +Options) is det.
+%!  read_model(+Source, -Formulas, -Constants, -State0, +Options) is det.
 %
 %   @arg Formulas is a dict `QuantityId` -> formula(Expression,
 %   Bindings), where Bindings is a dict `QuantityId` -> `Var`.
@@ -338,7 +338,7 @@ derivative([H1,H2|T0], N, [DH|T]) :-
 derivative([_], _, []).
 
 
-nth_derivative(S, N), get_dict(_, S, T) =>
+nth_derivative(S, N), get_dict(K, S, T), K \== t =>
     nth_derivative_(T, N).
 
 nth_derivative_(d(_,_), D)  => D = 1.
@@ -350,15 +350,20 @@ derivative_1(D1, D2, N, D) :-
     maplist(derivative_v(N, D2), P1, P),
     dict_pairs(D, T, P).
 
-derivative_v(2, Dict, K-d(V,D1), K-R) =>
+derivative_v(_, _, t-T, R) =>
+    R = t-T.
+derivative_v(1, Dict, K-d(V,D1), R) =>
     R = K-d(V,D1,D2),
     get_dict(K, Dict, d(_,D1b)),
-    D2 is D1b-D1.
-derivative_v(1, Dict, K-d(V,D1,D2), R) =>
+    v_minus(D1b, D1, D2).
+derivative_v(2, Dict, K-d(V,D1,D2), R) =>
     R = K-d(V,D1,D2,D3),
     get_dict(K, Dict, d(_,_,D2b)),
-    D3 is D2b-D2.
+    v_minus(D2b, D2, D3).
 derivative_v(0, Dict, K-V, R) =>
     R = K-d(V,D1),
     get_dict(K, Dict, Vb),
-    D1 is Vb-V.
+    v_minus(Vb, V, D1).
+
+v_minus(V1, V2, D), nonvar(V1), nonvar(V2) => D is V1-V2.
+v_minus(_, _, _) => true.
