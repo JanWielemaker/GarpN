@@ -2,10 +2,13 @@
           [ id_mapping/1,               % -Mapping:dict
             q_series/2,                 % -QSeries, +Options
             q_series/3,                 % +Model, -QSeries, +Options
-            qstate/2,
-            link_garp_states/2          % +QSeries0, QSeries
+            qstate/3,                   % +State, -Values, +Options
+            link_garp_states/3          % +QSeries0, -QSeries, +Options
           ]).
 :- use_module(gsim).
+:- use_module(library(apply)).
+:- use_module(library(option)).
+:- use_module(library(pairs)).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -24,17 +27,32 @@ id_map(Id, Term) :-
     Term4 =.. [DV,Q|_],
     Term =.. [DV,Q].
 
-%!  qstate(?Id, -Values)
+%!  qstate(?Id, -Values, +Options)
 %
 %   Get the qualitative state from Garp  in   the  same  notation as our
 %   simulator.
 
-qstate(State, Values) :-
+qstate(State, Values, Options) :-
     engine:state(State, _),
-    findall(Qid-Value, qstate_value(State, Qid, Value), Pairs),
+    option(d(N), Options, 3),
+    findall(Qid-Value, qstate_value(N, State, Qid, Value), Pairs),
     dict_pairs(Values, _, Pairs).
 
-qstate_value(State, Qid, d(V,D1,D2,D3)) :-
+qstate_value(1, State, Qid, R) =>
+    R = d(V,D1),
+    visualize:state_quantity_value(State, Dict),
+    _{name:Qid, value:V0, derivative: _{1:D10,2:_,3:_}} :< Dict,
+    unknown_var(V0, V),
+    unknown_var(D10, D1).
+qstate_value(2, State, Qid, R) =>
+    R = d(V,D1,D2),
+    visualize:state_quantity_value(State, Dict),
+    _{name:Qid, value:V0, derivative: _{1:D10,2:D20,3:_}} :< Dict,
+    unknown_var(V0, V),
+    unknown_var(D10, D1),
+    unknown_var(D20, D2).
+qstate_value(3, State, Qid, R) =>
+    R = d(V,D1,D2,D3),
     visualize:state_quantity_value(State, Dict),
     _{name:Qid, value:V0, derivative: _{1:D10,2:D20,3:D30}} :< Dict,
     unknown_var(V0, V),
@@ -45,9 +63,9 @@ qstate_value(State, Qid, d(V,D1,D2,D3)) :-
 unknown_var(unk, _) => true.
 unknown_var(unknown, _) => true.
 unknown_var(?, _) => true.
-unknown_var(pos, Val) => Val = plus.
+unknown_var(pos, Val) => Val = plus.    % used for derivatives
 unknown_var(neg, Val) => Val = min.
-unknown_var(plus, Val) => Val = plus.
+unknown_var(plus, Val) => Val = plus.   % quantity space values
 unknown_var(zero, Val) => Val = zero.
 unknown_var(min,  Val) => Val = min.
 
@@ -91,11 +109,10 @@ to_qualitative(_, V, D), V > 0   => D = plus.
 to_qualitative(_, V, D), V < 0   => D = min.
 to_qualitative(_, V, D), V =:= 0 => D = zero.
 
-%!  link_garp_states(+QSeries0, -QSeries) is det.
 %!  link_garp_states(+QSeries0, -QSeries, +Options) is det.
 
-link_garp_states(QSeries0, QSeries) :-
-    findall(Id-State, qstate(Id,State), GarpStates),
+link_garp_states(QSeries0, QSeries, Options) :-
+    findall(Id-State, qstate(Id,State, Options), GarpStates),
     maplist(add_state(GarpStates), QSeries0, QSeries).
 
 add_state(GarpStates, State0, State) :-
@@ -106,14 +123,21 @@ add_state(GarpStates, State0, State) :-
 matching_state(State, _Id-GarpState) :-
     \+ \+ State >:< GarpState.
 
-link_garp_states(QSeries0, QSeries, Options) :-
+%!  opt_link_garp_states(+QSeries0, -QSeries, +Options) is det.
+
+opt_link_garp_states(QSeries0, QSeries, Options) :-
     option(link_garp_states(true), Options),
     !,
-    link_garp_states(QSeries0, QSeries).
-link_garp_states(Series, Series, _).
+    link_garp_states(QSeries0, QSeries, Options).
+opt_link_garp_states(Series, Series, _).
 
 %!  q_series(-QSeries, +Options) is det.
 %!  q_series(+Model, -QSeries, +Options) is det.
+%
+%   Options
+%
+%     - d(N)
+%     Add up to the Nth derivative.  Default 3.
 
 q_series(QSeries, Options) :-
     q_series(file('predator.pl'), QSeries, Options).
@@ -125,12 +149,19 @@ q_series(Model, QSeries, Options) :-
                id_mapping(Mapping)
              | Options
              ]),
-    add_derivative(Series, SeriesD1),
-    add_derivative(SeriesD1, SeriesD2),
-    add_derivative(SeriesD2, SeriesD3),
-    series_qualitative(SeriesD3, QSeries0),
+    option(d(N), Options, 3),
+    add_derivatives(N, Series, SeriesD),
+    series_qualitative(SeriesD, QSeries0),
     simplify_qseries(QSeries0, QSeries1),
-    link_garp_states(QSeries1, QSeries, Options).
+    opt_link_garp_states(QSeries1, QSeries, Options).
+
+add_derivatives(0, Series, Series) :-
+    !.
+add_derivatives(N, Series0, Series) :-
+    add_derivative(Series0, Series1),
+    N2 is N - 1,
+    add_derivatives(N2, Series1, Series).
+
 
 %!  simplify_qseries(+QSeries0, -QSeries) is det.
 %
