@@ -84,10 +84,14 @@ q_series(QSeries, Options) :-
 %     - Remove subsequent qualitative states that are equal.
 %     - Add intermediates if a continuous quantity moves in
 %       the quantity space.
+%
+%   @tbd: swap insert_points/2.   For that we need to keep
+%   first and last of am equal series to keep the start and
+%   end time.
 
 simplify_qseries(Series0, Series) :-
-    removes_equal_sequences(Series0, Series1),
-    insert_points(Series1, Series).
+    insert_points(Series0, Series1),
+    removes_equal_sequences(Series1, Series).
 
 removes_equal_sequences([], T) => T = [].
 removes_equal_sequences([S1,S2|T0], T), same_qstate(S1, S2) =>
