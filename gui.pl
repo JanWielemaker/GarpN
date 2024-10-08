@@ -137,8 +137,16 @@ plot(Traces) -->
     js_script({|javascript(Traces)||
                data = Traces;
                layout = {
-                         // title: "Nice plot"
-                     };
+                   title: "Nice plot",
+                   yaxis: {
+                       title: 'Value'
+                          },
+                   yaxis2: {
+                       title: 'Derivative',
+                       overlaying: 'y',
+                       side: 'right'
+                           }
+                        };
                plot = Plotly.newPlot('plot', data, layout);
               |}).
 
@@ -147,10 +155,16 @@ plotly_traces(Series, Traces) :-
     dict_keys(First, Keys),
     convlist(serie(Series), Keys, Traces).
 
-serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key}) :-
+serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key, yaxis:YAxis}) :-
     Key \== t,
     convlist(tv(Key), Series, TVs),
-    pairs_keys_values(TVs, Times, Values).
+    pairs_keys_values(TVs, Times, Values),
+    key_yaxis(Key, YAxis).
+
+key_yaxis(Key, y2) :-
+    sub_atom(Key, _, _, _, growth),
+    !.
+key_yaxis(_, y).
 
 tv(Key, State, T-V) :-
     get_dict(t, State, T),
