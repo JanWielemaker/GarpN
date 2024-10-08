@@ -29,18 +29,24 @@ id_map(Id, Term) :-
 %   Get the qualitative state from Garp  in   the  same  notation as our
 %   simulator.
 
-qstate(Id, Values) :-
-    engine:state(Id, SMD),
-    smd_data(values, SMD, ParValues),
-    maplist(dict_val, ParValues, Pairs),
+qstate(State, Values) :-
+    engine:state(State, _),
+    findall(Qid-Value, qstate_value(State, Qid, Value), Pairs),
     dict_pairs(Values, _, Pairs).
 
-dict_val(value(Id,V0,D10,D20), Id-d(V,D1,D2)) :-
+qstate_value(State, Qid, d(V,D1,D2,D3)) :-
+    visualize:state_quantity_value(State, Dict),
+    _{name:Qid, value:V0, derivative: _{1:D10,2:D20,3:D30}} :< Dict,
     unknown_var(V0, V),
     unknown_var(D10, D1),
-    unknown_var(D20, D2).
+    unknown_var(D20, D2),
+    unknown_var(D30, D3).
 
 unknown_var(unk, _) => true.
+unknown_var(unknown, _) => true.
+unknown_var(?, _) => true.
+unknown_var(pos, Val) => Val = plus.
+unknown_var(neg, Val) => Val = min.
 unknown_var(plus, Val) => Val = plus.
 unknown_var(zero, Val) => Val = zero.
 unknown_var(min,  Val) => Val = min.
@@ -73,6 +79,12 @@ to_qualitative(Q, d(V,D1,D2), R) =>
     to_qualitative(Q, V, QV),
     to_qualitative(_, D1, QD1),
     to_qualitative(_, D2, QD2).
+to_qualitative(Q, d(V,D1,D2,D3), R) =>
+    R = d(QV,QD1,QD2,QD3),
+    to_qualitative(Q, V, QV),
+    to_qualitative(_, D1, QD1),
+    to_qualitative(_, D2, QD2),
+    to_qualitative(_, D3, QD3).
 to_qualitative(t, T, R) => R = T.
 to_qualitative(_, V, _), var(V)  => true.
 to_qualitative(_, V, D), V > 0   => D = plus.
@@ -115,7 +127,8 @@ q_series(Model, QSeries, Options) :-
              ]),
     add_derivative(Series, SeriesD1),
     add_derivative(SeriesD1, SeriesD2),
-    series_qualitative(SeriesD2, QSeries0),
+    add_derivative(SeriesD2, SeriesD3),
+    series_qualitative(SeriesD3, QSeries0),
     simplify_qseries(QSeries0, QSeries1),
     link_garp_states(QSeries1, QSeries, Options).
 
@@ -172,6 +185,12 @@ insert_value(S2, Done, K-V1, K-Vi) :-
     get_dict(K, S2, V2),
     insert_value_(V1, V2, Vi, Done).
 
+insert_value_(d(V1,D11,D12,D13), d(V2,D21,D22,D23), R, Done) =>
+    R = d(Vi,D1i,D2i,D3i),
+    insert_value_(V1, V2, Vi, Done),
+    insert_value_(D11, D21, D1i, Done),
+    insert_value_(D12, D22, D2i, Done),
+    insert_value_(D13, D23, D3i, Done).
 insert_value_(d(V1,D11,D12), d(V2,D21,D22), R, Done) =>
     R = d(Vi, D1i, D2i),
     insert_value_(V1, V2, Vi, Done),
