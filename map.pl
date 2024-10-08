@@ -1,5 +1,9 @@
 :- module(map,
-          [ id_mapping/1                % -Mapping:dict
+          [ id_mapping/1,               % -Mapping:dict
+            q_series/2,                 % -QSeries, +Options
+            q_series/3,                 % +Model, -QSeries, +Options
+            qstate/2,
+            link_garp_states/2          % +QSeries0, QSeries
           ]).
 :- use_module(gsim).
 
@@ -20,7 +24,12 @@ id_map(Id, Term) :-
     Term4 =.. [DV,Q|_],
     Term =.. [DV,Q].
 
-state(Id, Values) :-
+%!  qstate(?Id, -Values)
+%
+%   Get the qualitative state from Garp  in   the  same  notation as our
+%   simulator.
+
+qstate(Id, Values) :-
     engine:state(Id, SMD),
     smd_data(values, SMD, ParValues),
     maplist(dict_val, ParValues, Pairs),
@@ -70,12 +79,45 @@ to_qualitative(_, V, D), V > 0   => D = plus.
 to_qualitative(_, V, D), V < 0   => D = min.
 to_qualitative(_, V, D), V =:= 0 => D = zero.
 
+%!  link_garp_states(+QSeries0, -QSeries) is det.
+%!  link_garp_states(+QSeries0, -QSeries, +Options) is det.
+
+link_garp_states(QSeries0, QSeries) :-
+    findall(Id-State, qstate(Id,State), GarpStates),
+    maplist(add_state(GarpStates), QSeries0, QSeries).
+
+add_state(GarpStates, State0, State) :-
+    include(matching_state(State0), GarpStates, Matching),
+    pairs_keys(Matching, StateIds),
+    State = State0.put(garp_states, StateIds).
+
+matching_state(State, _Id-GarpState) :-
+    \+ \+ State >:< GarpState.
+
+link_garp_states(QSeries0, QSeries, Options) :-
+    option(link_garp_states(true), Options),
+    !,
+    link_garp_states(QSeries0, QSeries).
+link_garp_states(Series, Series, _).
+
+%!  q_series(-QSeries, +Options) is det.
+%!  q_series(+Model, -QSeries, +Options) is det.
+
 q_series(QSeries, Options) :-
-    simulate(Series, Options),
+    q_series(file('predator.pl'), QSeries, Options).
+
+q_series(Model, QSeries, Options) :-
+    id_mapping(Mapping),
+    simulate(Model, Series,
+             [ track(all),
+               id_mapping(Mapping)
+             | Options
+             ]),
     add_derivative(Series, SeriesD1),
     add_derivative(SeriesD1, SeriesD2),
     series_qualitative(SeriesD2, QSeries0),
-    simplify_qseries(QSeries0, QSeries).
+    simplify_qseries(QSeries0, QSeries1),
+    link_garp_states(QSeries1, QSeries, Options).
 
 %!  simplify_qseries(+QSeries0, -QSeries) is det.
 %
@@ -144,12 +186,3 @@ insert_value_(plus, min, Vi, Done) => Vi = zero, Done = true.
 insert_value_(V, V, Vi, _Done) => Vi = V.
 insert_value_(Var, _, _, _Done), var(Var) => true.
 insert_value_(_, Var, _, _Done), var(Var) => true.
-
-simulate(Series, Options) :-
-    id_mapping(Mapping),
-    simulate(file('predator.pl'), Series,
-             [ track(all),
-               id_mapping(Mapping)
-             | Options
-             ]).
-
