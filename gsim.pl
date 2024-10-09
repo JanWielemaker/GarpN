@@ -357,7 +357,7 @@ step(Method, Formulas, S0, S) :-
 eval(euler, Left-Right, S0, S) =>
     eval_formula(Right, S0, Value),
     S = S0.put(Left, Value).
-eval(rk4(H, _DTVar), Left-Right, S0, S) =>
+eval(rk4(H, _DTVar), Left-Right, S0, S), Right = d_formula(_Expr,_Bind) =>
     get_dict(Left, S0, Y),
     get_dict(t, S0, T),
     eval_formula(Right, S0, K1),
@@ -370,10 +370,18 @@ eval(rk4(H, _DTVar), Left-Right, S0, S) =>
     Y4 is Y+H*K3,
     eval_formula_(Right, S0, [t-T4, Left-Y4], K4),
     Value is Y+(H/6)*(K1 + 2*K2 + 2*K3 + K4),
+    Tn1 is T+H,
+    S = S0.put(Left, Value).put(t,Tn1).
+eval(rk4(_, _DTVar), Left-Right, S0, S) =>
+    eval_formula(Right, S0, Value),
     S = S0.put(Left, Value).
 
-eval_formula(Formula, S0, Value) :-
+eval_formula(Formula, S0, Value), Formula = formula(_Expr,_Bind) =>
     copy_term(Formula, formula(Expr, Bindings)),
+    Bindings >:< S0,
+    Value is Expr.
+eval_formula(Formula, S0, Value), Formula = d_formula(_Expr,_Bind) =>
+    copy_term(Formula, d_formula(Expr, Bindings)),
     Bindings >:< S0,
     Value is Expr.
 
