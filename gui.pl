@@ -79,10 +79,13 @@ home -->
                                 value(1000),
                                 max(100_000)
                               ]),
+                        ' ',
+                        \methods,
                         input([ type(hidden),
                                 name(track),
                                 value(all)
                               ]),
+                        ' ',
                         input([ type(submit),
                                 value("Run!")
                               ])
@@ -94,6 +97,14 @@ home -->
                        let layout;
                        let plot;
                       |})
+         ]).
+
+methods -->
+    html([ label(for(method), 'Method'),
+           select(name(method),
+                  [ option([value(euler), selected], 'Euler'),
+                    option(value(rk4),  'RK4')
+                  ])
          ]).
 
 model_area -->
@@ -116,6 +127,7 @@ run(Request) :-
                     [ iterations(Iterations, [integer]),
                       track(Track, [oneof([all,initialized]),
                                     default(initialized)]),
+                      method(Method, [oneof([euler,rk4]), default(euler)]),
                       sample(Sample, [integer, optional(true)]),
                       model(Model, [])
                     ]),
@@ -126,6 +138,7 @@ run(Request) :-
     id_mapping(IdMapping),
     simulate(string(Model), Series,
              [ iterations(Iterations),
+               method(Method),
                track(Track),
                sample(Sample),
                id_mapping(IdMapping)

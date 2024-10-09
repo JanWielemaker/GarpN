@@ -69,8 +69,9 @@ simulate(From, Series, Options) :-
     must_be(positive_integer, Sample),
     read_model(From, Formulas, Constants, State0, Options),
     add_tracking(Formulas, State0, State, Options),
-    intern_constants(Constants, Formulas, Formulas1),
-    steps(0, Count, Method, Sample, Formulas1, State, Series).
+    intern_constants(Constants, DTExpr, Formulas, Formulas1),
+    method_params(Method, DTExpr, Constants, MethodP),
+    steps(0, Count, MethodP, Sample, Formulas1, State, Series).
 
 %!  read_model(+Source, -Formulas, -Constants, -State0, +Options) is det.
 %
@@ -217,15 +218,26 @@ split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
 split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
     split_init_(T, Formulas, ConstantPairs, StatePairs).
 
-%!  intern_constants(+Constants, +FormualsIn, -Formuals) is det.
+%!  intern_constants(+Constants, -DTExpr, +FormualsIn, -Formuals) is det.
 %
 %   Simplify FormualsIn by binding the constants  and removing them from
 %   the bindings term of the formulas.
 
-intern_constants(Constants, Formulas0, Formulas1) :-
+intern_constants(Constants0, DTExpr, Formulas0, Formulas1) :-
+    dt_expression(Formulas0, DTExpr),
+    dict_keys(DTExpr, [DTName]),
+    del_dict(DTName, Constants0, _, Constants),
     dict_pairs(Formulas0, f, Pairs0),
     maplist(intern_constants_(Constants), Pairs0, Pairs1),
     dict_pairs(Formulas1, f, Pairs1).
+
+:- det(dt_expression/2).
+dt_expression(Formulas, DTExpr) :-
+    formula(T+DTVar, Dict) = Formulas.t,
+    assertion(T == Dict.t),
+    DTVar == Dict.DTName,
+    !,
+    dict_pairs(DTExpr, _, [DTName-DTVar]).
 
 intern_constants_(Constants,
                   Id-formula(Expr, Bindings),
@@ -236,6 +248,12 @@ intern_constants_(Constants,
     dict_pairs(Bindings1, _, Pairs1).
 
 instantiated_binding(_-I) => nonvar(I).
+
+method_params(euler, DTExpr, Constants, euler) :-
+    DTExpr :< Constants.
+method_params(rk4, DTExpr, Constants, rk4(DT, DTVar)) :-
+    dict_pairs(DTExpr, _, [DTName-DTVar]),
+    DT = Constants.DTName.
 
 %!  add_tracking(+Formulas:dict, +State0, -State, +Options) is det.
 %
@@ -292,9 +310,8 @@ step(Method, Formulas, S0, S) :-
 eval(euler, Left-Right, S0, S) =>
     eval_formula(Right, S0, Value),
     S = S0.put(Left, Value).
-eval(rk4, Left-Right, S0, S) =>
+eval(rk4(H, _DTVar), Left-Right, S0, S) =>
     get_dict(Left, S0, Y),
-    get_dict(δt, S0, H),
     get_dict(t, S0, T),
     eval_formula(Right, S0, K1),
     T2 is T+H/2,
@@ -310,7 +327,7 @@ eval(rk4, Left-Right, S0, S) =>
 
 eval_formula(Formula, S0, Value) :-
     copy_term(Formula, formula(Expr, Bindings)),
-    Bindings :< S0,
+    Bindings >:< S0,
     Value is Expr.
 
 eval_formula_(Right, S0, Mod, Value) :-
