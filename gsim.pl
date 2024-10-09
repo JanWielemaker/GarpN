@@ -70,8 +70,8 @@ simulate(From, Series, Options) :-
     read_model(From, Formulas, Constants, State0, Options),
     add_tracking(Formulas, State0, State, Options),
     intern_constants(Constants, DTExpr, Formulas, Formulas1),
-    method_params(Method, DTExpr, Constants, MethodP),
-    steps(0, Count, MethodP, Sample, Formulas1, State, Series).
+    method_params(Method, DTExpr, Constants, Formulas1, Formulas2, MethodP),
+    steps(0, Count, MethodP, Sample, Formulas2, State, Series).
 
 %!  read_model(+Source, -Formulas, -Constants, -State0, +Options) is det.
 %
@@ -231,14 +231,6 @@ intern_constants(Constants0, DTExpr, Formulas0, Formulas1) :-
     maplist(intern_constants_(Constants), Pairs0, Pairs1),
     dict_pairs(Formulas1, f, Pairs1).
 
-:- det(dt_expression/2).
-dt_expression(Formulas, DTExpr) :-
-    formula(T+DTVar, Dict) = Formulas.t,
-    assertion(T == Dict.t),
-    DTVar == Dict.DTName,
-    !,
-    dict_pairs(DTExpr, _, [DTName-DTVar]).
-
 intern_constants_(Constants,
                   Id-formula(Expr, Bindings),
                   Id-formula(Expr, Bindings1)) :-
@@ -249,9 +241,64 @@ intern_constants_(Constants,
 
 instantiated_binding(_-I) => nonvar(I).
 
-method_params(euler, DTExpr, Constants, euler) :-
+%!  dt_expression(+Formulas, -DTExpr:dict) is det.
+%
+%   Find the ``t := t +  δt``  formula.   This  gives  us  the time step
+%   variable name and allows binding  it  if   it  is  a constant as for
+%   _Euler_.
+%
+%   @arg DTExpr is a dict _{DTName: DTVar}.
+
+:- det(dt_expression/2).
+dt_expression(Formulas, DTExpr) :-
+    formula(T+DTVar, Dict) = Formulas.t,
+    assertion(T == Dict.t),
+    DTVar == Dict.DTName,
+    !,
+    dict_pairs(DTExpr, _, [DTName-DTVar]).
+
+%!  differential_formulas(+DTName, +Formulas, -DFormulas) is det.
+%
+%   Translate formulas of  the  for  ``X  :=   X  +  Y*δt``  into  their
+%   differential form, i.e., simply ``Y``. Also  removes the formula for
+%   the time step. This is a more   suitable form for advanced numerical
+%   approximation methods like RK4.
+%
+%   @tbd Deal with ``X := X + Y*δt - Z*δt````
+
+:- det(differential_formulas/3).
+differential_formulas(DTName, Formulas, DFormulas) :-
+    dict_pairs(Formulas, _, Pairs),
+    selectchk(t-_, Pairs, Pairs1),
+    maplist(differential_formula(DTName), Pairs1, DPairs),
+    dict_pairs(DFormulas, d, DPairs).
+
+differential_formula(DTName, Id-formula(Expr, Bindings),
+                             Id-d_formula(DExpr,DBindings)) :-
+    del_dict(Id, Bindings, IdV, Bindings1),
+    del_dict(DTName, Bindings1, DTV, DBindings),
+    $,
+    diff_formula(IdV, DTV, Expr, DExpr).
+differential_formula(_, Pair, Pair).
+
+diff_formula(IdV, DTV, IdV + D*DTV, DExpr) => DExpr = D.
+diff_formula(IdV, DTV, IdV + DTV*D, DExpr) => DExpr = D.
+diff_formula(IdV, DTV, D*DTV + IdV, DExpr) => DExpr = D.
+diff_formula(IdV, DTV, DTV*D + IdV, DExpr) => DExpr = D.
+diff_formula(IdV, DTV, IdV - D*DTV, DExpr) => DExpr = -D.
+diff_formula(IdV, DTV, IdV - DTV*D, DExpr) => DExpr = -D.
+diff_formula(IdV, DTV, D*DTV - IdV, DExpr) => DExpr = -D.
+diff_formula(IdV, DTV, DTV*D - IdV, DExpr) => DExpr = -D.
+
+%!  method_params(+Method, +DTExpr, +Constants,
+%!                +FormulasIn, -FormulasOut, -MethodOut)
+
+method_params(euler, DTExpr, Constants, Formulas, Formulas, euler) :-
     DTExpr :< Constants.
-method_params(rk4, DTExpr, Constants, rk4(DT, DTVar)) :-
+method_params(rk4, DTExpr, Constants, Formulas, DFormulas,
+              rk4(DT, DTVar)) :-
+    $dict_keys(DTExpr, [DTName]),
+    differential_formulas(DTName, Formulas, DFormulas),
     dict_pairs(DTExpr, _, [DTName-DTVar]),
     DT = Constants.DTName.
 
