@@ -15,7 +15,8 @@
 :- use_module(gsim).
 :- use_module(map).
 
-http:location(htmx, root(htmx), []).
+http:location(garp, root(garp), []).
+http:location(htmx, garp(htmx), []).
 
 :- initialization(main, main).
 :- dynamic model_file/1.
@@ -43,31 +44,34 @@ set_model_file(_) =>
     argv_usage(debug),
     halt(1).
 
-:- http_handler(root(.),    http_redirect(see_other, root(home)), []).
-:- http_handler(root(home), home, []).
-:- http_handler(root(.),
+:- http_handler(root(.),    http_redirect(see_other, garp(home)), []).
+:- http_handler(garp(home), home, []).
+:- http_handler(garp(.),
                 http_reply_from_files(web, [not_found(404)]),
                 [prefix]).
-:- http_handler(root('node_modules/'),
+:- http_handler(garp('node_modules/'),
                 http_reply_from_files(node_modules, [not_found(404)]),
                 [prefix]).
 
 home(_Request) :-
     reply_html_page([ title('Garp numerical simulator'),
-                      link([rel(stylesheet), href('simulator.css')]),
+                      link([rel(stylesheet), href('/garp/simulator.css')]),
                       link([rel(icon), type('image/png'), sizes('32x32'),
                             href('https://www.swi-prolog.org/icons/favicon.ico')])
                     ],
                     [ \home,
-                      script([type('text/javascript'), src('/node_modules/htmx.org/dist/htmx.js')], []),
-                      script([type('text/javascript'), src('simulator.js')], []),
-                      script([type('text/javascript'), src('plotly-2.32.0.min.js')], [])
+                      script([type('text/javascript'),
+                              src('/garp/node_modules/htmx.org/dist/htmx.js')], []),
+                      script([type('text/javascript'),
+                              src('/garp/simulator.js')], []),
+                      script([type('text/javascript'),
+                              src('/garp/plotly-2.32.0.min.js')], [])
                     ]).
 
 home -->
     html([ h1("Garp numerical simulator"),
-           form(['hx-post'('/htmx/run'),
-                 'hx-target'('#plot')
+           form(['hx-post'('/garp/htmx/run'),
+                 'hx-target'('#results')
                 ],
                 [ \model_area,
                   div(class(controls),
@@ -91,7 +95,7 @@ home -->
                               ])
                       ])
                 ]),
-           div(id(plot), []),
+           div(id(results), []),
            \js_script({|javascript||
                        let data;
                        let layout;
@@ -136,21 +140,24 @@ run(Request) :-
     ;   true
     ),
     id_mapping(IdMapping),
-    simulate(string(Model), Series,
-             [ iterations(Iterations),
-               method(Method),
-               track(Track),
-               sample(Sample),
-               id_mapping(IdMapping)
-             ]),
+    Options = [ iterations(Iterations),
+                method(Method),
+                track(Track),
+                sample(Sample),
+                id_mapping(IdMapping)
+              ],
+    simulate(string(Model), Series, Options),
     js_id_mapping(IdMapping, JSMapping),
     plotly_traces(Series, VTraces, DTraces, JSMapping),
-    reply_htmx([ div([id(hrule),class(ruler)], []),
-                 div([id(vrule),class(ruler)], []),
-                 div(id(values), []),
-                 div(id(derivatives), []),
-                 \plot(values, "Number of", VTraces),
-                 \plot(derivatives, "Growth", DTraces),
+    reply_htmx([ \download_links(Model, Options),
+                 div(id(plot),
+                     [ div([id(hrule),class(ruler)], []),
+                       div([id(vrule),class(ruler)], []),
+                       div(id(values), []),
+                       div(id(derivatives), []),
+                       \plot(values, "Number of", VTraces),
+                       \plot(derivatives, "Growth", DTraces)
+                     ]),
                  \js_script({|javascript||initRulers("plot")|})
                ]).
 
@@ -197,3 +204,33 @@ tv(Key, State, T-V) :-
     get_dict(t, State, T),
     get_dict(Key, State, V),
     number(V).
+
+:- dynamic
+    saved/3.
+
+download_links(Model, Options) -->
+    { variant_sha1(Model+Options, SHA1),
+      (   saved(SHA1, Model, Options)
+      ->  true
+      ;   asserta(saved(SHA1, Model, Options))
+      ),
+      http_link_to_id(csv, path_postfix(SHA1), HREF)
+    },
+    html(div(class(downloads),
+             [ a([href(HREF), download("garp.csv")],
+                 "Download as CSV")
+             ])).
+
+:- http_handler(garp(download/csv/SHA1), download_csv(SHA1), [id(csv)]).
+
+download_csv(SHA1, _Request) :-
+    saved(SHA1, Model, Options),
+    simulate(string(Model), Series, Options),
+    Series = [First|_],
+    dict_keys(First, Keys),
+    dicts_to_compounds(Series, Keys, dict_fill(-), Compounds),
+    format('Content-type: text/csv~n~n'),
+    Title =.. [row|Keys],
+    csv_write_stream(current_output, [Title|Compounds],
+                     [ separator(0',)]).
+
