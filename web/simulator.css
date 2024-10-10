@@ -5,6 +5,16 @@ div.model {
     margin: auto;
 }
 
+div.downloads {
+    margin-top: 1ex;
+    width: 90%;
+    margin: auto;
+}
+
+#results {
+    margin-top: 1ex;
+}
+
 div.model textarea {
     width: 100%;
     height: 100%;
