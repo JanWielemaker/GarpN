@@ -45,6 +45,7 @@ set_model_file(_) =>
     halt(1).
 
 :- http_handler(root(.),    http_redirect(see_other, garp(home)), []).
+:- http_handler(garp(.),    http_redirect(see_other, garp(home)), []).
 :- http_handler(garp(home), home, []).
 :- http_handler(garp(.),
                 http_reply_from_files(web, [not_found(404)]),
