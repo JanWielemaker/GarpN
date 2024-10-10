@@ -60,7 +60,7 @@ home(_Request) :-
                     ],
                     [ \home,
                       script([type('text/javascript'), src('/node_modules/htmx.org/dist/htmx.js')], []),
-%                     script([type('text/javascript'), src('simulator.js')], []),
+                      script([type('text/javascript'), src('simulator.js')], []),
                       script([type('text/javascript'), src('plotly-2.32.0.min.js')], [])
                     ]).
 
@@ -143,12 +143,24 @@ run(Request) :-
                sample(Sample),
                id_mapping(IdMapping)
              ]),
-    plotly_traces(Series, VTraces, DTraces),
-    reply_htmx([ div(id(values), []),
+    js_id_mapping(IdMapping, JSMapping),
+    plotly_traces(Series, VTraces, DTraces, JSMapping),
+    reply_htmx([ div([id(hrule),class(ruler)], []),
+                 div([id(vrule),class(ruler)], []),
+                 div(id(values), []),
                  div(id(derivatives), []),
                  \plot(values, "Number of", VTraces),
-                 \plot(derivatives, "Growth", DTraces)
+                 \plot(derivatives, "Growth", DTraces),
+                 \js_script({|javascript||initRulers("plot")|})
                ]).
+
+js_id_mapping(Dict, JDict) :-
+    dict_pairs(Dict, _, Pairs),
+    maplist(jid, Pairs, JPairs),
+    dict_pairs(JDict, #, JPairs).
+
+jid(K-V, K-A) :-
+    format(string(A), '~w', [V]).
 
 plot(Target, Title, Traces) -->
     js_script({|javascript(Target,Title,Traces)||
@@ -157,12 +169,12 @@ plot(Target, Title, Traces) -->
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
-plotly_traces(Series, VTraces, DTraces) :-
+plotly_traces(Series, VTraces, DTraces, JSMapping) :-
     Series = [First|_],
     dict_keys(First, Keys),
     split_keys(Keys, VKeys, DKeys),
-    maplist(serie(Series), VKeys, VTraces),
-    maplist(serie(Series), DKeys, DTraces).
+    maplist(serie(Series, JSMapping), VKeys, VTraces),
+    maplist(serie(Series, JSMapping), DKeys, DTraces).
 
 split_keys([], [], []).
 split_keys([t|T], VL, DL) :-
@@ -177,7 +189,7 @@ split_keys([V|T], VL, [V|DL]) :-
     !,
     split_keys(T, VL, DL).
 
-serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key}) :-
+serie(Series, JSMapping, Key, trace{x:Times, y:Values, mode:lines, name:JSMapping.Key}) :-
     convlist(tv(Key), Series, TVs),
     pairs_keys_values(TVs, Times, Values).
 
