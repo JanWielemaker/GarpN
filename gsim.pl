@@ -12,6 +12,9 @@
 :- use_module(library(debug)).
 :- use_module(library(dicts)).
 
+:- use_module(library(apply_macros), []).
+:- set_prolog_flag(optimise, true).
+
 /** <module> Numerical simulation
 
 Formulas are represented as
