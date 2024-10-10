@@ -68,7 +68,7 @@ simulate(From, Series, Options) :-
     must_be(positive_integer, Count),
     must_be(positive_integer, Sample),
     read_model(From, Formulas, Constants, State0, Options),
-    add_tracking(Formulas, State0, State, Options),
+    add_tracking(Formulas, Constants, State0, State, [method(Method)|Options]),
     intern_constants(Constants, DTExpr, Formulas, Formulas1),
     method_params(Method, DTExpr, Constants, Formulas1, Formulas2, MethodP),
     steps(0, Count, MethodP, Sample, Formulas2, State, Series).
@@ -207,8 +207,8 @@ same_variables(T1, T2) :-
 split_init(Init, Formulas, Constants, State) :-
     dict_pairs(Init, _, Pairs),
     split_init_(Pairs, Formulas, ConstantPairs, StatePairs),
-    dict_pairs(Constants, c, ConstantPairs),
-    dict_pairs(State, s, StatePairs).
+    dict_pairs(Constants, _, ConstantPairs),
+    dict_pairs(State, _, StatePairs).
 
 split_init_([], _, [], []).
 split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
@@ -303,21 +303,29 @@ method_params(rk4, DTExpr, Constants, Formulas, DFormulas,
     dict_pairs(DTExpr, _, [DTName-_DTVar]),
     DT = Constants.DTName.
 
-%!  add_tracking(+Formulas:dict, +State0, -State, +Options) is det.
+%!  add_tracking(+Formulas:dict, +Constants, +State0, -State, +Options)
+%!               is det.
 %
 %   When track(all) is given, track the values for all formulas
 
-add_tracking(Formulas, State0, State, Options) :-
-    option(track(all), Options),
+add_tracking(Formulas, Constants, State0, State, Options) :-
+    (   option(track(all), Options)
+    ;   option(method(rk4), Options)
+    ),
     !,
     dict_keys(Formulas, FKeys),
-    maplist(unknown, FKeys, Pairs),
+    maplist(initial_value(Formulas, Constants, State0), FKeys, Pairs),
     dict_pairs(FState, _, Pairs),
     State = FState.put(State0).
-add_tracking(_, State, State, _).
+add_tracking(_, _, State, State, _).
 
-unknown(Key, Key-_).
-
+initial_value(Formulas, Constants, State0, Key, Key-Value) :-
+    copy_term(Formulas.get(Key), formula(Expr,Bindings)),
+    Bindings >:< State0,
+    Bindings >:< Constants,
+    catch(Value is Expr, error(_,_), fail),
+    !.
+initial_value(_Formulas, _Constants, _State0, Key, Key-_).
 
 %!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
 %
@@ -396,8 +404,8 @@ eval_d(Formulas, T, DT, H, Y0, K) :-
     dict_pairs(Extra, _, [DT-H,t-T]),
     Y1 = Y0.put(Extra),
     euler_step(Formulas, Y1, Y2),
-    derivative_(Y0,Y2,H,K0),
-    select_dict(Extra, K0, K).
+    select_dict(Extra, Y2, Y3),
+    derivative_(Y0,Y3,H,K).
 
 derivative_(Y0, Y1, H, K) :-
     dict_pairs(Y0, _, P0),
@@ -417,7 +425,7 @@ slope(Y0, K, H, Y1) :-
     dict_pairs(Y1, Tag, Pairs1).
 
 slope_(K, H, P-V0, P-V) :-
-    V is V0+K*H.
+    V is V0 + K.P * H.
 
 %!  sum_dict_list(+Dicts, -Dict) is det.
 
@@ -439,9 +447,11 @@ sum_dict(D1, D2, D) =>
     maplist(sum_, P1, P2, P),
     dict_pairs(D, _, P).
 
-sum_(P-V1, P-V2, P-V) =>
+sum_(P-V1, P-V2, R) =>
+    R = P-V,
     V is V1+V2.
-sum_(N, P-V1, P-V2, P-V) =>
+sum_(N, P-V1, P-V2, R) =>
+    R = P-V,
     V is V1+N*V2.
 
 
