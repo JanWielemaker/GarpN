@@ -91,7 +91,7 @@ home -->
                               ])
                       ])
                 ]),
-           div([id(plot)], []),
+           div(id(plot), []),
            \js_script({|javascript||
                        let data;
                        let layout;
@@ -143,41 +143,43 @@ run(Request) :-
                sample(Sample),
                id_mapping(IdMapping)
              ]),
-    plotly_traces(Series, Traces),
-    reply_htmx(\plot(Traces)).
+    plotly_traces(Series, VTraces, DTraces),
+    reply_htmx([ div(id(values), []),
+                 div(id(derivatives), []),
+                 \plot(values, "Number of", VTraces),
+                 \plot(derivatives, "Growth", DTraces)
+               ]).
 
-plot(Traces) -->
-    js_script({|javascript(Traces)||
+plot(Target, Title, Traces) -->
+    js_script({|javascript(Target,Title,Traces)||
                data = Traces;
-               layout = {
-                   title: "Nice plot",
-                   yaxis: {
-                       title: 'Value'
-                          },
-                   yaxis2: {
-                       title: 'Derivative',
-                       overlaying: 'y',
-                       side: 'right'
-                           }
-                        };
-               plot = Plotly.newPlot('plot', data, layout);
+               layout = { title: Title };
+               plot = Plotly.newPlot(Target, data, layout);
               |}).
 
-plotly_traces(Series, Traces) :-
+plotly_traces(Series, VTraces, DTraces) :-
     Series = [First|_],
     dict_keys(First, Keys),
-    convlist(serie(Series), Keys, Traces).
+    split_keys(Keys, VKeys, DKeys),
+    maplist(serie(Series), VKeys, VTraces),
+    maplist(serie(Series), DKeys, DTraces).
 
-serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key, yaxis:YAxis}) :-
-    Key \== t,
+split_keys([], [], []).
+split_keys([t|T], VL, DL) :-
+    !,
+    split_keys(T, VL, DL).
+split_keys([V|T], [V|VL], DL) :-
+    sub_atom(V, _, _, _, number_of),
+    !,
+    split_keys(T, VL, DL).
+split_keys([V|T], VL, [V|DL]) :-
+    sub_atom(V, _, _, _, growth),
+    !,
+    split_keys(T, VL, DL).
+
+serie(Series, Key, trace{x:Times, y:Values, mode:lines, name:Key}) :-
     convlist(tv(Key), Series, TVs),
-    pairs_keys_values(TVs, Times, Values),
-    key_yaxis(Key, YAxis).
-
-key_yaxis(Key, y2) :-
-    sub_atom(Key, _, _, _, growth),
-    !.
-key_yaxis(_, y).
+    pairs_keys_values(TVs, Times, Values).
 
 tv(Key, State, T-V) :-
     get_dict(t, State, T),
