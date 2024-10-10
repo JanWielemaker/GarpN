@@ -296,10 +296,11 @@ diff_formula(IdV, DTV, DTV*D - IdV, DExpr) => DExpr = -D.
 method_params(euler, DTExpr, Constants, Formulas, Formulas, euler) :-
     DTExpr :< Constants.
 method_params(rk4, DTExpr, Constants, Formulas, DFormulas,
-              rk4(DT, DTVar)) :-
+              rk4(DTName, DT)) :-
     $dict_keys(DTExpr, [DTName]),
-    differential_formulas(DTName, Formulas, DFormulas),
-    dict_pairs(DTExpr, _, [DTName-DTVar]),
+%   differential_formulas(DTName, Formulas, DFormulas),
+    del_dict(t, Formulas, _, DFormulas),
+    dict_pairs(DTExpr, _, [DTName-_DTVar]),
     DT = Constants.DTName.
 
 %!  add_tracking(+Formulas:dict, +State0, -State, +Options) is det.
@@ -346,51 +347,103 @@ steps(I, N, Method, Sample, Formulas, State, Series) :-
     steps(I1, N, Method, Sample, Formulas, State1, SeriesT).
 steps(_, _, _, _, _, _, []).
 
-step(Method, Formulas, S0, S) :-
-    dict_pairs(Formulas, _, Pairs),
-    foldl(eval(Method), Pairs, S0, S).
+step(rk4(DT,H), Formulas, Ys, Y) =>
+    del_dict(t, Ys, T0, Y0),
+    H2 is H/2,
+    T2 is T0+H/2,
+    Te is T0+H,
+    eval_d(Formulas, T0, DT, H, Y0, K1),
+    slope(Y0, K1, H2, Y1),                         % Y1 is Y0+K1*H/2
+    eval_d(Formulas, T2, DT, H, Y1, K2),
+    slope(Y0, K2, H2, Y2),
+    eval_d(Formulas, T2, DT, H, Y2, K3),
+    slope(Y0, K3, H, Y3),
+    eval_d(Formulas, Te, DT, H, Y3, K4),
+    sum_dict_list([K1,2*K2,2*K3,K4], K),
+    H6 is H/6,
+    slope(Y0, K, H6, Yt),
+    Y = Yt.put(t, Te).
+step(euler, Formulas, S0, S) =>
+    euler_step(Formulas, S0, S).
 
-%!  eval(+Method, +Pair, +S0, -S) is det.
+euler_step(Formulas, S0, S) :-
+    dict_pairs(Formulas, _, Pairs),
+    foldl(eval, Pairs, S0, S).
+
+%!  eval(+Pair, +S0, -S) is det.
 %
 %   @see https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
 
-eval(euler, Left-Right, S0, S) =>
-    eval_formula(Right, S0, Value),
-    S = S0.put(Left, Value).
-eval(rk4(H, _DTVar), Left-Right, S0, S), Right = d_formula(_Expr,_Bind) =>
-    get_dict(Left, S0, Y),
-    get_dict(t, S0, T),
-    eval_formula(Right, S0, K1),
-    T2 is T+H/2,
-    Y2 is Y+H*K1/2,
-    eval_formula_(Right, S0, [t-T2, Left-Y2], K2),
-    Y3 is Y+H*K2/2,
-    eval_formula_(Right, S0, [t-T2, Left-Y3], K3),
-    T4 = T+H,
-    Y4 is Y+H*K3,
-    eval_formula_(Right, S0, [t-T4, Left-Y4], K4),
-    Value is Y+(H/6)*(K1 + 2*K2 + 2*K3 + K4),
-    Tn1 is T+H,
-    S = S0.put(Left, Value).put(t,Tn1).
-eval(rk4(_, _DTVar), Left-Right, S0, S) =>
+eval(Left-Right, S0, S) =>
     eval_formula(Right, S0, Value),
     S = S0.put(Left, Value).
 
-eval_formula(Formula, S0, Value), Formula = formula(_Expr,_Bind) =>
+eval_formula(Formula, S0, Value) :-
     copy_term(Formula, formula(Expr, Bindings)),
     Bindings >:< S0,
     Value is Expr.
-eval_formula(Formula, S0, Value), Formula = d_formula(_Expr,_Bind) =>
-    copy_term(Formula, d_formula(Expr, Bindings)),
-    Bindings >:< S0,
-    Value is Expr.
 
-eval_formula_(Right, S0, Mod, Value) :-
-    foldl(mod, Mod, S0, S1),
-    eval_formula(Right, S1, Value).
+%!  eval_d(+Formulas, +T, +DT, +H, +Y0, -K) is det.
+%
+%   K is the derivative of Formulas at T and Y0.
+%
+%   @arg DT is the name of the variable holding the _delta T_
+%   @arg H is the interval we use.  This is irrelevant as we
+%   divide by it again.
 
-mod(Key-Value, S0, S) :-
-    put_dict(Key, S0, Value, S).
+:- det(eval_d/6).
+eval_d(Formulas, T, DT, H, Y0, K) :-
+    dict_pairs(Extra, _, [DT-H,t-T]),
+    Y1 = Y0.put(Extra),
+    euler_step(Formulas, Y1, Y2),
+    derivative_(Y0,Y2,H,K0),
+    select_dict(Extra, K0, K).
+
+derivative_(Y0, Y1, H, K) :-
+    dict_pairs(Y0, _, P0),
+    dict_pairs(Y1, _, P1),
+    maplist(derivative__(H), P0, P1, KP),
+    dict_pairs(K, _, KP).
+
+derivative__(H, P-Y0, P-Y1, P-K) :-
+    K is (Y1-Y0)/H.
+
+%!  slope(+Y0, +K, +H, -Y) is det.
+
+:- det(slope/4).
+slope(Y0, K, H, Y1) :-
+    dict_pairs(Y0, Tag, Pairs),
+    maplist(slope_(K, H), Pairs, Pairs1),
+    dict_pairs(Y1, Tag, Pairs1).
+
+slope_(K, H, P-V0, P-V) :-
+    V is V0+K*H.
+
+%!  sum_dict_list(+Dicts, -Dict) is det.
+
+:- det(sum_dict_list/2).
+sum_dict_list([D1,D2|T], Dict) =>
+    sum_dict(D1, D2, S1),
+    sum_dict_list([S1|T], Dict).
+sum_dict_list([D], Dict) =>
+    Dict = D.
+
+sum_dict(D1, N2*D2, D) =>
+    dict_pairs(D1, _, P1),
+    dict_pairs(D2, _, P2),
+    maplist(sum_(N2), P1, P2, P),
+    dict_pairs(D, _, P).
+sum_dict(D1, D2, D) =>
+    dict_pairs(D1, _, P1),
+    dict_pairs(D2, _, P2),
+    maplist(sum_, P1, P2, P),
+    dict_pairs(D, _, P).
+
+sum_(P-V1, P-V2, P-V) =>
+    V is V1+V2.
+sum_(N, P-V1, P-V2, P-V) =>
+    V is V1+N*V2.
+
 
 %!  add_derivative(+Series, -DSeries) is det.
 %
