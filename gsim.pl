@@ -345,6 +345,13 @@ initial_value(_Formulas, _Constants, _State0, Key, Key-_).
 %        `State` but different values.
 
 steps(I, N, Method, Sample, Formulas, State, Series) :-
+    dict_keys(Formulas, Keys),
+    setup_call_cleanup(
+        compile_formulas(Formulas),
+        steps_(I, N, Method, Sample, Keys, State, Series),
+        clean_formulas).
+
+steps_(I, N, Method, Sample, Keys, State, Series) :-
     I < N,
     !,
     (   (   I mod Sample =:= 0
@@ -353,46 +360,58 @@ steps(I, N, Method, Sample, Formulas, State, Series) :-
     ->  Series = [State|SeriesT]
     ;   SeriesT = Series
     ),
-    step(Method, Formulas, State, State1),
+    step(Method, Keys, State, State1),
     I1 is I+1,
-    steps(I1, N, Method, Sample, Formulas, State1, SeriesT).
-steps(_, _, _, _, _, _, []).
+    steps_(I1, N, Method, Sample, Keys, State1, SeriesT).
+steps_(_, _, _, _, _, _, []).
 
-step(rk4(DT,H), Formulas, Ys, Y) =>
+%!  step(+Method, +Keys, +S0, -S) is det.
+%
+%   @see https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
+
+step(rk4(DT,H), Keys, Ys, Y) =>
     del_dict(t, Ys, T0, Y0),
     H2 is H/2,
     T2 is T0+H/2,
     Te is T0+H,
-    eval_d(Formulas, T0, DT, H, Y0, K1),
+    eval_d(Keys, T0, DT, H, Y0, K1),
     slope(Y0, K1, H2, Y1),                         % Y1 is Y0+K1*H/2
-    eval_d(Formulas, T2, DT, H, Y1, K2),
+    eval_d(Keys, T2, DT, H, Y1, K2),
     slope(Y0, K2, H2, Y2),
-    eval_d(Formulas, T2, DT, H, Y2, K3),
+    eval_d(Keys, T2, DT, H, Y2, K3),
     slope(Y0, K3, H, Y3),
-    eval_d(Formulas, Te, DT, H, Y3, K4),
+    eval_d(Keys, Te, DT, H, Y3, K4),
     sum_dict_list([K1,2*K2,2*K3,K4], K),
     H6 is H/6,
     slope(Y0, K, H6, Yt),
     Y = Yt.put(t, Te).
-step(euler, Formulas, S0, S) =>
-    euler_step(Formulas, S0, S).
+step(euler, Keys, S0, S) =>
+    euler_step(Keys, S0, S).
 
-euler_step(Formulas, S0, S) :-
-    dict_pairs(Formulas, _, Pairs),
-    foldl(eval, Pairs, S0, S).
+euler_step(Keys, S0, S) :-
+    foldl(eval, Keys, S0, S).
 
 %!  eval(+Pair, +S0, -S) is det.
 %
-%   @see https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
 
-eval(Left-Right, S0, S) =>
-    eval_formula(Right, S0, Value),
-    S = S0.put(Left, Value).
+eval(Key, S0, S) =>
+    compiled_formula(Key, S0, Value),
+    put_dict(Key, S0, Value, S).
 
-eval_formula(Formula, S0, Value) :-
-    copy_term(Formula, formula(Expr, Bindings)),
-    Bindings >:< S0,
-    Value is Expr.
+:- thread_local
+    compiled_formula/3.
+
+compile_formulas(Formulas) :-
+    mapdict(compile_formula, Formulas).
+
+compile_formula(Key, formula(Expr, Bindings)) :-
+    assertz((compiled_formula(Key, State, Value) :-
+                 State >:< Bindings,
+                 Value is Expr)).
+
+clean_formulas :-
+    retractall(compiled_formula(_,_,_)).
+
 
 %!  eval_d(+Formulas, +T, +DT, +H, +Y0, -K) is det.
 %
