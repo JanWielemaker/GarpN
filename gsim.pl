@@ -13,6 +13,9 @@
 :- use_module(library(dicts)).
 
 :- use_module(library(apply_macros), []).
+:- use_module(library(listing), [portray_clause/2]).
+:- use_module(library(prolog_code), [comma_list/2]).
+
 :- set_prolog_flag(optimise, true).
 
 /** <module> Numerical simulation
@@ -345,13 +348,12 @@ initial_value(_Formulas, _Constants, _State0, Key, Key-_).
 %        `State` but different values.
 
 steps(I, N, Method, Sample, Formulas, State, Series) :-
-    dict_keys(Formulas, Keys),
     setup_call_cleanup(
-        compile_formulas(Formulas),
-        steps_(I, N, Method, Sample, Keys, State, Series),
-        clean_formulas).
+        compile_formulas(Formulas, Ref),
+        steps_(I, N, Method, Sample, State, Series),
+        clean_formulas(Ref)).
 
-steps_(I, N, Method, Sample, Keys, State, Series) :-
+steps_(I, N, Method, Sample, State, Series) :-
     I < N,
     !,
     (   (   I mod Sample =:= 0
@@ -360,58 +362,54 @@ steps_(I, N, Method, Sample, Keys, State, Series) :-
     ->  Series = [State|SeriesT]
     ;   SeriesT = Series
     ),
-    step(Method, Keys, State, State1),
+    step(Method, State, State1),
     I1 is I+1,
-    steps_(I1, N, Method, Sample, Keys, State1, SeriesT).
-steps_(_, _, _, _, _, _, []).
+    steps_(I1, N, Method, Sample, State1, SeriesT).
+steps_(_, _, _, _, _, []).
 
-%!  step(+Method, +Keys, +S0, -S) is det.
+%!  step(+Method, +S0, -S) is det.
 %
 %   @see https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
 
-step(rk4(DT,H), Keys, Ys, Y) =>
+step(rk4(DT,H), Ys, Y) =>
     del_dict(t, Ys, T0, Y0),
     H2 is H/2,
     T2 is T0+H/2,
     Te is T0+H,
-    eval_d(Keys, T0, DT, H, Y0, K1),
+    eval_d(T0, DT, H, Y0, K1),
     slope(Y0, K1, H2, Y1),                         % Y1 is Y0+K1*H/2
-    eval_d(Keys, T2, DT, H, Y1, K2),
+    eval_d(T2, DT, H, Y1, K2),
     slope(Y0, K2, H2, Y2),
-    eval_d(Keys, T2, DT, H, Y2, K3),
+    eval_d(T2, DT, H, Y2, K3),
     slope(Y0, K3, H, Y3),
-    eval_d(Keys, Te, DT, H, Y3, K4),
+    eval_d(Te, DT, H, Y3, K4),
     sum_dict_list([K1,2*K2,2*K3,K4], K),
     H6 is H/6,
     slope(Y0, K, H6, Yt),
     Y = Yt.put(t, Te).
-step(euler, Keys, S0, S) =>
-    euler_step(Keys, S0, S).
+step(euler, S0, S) =>
+    euler_step(S0, S).
 
-euler_step(Keys, S0, S) :-
-    foldl(eval, Keys, S0, S).
+:- thread_local euler_step/2.
 
-%!  eval(+Pair, +S0, -S) is det.
-%
+compile_formulas(Formulas, Ref) :-
+    dict_pairs(Formulas, _, Pairs),
+    dict_same_keys(Formulas, S),
+    maplist(eval(S0, S), Pairs, Eval),
+    comma_list(Body, Eval),
+    assertz((euler_step(S0, S) :- Body), Ref),
+    (   debugging(euler_step_clause)
+    ->  portray_clause(user_error, (euler_step(S0, S) :- Body))
+    ;   true
+    ).
 
-eval(Key, S0, S) =>
-    compiled_formula(Key, S0, Value),
-    put_dict(Key, S0, Value, S).
+eval(S0, S, Key-formula(Expr, Bindings),
+     ( S0 >:< Bindings,
+       Value is Expr)) :-
+    get_dict(Key, S, Value).
 
-:- thread_local
-    compiled_formula/3.
-
-compile_formulas(Formulas) :-
-    mapdict(compile_formula, Formulas).
-
-compile_formula(Key, formula(Expr, Bindings)) :-
-    assertz((compiled_formula(Key, State, Value) :-
-                 State >:< Bindings,
-                 Value is Expr)).
-
-clean_formulas :-
-    retractall(compiled_formula(_,_,_)).
-
+clean_formulas(Ref) :-
+    erase(Ref).
 
 %!  eval_d(+Formulas, +T, +DT, +H, +Y0, -K) is det.
 %
@@ -421,13 +419,12 @@ clean_formulas :-
 %   @arg H is the interval we use.  This is irrelevant as we
 %   divide by it again.
 
-:- det(eval_d/6).
-eval_d(Formulas, T, DT, H, Y0, K) :-
+:- det(eval_d/5).
+eval_d(T, DT, H, Y0, K) :-
     dict_pairs(Extra, _, [DT-H,t-T]),
     Y1 = Y0.put(Extra),
-    euler_step(Formulas, Y1, Y2),
-    select_dict(Extra, Y2, Y3),
-    derivative_(Y0,Y3,H,K).
+    euler_step(Y1, Y2),
+    derivative_(Y0,Y2,H,K).
 
 derivative_(Y0, Y1, H, K) :-
     mapdict(derivative__(H), Y0, Y1, K).
