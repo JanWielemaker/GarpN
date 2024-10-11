@@ -115,7 +115,7 @@ methods -->
 model_area -->
     { default_model(Model)
     },
-    html(div(class(model),
+    html(div(class([model,narrow]),
              textarea([ name(model)
                       ], Model))).
 
@@ -147,10 +147,12 @@ run(Request) :-
                 sample(Sample),
                 id_mapping(IdMapping)
               ],
-    simulate(string(Model), Series, Options),
+    call_time(simulate(string(Model), Series, Options), Time),
     js_id_mapping(IdMapping, JSMapping),
     plotly_traces(Series, VTraces, DTraces, JSMapping),
-    reply_htmx([ \download_links(Model, Options),
+    reply_htmx([ hr([]),
+                 \stats(Series, Time),
+                 \download_links(Model, Options),
                  div(id(plot),
                      [ div([id(hrule),class(ruler)], []),
                        div([id(vrule),class(ruler)], []),
@@ -206,6 +208,12 @@ tv(Key, State, T-V) :-
     get_dict(Key, State, V),
     number(V).
 
+stats(Series, Time) -->
+    { length(Series, Count)
+    },
+    html(div(class([stats,narrow]),
+             'Generated ~D samples in ~3f seconds'-[Count, Time.cpu])).
+
 :- dynamic
     saved/3.
 
@@ -217,7 +225,7 @@ download_links(Model, Options) -->
       ),
       http_link_to_id(csv, path_postfix(SHA1), HREF)
     },
-    html(div(class(downloads),
+    html(div(class([downloads,narrow]),
              [ a([href(HREF), download("garp.csv")],
                  "Download as CSV")
              ])).
