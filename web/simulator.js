@@ -6,5 +6,6 @@ function initRulers(id) {
     const rect = plot.getBoundingClientRect();
     hrule.style.top  = ev.clientY-rect.top + "px";
     vrule.style.left = ev.clientX-rect.left + "px";
+    return true;
   };
 }
