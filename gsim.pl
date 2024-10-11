@@ -472,22 +472,20 @@ nth_derivative_(d(_,_,_), D) => D = 2.
 nth_derivative_(V, D), number(V) => D = 0.
 
 derivative_1(D1, D2, N, D) :-
-    dict_pairs(D1, T, P1),
-    maplist(derivative_v(N, D2), P1, P),
-    dict_pairs(D, T, P).
+    mapdict(derivative_v(N, D2), D1, D).
 
-derivative_v(_, _, t-T, R) =>
-    R = t-T.
-derivative_v(1, Dict, K-d(V,D1), R) =>
-    R = K-d(V,D1,D2),
+derivative_v(_, _, t, T, R) =>
+    R = T.
+derivative_v(1, Dict, K, d(V,D1), R) =>
+    R = d(V,D1,D2),
     get_dict(K, Dict, d(_,D1b)),
     v_minus(D1b, D1, D2).
-derivative_v(2, Dict, K-d(V,D1,D2), R) =>
-    R = K-d(V,D1,D2,D3),
+derivative_v(2, Dict, K, d(V,D1,D2), R) =>
+    R = d(V,D1,D2,D3),
     get_dict(K, Dict, d(_,_,D2b)),
     v_minus(D2b, D2, D3).
-derivative_v(0, Dict, K-V, R) =>
-    R = K-d(V,D1),
+derivative_v(0, Dict, K, V, R) =>
+    R = d(V,D1),
     get_dict(K, Dict, Vb),
     v_minus(Vb, V, D1).
 
