@@ -411,24 +411,20 @@ eval_d(Formulas, T, DT, H, Y0, K) :-
     derivative_(Y0,Y3,H,K).
 
 derivative_(Y0, Y1, H, K) :-
-    dict_pairs(Y0, _, P0),
-    dict_pairs(Y1, _, P1),
-    maplist(derivative__(H), P0, P1, KP),
-    dict_pairs(K, _, KP).
+    mapdict(derivative__(H), Y0, Y1, K).
 
-derivative__(H, P-Y0, P-Y1, P-K) :-
+derivative__(H, _P, Y0, Y1, K) :-
     K is (Y1-Y0)/H.
 
 %!  slope(+Y0, +K, +H, -Y) is det.
 
 :- det(slope/4).
 slope(Y0, K, H, Y1) :-
-    dict_pairs(Y0, Tag, Pairs),
-    maplist(slope_(K, H), Pairs, Pairs1),
-    dict_pairs(Y1, Tag, Pairs1).
+    mapdict(slope_(K, H), Y0, Y1).
 
-slope_(K, H, P-V0, P-V) :-
-    V is V0 + K.P * H.
+slope_(K, H, P, V0, V) :-
+    get_dict(P, K, S),
+    V is V0 + S * H.
 
 %!  sum_dict_list(+Dicts, -Dict) is det.
 
@@ -440,21 +436,13 @@ sum_dict_list([D], Dict) =>
     Dict = D.
 
 sum_dict(D1, N2*D2, D) =>
-    dict_pairs(D1, _, P1),
-    dict_pairs(D2, _, P2),
-    maplist(sum_(N2), P1, P2, P),
-    dict_pairs(D, _, P).
+    mapdict(sum_(N2), D1, D2, D).
 sum_dict(D1, D2, D) =>
-    dict_pairs(D1, _, P1),
-    dict_pairs(D2, _, P2),
-    maplist(sum_, P1, P2, P),
-    dict_pairs(D, _, P).
+    mapdict(sum_, D1, D2, D).
 
-sum_(P-V1, P-V2, R) =>
-    R = P-V,
+sum_(_P, V1, V2, V) :-
     V is V1+V2.
-sum_(N, P-V1, P-V2, R) =>
-    R = P-V,
+sum_(N, _P, V1, V2, V) :-
     V is V1+N*V2.
 
 
