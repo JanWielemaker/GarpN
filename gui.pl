@@ -64,6 +64,8 @@ home(_Request) :-
                       script([type('text/javascript'),
                               src('/garp/node_modules/htmx.org/dist/htmx.js')], []),
                       script([type('text/javascript'),
+                              src('/garp/node_modules/htmx.org/dist/ext/response-targets.js')], []),
+                      script([type('text/javascript'),
                               src('/garp/simulator.js')], []),
                       script([type('text/javascript'),
                               src('/garp/plotly-2.32.0.min.js')], [])
@@ -71,8 +73,12 @@ home(_Request) :-
 
 home -->
     html([ h1("Garp numerical simulator"),
+           div('hx-ext'('response-targets'),
+               [
            form(['hx-post'('/garp/htmx/run'),
-                 'hx-target'('#results')
+                 'hx-target'('#results'),
+                 'hx-target-500'('#errors'),
+                 'hx-on-htmx-before-request'('clear_output()')
                 ],
                 [ \model_area,
                   div(class(controls),
@@ -96,13 +102,14 @@ home -->
                               ])
                       ])
                 ]),
+           div([id(errors),class(narrow)], []),
            div(id(results), []),
            \js_script({|javascript||
                        let data;
                        let layout;
                        let plot;
                       |})
-         ]).
+         ])]).
 
 methods -->
     html([ label(for(method), 'Method'),
@@ -158,8 +165,7 @@ run(Request) :-
                        div([id(vrule),class(ruler)], []),
                        div(id(values), []),
                        div(id(derivatives), []),
-                       \plot(values, "Number of", VTraces),
-                       \plot(derivatives, "Growth", DTraces)
+                       \traces(VTraces, DTraces)
                      ]),
                  \js_script({|javascript||initRulers("plot")|})
                ]).
@@ -171,6 +177,13 @@ js_id_mapping(Dict, JDict) :-
 
 jid(K-V, K-A) :-
     format(string(A), '~w', [V]).
+
+traces(VTraces, []) -->
+    !,
+    plot(values, @(null), VTraces).
+traces(VTraces, DTraces) -->
+    plot(values, "Number of", VTraces),
+    plot(derivatives, "Growth", DTraces).
 
 plot(Target, Title, Traces) -->
     js_script({|javascript(Target,Title,Traces)||
@@ -198,8 +211,11 @@ split_keys([V|T], VL, [V|DL]) :-
     sub_atom(V, _, _, _, growth),
     !,
     split_keys(T, VL, DL).
+split_keys([V|T], [V|VL], DL) :-
+    split_keys(T, VL, DL).
 
-serie(Series, JSMapping, Key, trace{x:Times, y:Values, mode:lines, name:JSMapping.Key}) :-
+serie(Series, JSMapping, Key,
+      trace{x:Times, y:Values, mode:lines, name:JSMapping.get(Key, Key)}) :-
     convlist(tv(Key), Series, TVs),
     pairs_keys_values(TVs, Times, Values).
 

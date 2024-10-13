@@ -9,3 +9,8 @@ function initRulers(id) {
     return true;
   };
 }
+
+function clear_output()
+{ document.getElementById("errors").innerHTML = "";
+  document.getElementById("results").innerHTML = "";
+}
