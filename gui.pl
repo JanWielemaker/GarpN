@@ -123,7 +123,8 @@ model_area -->
     { default_model(Model)
     },
     html(div(class([model,narrow]),
-             textarea([ name(model)
+             textarea([ name(model),
+                        id(model)
                       ], Model))).
 
 default_model(Model) :-
