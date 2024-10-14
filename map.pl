@@ -3,12 +3,18 @@
             q_series/2,                 % -QSeries, +Options
             q_series/3,                 % +Model, -QSeries, +Options
             qstate/3,                   % +State, -Values, +Options
-            link_garp_states/3          % +QSeries0, -QSeries, +Options
+            link_garp_states/3,         % +QSeries0, -QSeries, +Options
+            q_series_table/3            % +QSeries, -Table, +IdMapping
           ]).
-:- use_module(gsim).
 :- use_module(library(apply)).
 :- use_module(library(option)).
 :- use_module(library(pairs)).
+
+:- use_module(gsim).
+:- use_module(csv_util).
+:- use_module(library(aggregate)).
+:- use_module(library(dicts)).
+:- use_module(library(dcg/high_order)).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -236,3 +242,88 @@ insert_value_(plus, min, Vi, Done) => Vi = zero, Done = true.
 insert_value_(V, V, Vi, _Done) => Vi = V.
 insert_value_(Var, _, _, _Done), var(Var) => true.
 insert_value_(_, Var, _, _Done), var(Var) => true.
+
+
+		 /*******************************
+		 *              CSV		*
+		 *******************************/
+
+%!  q_series_table(+Qseries, -Table, +IdMapping)
+
+q_series_table(QSeries, Table) :-
+    id_mapping(IdMapping),
+    q_series_table(QSeries, Table, IdMapping).
+
+q_series_table(QSeries, [Title|Rows], IdMapping) :-
+    QSeries = [First|_],
+    dict_keys(First, Keys0),
+    order_keys(Keys0, Keys),
+    phrase(q_title_row(Keys, First, IdMapping), TitleCells),
+    Title =.. [row|TitleCells],
+    maplist(q_sample_row(Keys), QSeries, Rows).
+
+q_sample_row(Keys, QSample, Row) :-
+    phrase(q_sample_cols(Keys, QSample), Cells),
+    Row =.. [row|Cells].
+
+q_sample_cols([], _) -->
+    !.
+q_sample_cols([H|T], QSample) -->
+    q_sample_cell(QSample.H),
+    q_sample_cols(T, QSample).
+
+q_sample_cell(V) -->
+    { compound(V),
+      compound_name_arguments(V, d, Args)
+    },
+    !,
+    sequence(one, Args).
+q_sample_cell(H) -->
+    { is_list(H),
+      !,
+      atomics_to_string(H, ",", V)
+    },
+    [V].
+q_sample_cell(H) -->
+    { float(H),
+      !,
+      round_float(4, H, V)
+    },
+    [V].
+q_sample_cell(H) -->
+    [H].
+
+q_title_row([], _, _) --> [].
+q_title_row([H|T], First, IdMapping) -->
+    q_title_cell(H, First, IdMapping),
+    q_title_row(T, First, IdMapping).
+
+q_title_cell(Key, Sample, IdMapping) -->
+    { compound(Sample.Key),
+      compound_name_arguments(Sample.Key, d, Args),
+      !,
+      key_label(IdMapping, Key, Lbl0)
+    },
+    derivative_titles(Args, 0, Lbl0).
+q_title_cell(Key, _Sample, IdMapping) -->
+    { key_label(IdMapping, Key, Label)
+    },
+    [Label].
+
+one(C) -->
+    [C].
+
+derivative_titles([], _, _) -->
+    [].
+derivative_titles([_|T], N, Lbl0) -->
+    derivative_title(N,Lbl0),
+    {N2 is N+1},
+    derivative_titles(T, N2, Lbl0).
+
+derivative_title(0, Lbl0) -->
+    !,
+    [ Lbl0 ].
+derivative_title(N, Lbl0) -->
+    { format(string(Label), '~w (D~d)', [Lbl0, N])
+    },
+    [ Label ].

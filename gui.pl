@@ -14,6 +14,7 @@
 
 :- use_module(gsim).
 :- use_module(map).
+:- use_module(csv_util).
 
 http:location(garp, root(garp), []).
 http:location(htmx, garp(htmx), []).
@@ -240,14 +241,23 @@ download_links(Model, Options) -->
       ->  true
       ;   asserta(saved(SHA1, Model, Options))
       ),
-      http_link_to_id(csv, path_postfix(SHA1), HREF)
+      http_link_to_id(csv,     path_postfix(SHA1), HREF),
+      http_link_to_id(csvmap,  path_postfix(SHA1), MHREF),
+      http_link_to_id(csvgarp, path_postfix(SHA1), GHREF)
     },
     html(div(class([downloads,narrow]),
-             [ a([href(HREF), download("garp.csv")],
-                 "Download as CSV")
+             [ ul([ li(a([href(HREF), download("garp-num.csv")],
+                         "Download as CSV")),
+                    li(a([href(MHREF), download("garp-map.csv")],
+                         "Mapping to Garp as CSV")),
+                    li(a([href(GHREF), download("garp.csv")],
+                         "Garp states as CSV"))
+                  ])
              ])).
 
 :- http_handler(garp(download/csv/SHA1), download_csv(SHA1), [id(csv)]).
+:- http_handler(garp(download/csv/map/SHA1), download_map(SHA1), [id(csvmap)]).
+:- http_handler(garp(download/csv/garp/SHA1), download_garp(SHA1), [id(csvgarp)]).
 
 download_csv(SHA1, _Request) :-
     saved(SHA1, Model, Options),
@@ -264,55 +274,24 @@ download_csv(SHA1, _Request) :-
     csv_write_stream(current_output, [Title|Compounds],
                      [ separator(0',)]).
 
-key_label(_, t, "Time") :-
-    !.
-key_label(IdMapping, Key, Label) :-
-    format(atom(Label), '~w', [IdMapping.get(Key)]),
-    !.
-key_label(_, Key, Key).
+download_map(SHA1, _Request) :-
+    saved(SHA1, Model, Options),
+    q_series(string(Model), QSeries, [d(1),link_garp_states(true)|Options]),
+    option(id_mapping(IdMapping), Options, _{}),
+    q_series_table(QSeries, Table, IdMapping),
+    format('Content-type: text/csv~n~n'),
+    csv_write_stream(current_output, Table,
+                     [ separator(0',)]).
 
-order_keys(Keys0, Keys) :-
-    map_list_to_pairs(csv_column_rank, Keys0, Pairs),
-    keysort(Pairs, PairsS),
-    pairs_values(PairsS, Keys).
+download_garp(SHA1, _Request) :-
+    saved(SHA1, _Model, Options),
+    findall(State-Values, qstate(State, Values, [d(1)|Options]), Pairs),
+    maplist(state_into_dict, Pairs, Data),
+    option(id_mapping(IdMapping), Options, _{}),
+    q_series_table(Data, Table, IdMapping),
+    format('Content-type: text/csv~n~n'),
+    csv_write_stream(current_output, Table,
+                     [ separator(0',)]).
 
-csv_column_rank(t, 0).
-csv_column_rank(Key, 1) :- sub_atom(Key, _, _, _, number_of), !.
-csv_column_rank(Key, 2) :- sub_atom(Key, _, _, _, growth), !.
-csv_column_rank(_,   3).
-
-round_float_row(N, Row0, Row) :-
-    same_functor(Row0, Row),
-    functor(Row0, _, Arity),
-    round_float_cols(1, Arity, N, Row0, Row).
-
-round_float_cols(I, Arity, N, Row0, Row) :-
-    I =< Arity,
-    !,
-    arg(I, Row0, F0),
-    arg(I, Row, F),
-    (   float(F0)
-    ->  round_float(N, F0, F)
-    ;   F = F0
-    ),
-    I2 is I+1,
-    round_float_cols(I2, Arity, N, Row0, Row).
-round_float_cols(_, _, _, _, _).
-
-round_float(_Decimals, Value, Rounded) :-
-    Value =:= 0,
-    !,
-    Rounded = 0.0.
-round_float(Decimals, Value, Rounded) :-
-    Value < 0,
-    !,
-    round_float(Decimals, -Value, MinRounded),
-    Rounded is -MinRounded.
-round_float(Decimals, Value, Rounded) :-
-    FracDecimals is Decimals-floor(log10(Value))-1,
-    (   FracDecimals > 0
-    ->  Mult is 10.0^FracDecimals,
-        Rounded is round(Value*Mult)/Mult
-    ;   Mult is 10.0^(-FracDecimals),
-        Rounded is round(Value/Mult)*Mult
-    ).
+state_into_dict(State-Dict0, Dict) :-
+    Dict = Dict0.put(state, State).
