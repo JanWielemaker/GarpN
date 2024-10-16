@@ -167,11 +167,11 @@ run(Request) :-
                  div(id(plot),
                      [ div([id(hrule),class(ruler)], []),
                        div([id(vrule),class(ruler)], []),
-                       div(id(values), []),
-                       div(id(derivatives), []),
+                       div(id(plotly), []),
                        \traces(VTraces, DTraces, Shapes)
                      ]),
-                 \js_script({|javascript||initRulers("plot")|})
+                 \js_script({|javascript||initRulers("plot")|}),
+                 ['']
                ]).
 
 js_id_mapping(Dict, JDict) :-
@@ -182,17 +182,23 @@ js_id_mapping(Dict, JDict) :-
 jid(K-V, K-A) :-
     format(string(A), '~w', [V]).
 
-traces(VTraces, [], Shapes) -->
-    !,
-    plot(values, @(null), VTraces, Shapes).
 traces(VTraces, DTraces, Shapes) -->
-    plot(values, "Number of", VTraces, Shapes),
-    plot(derivatives, "Growth", DTraces, Shapes).
+    { append(VTraces, DTraces, Traces)
+    },
+    plot(plotly, "Number of", Traces, Shapes).
 
 plot(Target, Title, Traces, Shapes) -->
     js_script({|javascript(Target,Title,Traces,Shapes)||
                data = Traces;
-               layout = { title: Title, shapes: Shapes };
+               layout = { // title: Title,
+                          shapes: Shapes,
+                          grid: { rows: 2,
+                                  columns: 1,
+                                  pattern: 'independent',
+                                  roworder: 'top to bottom'
+                                },
+                          xaxis2: { matches: 'x' }
+                        };
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
@@ -200,8 +206,8 @@ plotly_traces(Series, VTraces, DTraces, JSMapping) :-
     Series = [First|_],
     dict_keys(First, Keys),
     split_keys(Keys, VKeys, DKeys),
-    maplist(serie(Series, JSMapping), VKeys, VTraces),
-    maplist(serie(Series, JSMapping), DKeys, DTraces).
+    maplist(serie(x-y,   Series, JSMapping), VKeys, VTraces),
+    maplist(serie(x2-y2, Series, JSMapping), DKeys, DTraces).
 
 split_keys([], [], []).
 split_keys([t|T], VL, DL) :-
@@ -218,10 +224,15 @@ split_keys([V|T], VL, [V|DL]) :-
 split_keys([V|T], [V|VL], DL) :-
     split_keys(T, VL, DL).
 
-serie(Series, JSMapping, Key,
-      trace{x:Times, y:Values, mode:lines, name:JSMapping.get(Key, Key)}) :-
+serie(Axis, Series, JSMapping, Key, Trace) :-
+    Trace0 = trace{x:Times, y:Values, mode:lines, name:JSMapping.get(Key, Key)},
     convlist(tv(Key), Series, TVs),
-    pairs_keys_values(TVs, Times, Values).
+    pairs_keys_values(TVs, Times, Values),
+    set_axis(Axis, Trace0, Trace).
+
+set_axis(x-y, Trace, Trace) :- !.
+set_axis(X-Y, Trace0, Trace) :-
+    Trace = Trace0.put(_{xaxis:X, yaxis:Y}).
 
 tv(Key, State, T-V) :-
     get_dict(t, State, T),
