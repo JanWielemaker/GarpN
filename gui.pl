@@ -129,14 +129,6 @@ methods -->
                   ])
          ]).
 
-derivatives_select(Name) -->
-    html(select(name(Name),
-                [ option(value(0), 'Off'),
-                  option([value(1), selected], 'Using 1st derivative'),
-                  option(value(2),  'Using 1st and 2nd derivative')
-                ])).
-
-
 model_area(Model) -->
     html(div(class([model,narrow]),
              textarea([ name(model),
@@ -171,7 +163,8 @@ q_menu(Source) -->
                        [ id_mapping(IdMapping) ]),
             error(_,_), fail),
       dict_keys(Formulas, Keys),
-      delete(Keys, t, Quantities)
+      delete(Keys, t, Quantities0),
+      order_keys(Quantities0, Quantities)
     },
     html(table(class(quantities),
                [ tr([th(class(quantity), 'Quantity'), th('Link to Garp')]),
@@ -188,6 +181,15 @@ q_control(IdMapping, Key) -->
               td(\derivatives_select(Name))
             ])).
 
+derivatives_select(Name) -->
+    html(select(name(Name),
+                [ option(value(-1), 'Off'),
+                  option(value(0),  'Value only'),
+                  option([value(1), selected], 'Value and 1st derivative'),
+                  option(value(2),  'Value, 1st and 2nd derivative')
+                ])).
+
+
 %!  run(+Request)
 %
 %   Run the simulation
@@ -200,13 +202,16 @@ run(Request) :-
                       method(Method, [oneof([euler,rk4]), default(euler)]),
                       sample(Sample, [integer, optional(true)]),
                       rulers(ShowRulers, [boolean, default(false)]),
-                      derivative(D, [between(0,3), default(1)]),
+                      derivative(D, [between(-1,3), default(1)]),
                       model(Model, [])
+                    ],
+                    [ form_data(Form)
                     ]),
     (   var(Sample)
     ->  Sample is ceiling(Iterations/1000)
     ;   true
     ),
+    form_derivatives(Form, _Derivatives),
     id_mapping(IdMapping),
     Options = [ iterations(Iterations),
                 method(Method),
@@ -279,7 +284,8 @@ split_keys([V|T], [V|VL], DL) :-
     split_keys(T, VL, DL).
 
 serie(Axis, Series, JSMapping, Key, Trace) :-
-    Trace0 = trace{x:Times, y:Values, mode:lines, name:JSMapping.get(Key, Key)},
+    Trace0 = trace{x:Times, y:Values,
+                   mode:lines, name:JSMapping.get(Key, Key)},
     convlist(tv(Key), Series, TVs),
     pairs_keys_values(TVs, Times, Values),
     set_axis(Axis, Trace0, Trace).
@@ -292,6 +298,27 @@ tv(Key, State, T-V) :-
     get_dict(t, State, T),
     get_dict(Key, State, V),
     number(V).
+
+		 /*******************************
+		 *        MAPPING TO GARP	*
+		 *******************************/
+
+%!  form_derivatives(+FormData, -Derivatives:dict) is det.
+%
+%   Get the derivatives want to match for a specific quantity.
+%
+%   @arg Derivatives is a dict `Quantity -> Level`, where `Level`
+%   is 0..3.
+
+form_derivatives(Form, Derivatives) :-
+    convlist(form_attr_derivative, Form, Pairs),
+    dict_pairs(Derivatives, #, Pairs),
+    pp(Derivatives).
+
+form_attr_derivative(Name=Value, Key-D) :-
+    atom_concat(d_, Key, Name),
+    atom_number(Value, D),
+    between(-1, 3, D).
 
 %!  annotate_garp_states(+Series, -Shapes, +Options) is det.
 
