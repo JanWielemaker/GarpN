@@ -11,6 +11,11 @@
 :- use_module(library(dicts)).
 :- use_module(library(readutil)).
 :- use_module(library(pairs)).
+:- use_module(library(csv)).
+:- use_module(library(lists)).
+:- use_module(library(statistics)).
+:- use_module(library(http/http_client)).
+:- use_module(library(dcg/high_order)).
 
 :- use_module(gsim).
 :- use_module(map).
@@ -73,6 +78,8 @@ home(_Request) :-
                     ]).
 
 home -->
+    { default_model(Model)
+    },
     html([ h1("Garp numerical simulator"),
            div('hx-ext'('response-targets'),
                [
@@ -81,8 +88,10 @@ home -->
                  'hx-target-500'('#errors'),
                  'hx-on-htmx-before-request'('clear_output()')
                 ],
-                [ \model_area,
-                  div(class(controls),
+                [ \model_area(Model),
+                  div([id(quantity_controls), class(narrow)],
+                      \q_menu(Model)),
+                  div(class([controls, narrow]),
                       [ label(for(iterations),
                               '# Iterations'),
                         input([ type(number),
@@ -93,7 +102,6 @@ home -->
                               ]),
                         ' ',
                         \methods,
-                        \derivatives_menu,
                         input([ type(hidden),
                                 name(track),
                                 value(all)
@@ -121,21 +129,22 @@ methods -->
                   ])
          ]).
 
-derivatives_menu -->
-    html([ label(for(derivative), 'Link to Garp states'),
-           select(name(derivative),
-                  [ option(value(0), 'Off'),
-                    option([value(1), selected], 'Using 1st derivative'),
-                    option(value(2),  'Using 1st and 2nd derivative')
-                  ])
-         ]).
+derivatives_select(Name) -->
+    html(select(name(Name),
+                [ option(value(0), 'Off'),
+                  option([value(1), selected], 'Using 1st derivative'),
+                  option(value(2),  'Using 1st and 2nd derivative')
+                ])).
 
-model_area -->
-    { default_model(Model)
-    },
+
+model_area(Model) -->
     html(div(class([model,narrow]),
              textarea([ name(model),
-                        id(model)
+                        id(model),
+                        'hx-post'('/garp/htmx/analyze'),
+                        'hx-trigger'('input changed delay:500ms'),
+                        'hx-target'('#quantity_controls'),
+                        placeholder('Your numerical model')
                       ], Model))).
 
 default_model(Model) :-
@@ -144,7 +153,44 @@ default_model(Model) :-
     read_file_to_string(File, Model, []).
 default_model("").
 
+:- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run, []).
+
+%!  analyze(+Request)
+%
+%   Analyze the model and fill the quantity controls.
+
+analyze(Request) :-
+    http_read_data(Request, Data, []),
+    memberchk(model=Source, Data),
+    reply_htmx(\q_menu(Source)).
+
+q_menu(Source) -->
+    { id_mapping(IdMapping),
+      catch(read_model(string(Source), Formulas, _Constants, _State0,
+                       [ id_mapping(IdMapping) ]),
+            error(_,_), fail),
+      dict_keys(Formulas, Keys),
+      delete(Keys, t, Quantities)
+    },
+    html(table(class(quantities),
+               [ tr([th(class(quantity), 'Quantity'), th('Link to Garp')]),
+                 \sequence(q_control(IdMapping), Quantities)
+               ])).
+q_menu(_) -->
+    [].
+
+q_control(IdMapping, Key) -->
+    { key_label(IdMapping, Key, Label),
+      atom_concat(d_, Key, Name)
+    },
+    html(tr([ th(class([quantity,name]), Label),
+              td(\derivatives_select(Name))
+            ])).
+
+%!  run(+Request)
+%
+%   Run the simulation
 
 run(Request) :-
     http_parameters(Request,
