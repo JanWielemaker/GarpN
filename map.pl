@@ -42,30 +42,44 @@ id_map(Id, Term) :-
 qstate(State, Values, Options) :-
     engine:state(State, _),
     option(d(N), Options, 3),
-    findall(Qid-Value, qstate_value(N, State, Qid, Value), Pairs),
+    option(match(Match), Options, #{}),
+    findall(Qid-Value, qstate_value(Match, N, State, Qid, Value), Pairs),
     dict_pairs(Values, _, Pairs).
 
-qstate_value(1, State, Qid, R) =>
+qstate_value(Match, N, State, Qid, Value) :-
+    state_quantity_value(State, Dict),
+    Qid = Dict.get(name),
+    (   N2 = Match.get(Qid)
+    ->  N2 > 0,
+        qstate_value(N2, Dict, Value)
+    ;   qstate_value(N, Dict, Value)
+    ).
+
+qstate_value(0, Dict, V) =>
+    _{value:V0, derivative: _{1:_,2:_,3:_}} :< Dict,
+    unknown_var(V0, V).
+qstate_value(1, Dict, R) =>
     R = d(V,D1),
-    visualize:state_quantity_value(State, Dict),
-    _{name:Qid, value:V0, derivative: _{1:D10,2:_,3:_}} :< Dict,
+    _{value:V0, derivative: _{1:D10,2:_,3:_}} :< Dict,
     unknown_var(V0, V),
     unknown_var(D10, D1).
-qstate_value(2, State, Qid, R) =>
+qstate_value(2, Dict, R) =>
     R = d(V,D1,D2),
-    visualize:state_quantity_value(State, Dict),
-    _{name:Qid, value:V0, derivative: _{1:D10,2:D20,3:_}} :< Dict,
+    _{value:V0, derivative: _{1:D10,2:D20,3:_}} :< Dict,
     unknown_var(V0, V),
     unknown_var(D10, D1),
     unknown_var(D20, D2).
-qstate_value(3, State, Qid, R) =>
+qstate_value(3, Dict, R) =>
     R = d(V,D1,D2,D3),
-    visualize:state_quantity_value(State, Dict),
-    _{name:Qid, value:V0, derivative: _{1:D10,2:D20,3:D30}} :< Dict,
+    _{value:V0, derivative: _{1:D10,2:D20,3:D30}} :< Dict,
     unknown_var(V0, V),
     unknown_var(D10, D1),
     unknown_var(D20, D2),
     unknown_var(D30, D3).
+
+state_quantity_value(State, Dict) :-
+    visualize:state_quantity_value(State, Dict).
+
 
 unknown_var(unk, _) => true.
 unknown_var(unknown, _) => true.
@@ -116,10 +130,18 @@ to_qualitative(_, V, D), V > 0   => D = plus.
 to_qualitative(_, V, D), V < 0   => D = min.
 to_qualitative(_, V, D), V =:= 0 => D = zero.
 
+%!  opt_link_garp_states(+QSeries0, -QSeries, +Options) is det.
+
+opt_link_garp_states(QSeries0, QSeries, Options) :-
+    option(link_garp_states(true), Options),
+    !,
+    link_garp_states(QSeries0, QSeries, Options).
+opt_link_garp_states(Series, Series, _).
+
 %!  link_garp_states(+QSeries0, -QSeries, +Options) is det.
 
 link_garp_states(QSeries0, QSeries, Options) :-
-    findall(Id-State, qstate(Id,State, Options), GarpStates),
+    findall(Id-State, qstate(Id, State, Options), GarpStates),
     maplist(add_state(GarpStates), QSeries0, QSeries).
 
 add_state(GarpStates, State0, State) :-
@@ -129,14 +151,6 @@ add_state(GarpStates, State0, State) :-
 
 matching_state(State, _Id-GarpState) :-
     \+ \+ State >:< GarpState.
-
-%!  opt_link_garp_states(+QSeries0, -QSeries, +Options) is det.
-
-opt_link_garp_states(QSeries0, QSeries, Options) :-
-    option(link_garp_states(true), Options),
-    !,
-    link_garp_states(QSeries0, QSeries, Options).
-opt_link_garp_states(Series, Series, _).
 
 %!  q_series(-QSeries, +Options) is det.
 %!  q_series(+Model, -QSeries, +Options) is det.
@@ -164,23 +178,88 @@ q_series(Model, QSeries, Options) :-
 %
 %     - d(N)
 %     Add up to the Nth derivative.  Default 3.
+%     - match(Derivatives)
+%     Derivatives is a dict `Quantity -> Derivative`, where
+%     `Derivative` is -1..3 that determines how many derivatives
+%     to match.  -1 does not match the quantity at all.
 %     - link_garp_states(+Bool)
 %     Find related Garp states.
 
 nq_series(Series, QSeries, Options) :-
-    option(d(N), Options, 3),
-    add_derivatives(N, Series, SeriesD),
+    deleted_unmatched(Series, Series1, Options),
+    add_derivatives(Series1, SeriesD, Options),
     series_qualitative(SeriesD, QSeries0),
     simplify_qseries(QSeries0, QSeries1),
     opt_link_garp_states(QSeries1, QSeries, Options).
 
-add_derivatives(0, Series, Series) :-
+%!  deleted_unmatched(+AllSeries, -Series, +Options)
+%
+%   Delete the quantities set to -1 in the match(Match) option.
+
+deleted_unmatched(Series0, Series, Options) :-
+    option(match(Match), Options, #{}),
+    findall(K-_, get_dict(K, Match, -1), Del),
+    Del \== [],
+    !,
+    dict_pairs(DelDict, _, _Del),
+    maplist(delete_keys(DelDict), Series0, Series).
+deleted_unmatched(Series, Series, _).
+
+delete_keys(Del, Dict0, Dict) :-
+    dict_same_keys(Del, Free),
+    select_dict(Free, Dict0, Dict).
+
+%!  add_derivatives(+Series0, -Series, +Options) is det.
+
+add_derivatives(Series0, Series, Options) :-
+    max_derivative_used(Options, MaxD),
+    add_derivatives_(MaxD, Series0, Series1),
+    (   option(match(Match), Options),
+        Match._ > 0
+    ->  maplist(strip_derivatives(Match), Series1, Series)
+    ;   Series = Series1
+    ).
+
+max_derivative_used(Options, D) :-
+    option(d(N), Options, 3),
+    option(match(Match), Options, #{}),
+    dict_pairs(Match, _, Pairs),
+    pairs_values(Pairs, Values),
+    max_list([N|Values], D).
+
+add_derivatives_(0, Series, Series) :-
     !.
-add_derivatives(N, Series0, Series) :-
+add_derivatives_(N, Series0, Series) :-
     add_derivative(Series0, Series1),
     N2 is N - 1,
-    add_derivatives(N2, Series1, Series).
+    add_derivatives_(N2, Series1, Series).
 
+strip_derivatives(Match, State0, State) :-
+    mapdict(strip_derivatives_(Match), State0, State).
+
+strip_derivatives_(Match, K, V0, V) :-
+    Keep = Match.get(K),
+    !,
+    keep_derivatives(Keep, V0, V).
+strip_derivatives_(_, _, V, V).
+
+keep_derivatives(0, D, V) =>
+    arg(1, D, V).
+keep_derivatives(1, D, R) =>
+    R = d(V,D1),
+    arg(1, D, V),
+    arg(2, D, D1).
+keep_derivatives(2, D, R) =>
+    R = d(V,D1,D2),
+    arg(1, D, V),
+    arg(2, D, D1),
+    arg(3, D, D2).
+keep_derivatives(3, D, R) =>
+    R = d(V,D1,D2,D3),
+    arg(1, D, V),
+    arg(2, D, D1),
+    arg(3, D, D2),
+    arg(4, D, D3).
 
 %!  simplify_qseries(+QSeries0, -QSeries) is det.
 %

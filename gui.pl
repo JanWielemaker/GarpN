@@ -211,7 +211,7 @@ run(Request) :-
     ->  Sample is ceiling(Iterations/1000)
     ;   true
     ),
-    form_derivatives(Form, _Derivatives),
+    form_derivatives(Form, Derivatives),
     id_mapping(IdMapping),
     Options = [ iterations(Iterations),
                 method(Method),
@@ -220,7 +220,7 @@ run(Request) :-
                 id_mapping(IdMapping)
               ],
     call_time(simulate(string(Model), Series, Options), Time),
-    annotate_garp_states(Series, Shapes, [d(D)|Options]),
+    annotate_garp_states(Series, Shapes, [d(D),match(Derivatives)|Options]),
     js_id_mapping(IdMapping, JSMapping),
     plotly_traces(Series, VTraces, DTraces, JSMapping),
     reply_htmx([ hr([]),
