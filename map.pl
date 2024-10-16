@@ -253,6 +253,8 @@ insert_value_(d(V1,D11), d(V2,D21), R, Done) =>
 insert_value_(min, plus, Vi, Done) => Vi = zero, Done = true.
 insert_value_(plus, min, Vi, Done) => Vi = zero, Done = true.
 insert_value_(V, V, Vi, _Done) => Vi = V.
+insert_value_(zero, V, Vi, _Done) => Vi = V.
+insert_value_(V, zero, Vi, _Done) => Vi = V.
 insert_value_(Var, _, _, _Done), var(Var) => true.
 insert_value_(_, Var, _, _Done), var(Var) => true.
 
