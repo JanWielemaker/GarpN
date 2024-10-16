@@ -93,6 +93,7 @@ home -->
                               ]),
                         ' ',
                         \methods,
+                        \derivatives_menu,
                         input([ type(hidden),
                                 name(track),
                                 value(all)
@@ -120,6 +121,15 @@ methods -->
                   ])
          ]).
 
+derivatives_menu -->
+    html([ label(for(derivative), 'Link to Garp states'),
+           select(name(derivative),
+                  [ option(value(0), 'Off'),
+                    option([value(1), selected], 'Using 1st derivative'),
+                    option(value(2),  'Using 1st and 2nd derivative')
+                  ])
+         ]).
+
 model_area -->
     { default_model(Model)
     },
@@ -143,6 +153,8 @@ run(Request) :-
                                     default(initialized)]),
                       method(Method, [oneof([euler,rk4]), default(euler)]),
                       sample(Sample, [integer, optional(true)]),
+                      rulers(ShowRulers, [boolean, default(false)]),
+                      derivative(D, [between(0,3), default(1)]),
                       model(Model, [])
                     ]),
     (   var(Sample)
@@ -157,21 +169,17 @@ run(Request) :-
                 id_mapping(IdMapping)
               ],
     call_time(simulate(string(Model), Series, Options), Time),
-    nq_series(Series, QSeries, [link_garp_states(true),d(1)|Options]),
-    plotly_shapes(QSeries, Shapes),
+    annotate_garp_states(Series, Shapes, [d(D)|Options]),
     js_id_mapping(IdMapping, JSMapping),
     plotly_traces(Series, VTraces, DTraces, JSMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
                  \download_links(Model, Options),
                  div(id(plot),
-                     [ div([id(hrule),class(ruler)], []),
-                       div([id(vrule),class(ruler)], []),
+                     [ \rulers(ShowRulers),
                        div(id(plotly), []),
                        \traces(VTraces, DTraces, Shapes)
-                     ]),
-                 \js_script({|javascript||initRulers("plot")|}),
-                 ['']
+                     ])
                ]).
 
 js_id_mapping(Dict, JDict) :-
@@ -239,6 +247,16 @@ tv(Key, State, T-V) :-
     get_dict(Key, State, V),
     number(V).
 
+%!  annotate_garp_states(+Series, -Shapes, +Options) is det.
+
+annotate_garp_states(Series, Shapes, Options) :-
+    option(d(D), Options, 1),
+    D > 0,
+    !,
+    nq_series(Series, QSeries, [link_garp_states(true)|Options]),
+    plotly_shapes(QSeries, Shapes).
+annotate_garp_states(_, @(null), _).
+
 %!  plotly_shapes(+QSeries, -Shapes) is det.
 
 plotly_shapes(QSeries, Shapes) :-
@@ -279,6 +297,14 @@ rect_label(String,
            #{ text: String,
               textposition: 'top center'
             }).
+
+rulers(false) -->
+    [].
+rulers(true) -->
+    html([ div([id(hrule),class(ruler)], []),
+           div([id(vrule),class(ruler)], []),
+           \js_script({|javascript||initRulers("plot")|})
+         ]).
 
 %!  stats(+Series, +Time)// is det.
 %
