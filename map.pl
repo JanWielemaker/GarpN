@@ -4,7 +4,8 @@
             q_series/3,                 % +Model, -QSeries, +Options
             qstate/3,                   % +State, -Values, +Options
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
-            q_series_table/3            % +QSeries, -Table, +IdMapping
+            q_series_table/3,           % +QSeries, -Table, +IdMapping
+            nq_series/3                 % +Series, -QSeries, +Options
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -155,6 +156,18 @@ q_series(Model, QSeries, Options) :-
                id_mapping(Mapping)
              | Options
              ]),
+    nq_series(Series, QSeries, Options).
+
+%!  nq_series(+Series, -QSeries, +Options) is det.
+%
+%   Map the numeric Series into a qualitative QSeries.  Options:
+%
+%     - d(N)
+%     Add up to the Nth derivative.  Default 3.
+%     - link_garp_states(+Bool)
+%     Find related Garp states.
+
+nq_series(Series, QSeries, Options) :-
     option(d(N), Options, 3),
     add_derivatives(N, Series, SeriesD),
     series_qualitative(SeriesD, QSeries0),

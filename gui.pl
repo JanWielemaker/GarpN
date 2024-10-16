@@ -157,6 +157,8 @@ run(Request) :-
                 id_mapping(IdMapping)
               ],
     call_time(simulate(string(Model), Series, Options), Time),
+    nq_series(Series, QSeries, [link_garp_states(true),d(1)|Options]),
+    plotly_shapes(QSeries, Shapes),
     js_id_mapping(IdMapping, JSMapping),
     plotly_traces(Series, VTraces, DTraces, JSMapping),
     reply_htmx([ hr([]),
@@ -167,7 +169,7 @@ run(Request) :-
                        div([id(vrule),class(ruler)], []),
                        div(id(values), []),
                        div(id(derivatives), []),
-                       \traces(VTraces, DTraces)
+                       \traces(VTraces, DTraces, Shapes)
                      ]),
                  \js_script({|javascript||initRulers("plot")|})
                ]).
@@ -180,17 +182,17 @@ js_id_mapping(Dict, JDict) :-
 jid(K-V, K-A) :-
     format(string(A), '~w', [V]).
 
-traces(VTraces, []) -->
+traces(VTraces, [], Shapes) -->
     !,
-    plot(values, @(null), VTraces).
-traces(VTraces, DTraces) -->
-    plot(values, "Number of", VTraces),
-    plot(derivatives, "Growth", DTraces).
+    plot(values, @(null), VTraces, Shapes).
+traces(VTraces, DTraces, Shapes) -->
+    plot(values, "Number of", VTraces, Shapes),
+    plot(derivatives, "Growth", DTraces, Shapes).
 
-plot(Target, Title, Traces) -->
-    js_script({|javascript(Target,Title,Traces)||
+plot(Target, Title, Traces, Shapes) -->
+    js_script({|javascript(Target,Title,Traces,Shapes)||
                data = Traces;
-               layout = { title: Title };
+               layout = { title: Title, shapes: Shapes };
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
@@ -226,11 +228,61 @@ tv(Key, State, T-V) :-
     get_dict(Key, State, V),
     number(V).
 
+%!  plotly_shapes(+QSeries, -Shapes) is det.
+
+plotly_shapes(QSeries, Shapes) :-
+    QSeries = [First|_],
+    foldl(plotly_shape, QSeries, Shapes0, First, _),
+    exclude(==(null), Shapes0, Shapes).
+
+plotly_shape(QState, Shape, Prev, QState) :-
+    mapping_color(Prev, Color, Label),
+    !,
+    Shape = #{ type: rect,
+               xref: x,
+               yref: paper,
+               x0: Prev.t,
+               y0: 0,
+               x1: QState.t,
+               y1: 1,
+               fillcolor: Color,
+               opacity: 0.2,
+               line: #{ width: 1
+                      },
+               label: Label
+             }.
+plotly_shape(QState, null, _Prev, QState).
+
+mapping_color(QState, Color, Label) :-
+    mapping_color_(QState.get(garp_states), Color, Label).
+
+mapping_color_([],  '#ff7c7d', null) :- !.
+mapping_color_([State], '#7eff7d', Label) :-
+    !,
+    rect_label(State, Label).
+mapping_color_(States,   '#7e7bff', Label) :-
+    atomics_to_string(States,",",String),
+    rect_label(String, Label).
+
+rect_label(String,
+           #{ text: String,
+              textposition: 'top center'
+            }).
+
+%!  stats(+Series, +Time)// is det.
+%
+%   Print the statistics of the simulation
+
 stats(Series, Time) -->
     { length(Series, Count)
     },
     html(div(class([stats,narrow]),
              'Generated ~D samples in ~3f seconds'-[Count, Time.cpu])).
+
+
+		 /*******************************
+		 *            DOWNLOAD		*
+		 *******************************/
 
 :- dynamic
     saved/3.
