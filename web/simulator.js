@@ -10,10 +10,31 @@ function initRulers(id) {
   };
 }
 
+function initShapes(sel) {
+  console.log("initShapes()");
+  const shapes = document.querySelectorAll(sel + " g.shape-group");
+  for(let i=0; i<shapes.length; i++)
+  { const shape = shapes[i];
+    console.log(shape);
+    shape.style.cursor = 'pointer';
+    shape.addEventListener("click", (ev) => {
+      const text = shape.querySelector("text");
+      if ( text )
+	console.log("Label: ", text.textContent);
+      console.log("Clicked ", ev);
+    });
+  }
+}
+
+
 function clear_output()
 { document.getElementById("errors").innerHTML = "";
   document.getElementById("results").innerHTML = "";
 }
+
+		 /*******************************
+		 *        ERROR HANDLING        *
+		 *******************************/
 
 document.body.addEventListener('htmx:afterRequest', function(ev) {
   const xhr = ev.detail.xhr;

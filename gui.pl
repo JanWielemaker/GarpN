@@ -229,7 +229,8 @@ run(Request) :-
                  div(id(plot),
                      [ \rulers(ShowRulers),
                        div(id(plotly), []),
-                       \traces(VTraces, DTraces, Shapes)
+                       \traces(VTraces, DTraces, Shapes),
+                       \js_script({|javascript||initShapes("#plotly")|})
                      ])
                ]).
 
@@ -350,7 +351,8 @@ plotly_shape(QState, Shape, Prev, QState) :-
                opacity: 0.2,
                line: #{ width: 1
                       },
-               label: Label
+               label: Label,
+               layer: above
              }.
 plotly_shape(QState, null, _Prev, QState).
 
