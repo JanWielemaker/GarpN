@@ -201,7 +201,7 @@ deleted_unmatched(Series0, Series, Options) :-
     findall(K-_, get_dict(K, Match, -1), Del),
     Del \== [],
     !,
-    dict_pairs(DelDict, _, _Del),
+    dict_pairs(DelDict, _, Del),
     maplist(delete_keys(DelDict), Series0, Series).
 deleted_unmatched(Series, Series, _).
 
@@ -278,6 +278,7 @@ simplify_qseries(Series0, Series) :-
     removes_equal_sequences(Series1, Series).
 
 removes_equal_sequences([], T) => T = [].
+removes_equal_sequences([S1,S2], T) => T = [S1,S2]. % keep last
 removes_equal_sequences([S1,S2|T0], T), same_qstate(S1, S2) =>
     removes_equal_sequences([S1|T0], T).
 removes_equal_sequences([S1|T0], T) =>

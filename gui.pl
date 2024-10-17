@@ -312,8 +312,7 @@ tv(Key, State, T-V) :-
 
 form_derivatives(Form, Derivatives) :-
     convlist(form_attr_derivative, Form, Pairs),
-    dict_pairs(Derivatives, #, Pairs),
-    pp(Derivatives).
+    dict_pairs(Derivatives, #, Pairs).
 
 form_attr_derivative(Name=Value, Key-D) :-
     atom_concat(d_, Key, Name),
