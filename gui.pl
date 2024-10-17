@@ -230,7 +230,7 @@ run(Request) :-
                      [ \rulers(ShowRulers),
                        div(id(plotly), []),
                        \traces(VTraces, DTraces, Shapes),
-                       \js_script({|javascript||initShapes("#plotly")|})
+                       \js_script({|javascript||initShapes("plotly")|})
                      ])
                ]).
 

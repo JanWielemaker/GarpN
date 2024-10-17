@@ -10,22 +10,28 @@ function initRulers(id) {
   };
 }
 
-function initShapes(sel) {
-  console.log("initShapes()");
-  const shapes = document.querySelectorAll(sel + " g.shape-group");
-  for(let i=0; i<shapes.length; i++)
-  { const shape = shapes[i];
-    console.log(shape);
-    shape.style.cursor = 'pointer';
-    shape.addEventListener("click", (ev) => {
-      const text = shape.querySelector("text");
-      if ( text )
-	console.log("Label: ", text.textContent);
-      console.log("Clicked ", ev);
-    });
-  }
+function initShapes(id) {
+  const div = document.getElementById(id);
+  div.on('plotly_afterplot', function() {
+    interactiveShapes(div);
+  });
 }
 
+function interactiveShapes(div) {
+  const shapes = div.querySelectorAll("g.shape-group");
+  for(let i=0; i<shapes.length; i++)
+  { const shape = shapes[i];
+    const label = shape.textContent;
+    if ( label && shape.style.cursor != 'pointer' )
+    { shape.style.cursor = 'pointer';
+      shape.style.pointerEvents = 'auto';
+      shape.addEventListener("click", (ev) => {
+	console.log("Clicked ", label, ev);
+	setTimeout(()=>interactiveShapes(div));
+      });
+    }
+  }
+}
 
 function clear_output()
 { document.getElementById("errors").innerHTML = "";
