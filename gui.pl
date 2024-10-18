@@ -336,11 +336,13 @@ derivative_headers([], _) -->
     [].
 derivative_headers([_|T], 0) -->
     !,
-    html(th('Value')),
+    { h_label(value, Label) },
+    html(th(Label)),
     derivative_headers(T, 1).
 derivative_headers([_|T], N) -->
     !,
-    html(th('D~d'-[N])),
+    { h_label(d(N), Label) },
+    html(th(Label)),
     {N1 is N+1},
     derivative_headers(T, N1).
 
@@ -375,11 +377,11 @@ cmp_value(2, S-G) -->
 cmp_value(1, (C-T)-_) -->
     { no_cmp_column(C) },
     !,
-    cell_value([class([simulation])], t-T).
+    cell_value([class([simulation])], C-T).
 cmp_value(2, _-(C-T)) -->
     { no_cmp_column(C) },
     !,
-    cell_value([class([garp])], t-T).
+    cell_value([class([garp])], C-T).
 cmp_value(1, S-_) -->
     !,
     cell_value([class([nomatch,simulation])], S).
@@ -401,7 +403,34 @@ cell_value(Attrs, _K-Value) -->
     },
     html(td(Attrs1, '~2f'-[Rounded])).
 cell_value(Attrs, _K-Value) -->
-    { join_attrs([class(qualitative)], Attrs, Attrs1)
+    { clause(v_label(Value,_,_),_),
+      !,
+      join_attrs([class(qualitative)], Attrs, Attrs1)
+    },
+    html(td(Attrs1, \v_label(Value))).
+cell_value(Attrs, garp_states-[]) -->
+    { join_attrs([class(['garp-link', nomatch])], Attrs, Attrs1)
+    },
+    html(td(Attrs1, '?')).
+cell_value(Attrs, garp_states-[Match]) -->
+    { join_attrs([class(['garp-link', match])], Attrs, Attrs1)
+    },
+    html(td(Attrs1, '~p'-[Match])).
+cell_value(Attrs, garp_states-Value) -->
+    { Value = [_,_|_],
+      !,
+      atomics_to_string(Value, ",", Label),
+      join_attrs([class(['garp-link', ambiguous])], Attrs, Attrs1)
+    },
+    html(td(Attrs1, Label)).
+cell_value(Attrs, garp_states-Value) -->
+    { integer(Value),
+      !,
+      join_attrs([class(['garp-link', garp])], Attrs, Attrs1)
+    },
+    html(td(Attrs1, '~p'-[Value])).
+cell_value(Attrs, _K-Value) -->
+    { join_attrs([], Attrs, Attrs1)
     },
     html(td(Attrs1, '~p'-[Value])).
 
@@ -414,6 +443,14 @@ join_attrs(Attrs0, Attrs1, [class(C)|Attrs]) :-
 join_attrs(Attrs0, Attrs1, Attrs) :-
     append(Attrs0, Attrs1, Attrs).
 
+h_label(d(1), '\U0001D4ED¹').
+h_label(d(2), '\U0001D4ED²').
+h_label(d(3), '\U0001D4ED³').
+h_label(value, '\U0001D4E5').
+
+v_label(plus) --> html(span(class(plus), '\u25B2')).
+v_label(min)  --> html(span(class(min),  '\u25BC')).
+v_label(zero) --> html(span(class(zero), '0')).
 
 %!  run(+Request)
 %

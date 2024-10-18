@@ -13,6 +13,16 @@
 
 key_label(_, t, "Time") :-
     !.
+key_label(_, garp_states, "Garp states") :-
+    !.
+key_label(IdMapping, Key, Label) :-
+    growth(Q) = IdMapping.get(Key),
+    !,
+    format(atom(Label), '\u0394~w', [Q]).
+key_label(IdMapping, Key, Label) :-
+    number_of(Q) = IdMapping.get(Key),
+    !,
+    format(atom(Label), '#~w', [Q]).
 key_label(IdMapping, Key, Label) :-
     format(atom(Label), '~w', [IdMapping.get(Key)]),
     !.

@@ -83,12 +83,23 @@ table.states td.float {
     text-align: right;
 }
 
+table.states td.garp-link {
+    text-align: center;
+}
+
+table.states td.garp-link.garp {
+}
+
 table.states td.match {
     background-color: #7eff7d;
 }
 
 table.states td.nomatch {
     background-color: #ff7c7d;
+}
+
+table.states td.ambiguous {
+    background-color: #7e7bff;
 }
 
 table.states tr.simulation {
@@ -98,3 +109,20 @@ table.states tr.simulation {
 table.states tr.garp {
     background-color: #bbb;
 }
+
+span.plus {
+    font-size: 200%;
+    line-height: 50%;
+    vertical-align: -6px;
+    font-style: normal;
+    color: #080
+}
+
+span.min {
+    font-size: 200%;
+    line-height: 50%;
+    vertical-align: -6px;
+    font-style: normal;
+    color: #800
+}
+
