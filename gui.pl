@@ -201,11 +201,22 @@ info(Request) :-
     _{time:TimeAtom, sha1:SHA1} :< Data,
     atom_number(TimeAtom, Time),
     saved(SHA1, Model, Options),
-    q_series(string(Model), QSeries, [link_garp_states(true)|Options]),
-    (   phrase(info_seq(Time, States), QSeries, _)
-    ->  reply_htmx(\state_table(States, Options))
+    q_series(string(Model), QSeries,
+             [ link_garp_states(true),
+               garp_states(QStates)
+             | Options
+             ]),
+    (   phrase(info_seq(Time, States0), QSeries, _)
+    ->  add_garp_states(States0, QStates, States),
+        reply_htmx(\state_table(States, Options))
     ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
     ).
+
+%!  info_seq(+Time, -States)// is semidet.
+%
+%   True when States is a sequence   of  qualitative states derived from
+%   the model, where the first and last   states  are linked to Garp and
+%   the sequence contains Time.
 
 info_seq(Time, States) -->
     ...,
@@ -234,6 +245,53 @@ timed(Time, State) -->
 
 ... --> [] ; [_], ... .
 peek(X), [X] --> [X].
+
+add_garp_states(QStates, GStates, States) :-
+    once(append([First|Skipped], [Last], QStates)),
+    min_list(First.garp_states, Min),
+    max_list(Last.garp_states, Max),
+    include(in_state_range(Min,Max), GStates, GStates1),
+    maplist(add_state_no, GStates1, GStates2),
+    maplist(align_keys(First), GStates2, GStates3),
+    interpolate(Skipped, GStates3, Compare),
+    append([[First],Compare,[Last]], States).
+
+in_state_range(Min, Max, Id-_) :-
+    Id > Min,
+    Id < Max.
+
+add_state_no(Id-State0, State) :-
+    State = State0.put(garp_states, Id).
+
+align_keys(First, GState0, GState) :-
+    dict_pairs(GState0, Tag, GPairs0),
+    convlist(align_key(First), GPairs0, GPairs),
+    dict_pairs(GState, Tag, GPairs).
+
+align_key(QState, K-V0, K-V) :-
+    QV = QState.get(K),
+    !,
+    align_derivatives(QV, V0, V).
+
+align_derivatives(QV, V0, V),
+    compound(QV),
+    compound_name_arguments(QV,d,QD),
+    compound_name_arguments(V0,d,D0) =>
+    length(QD, L),
+    length(D1, L),
+    append(D1, _, D0),
+    compound_name_arguments(V,d,D1).
+align_derivatives(_QV, V0, V) =>
+    V = V0.
+
+interpolate([], L, R) =>
+    R = L.
+interpolate(L, [], R) =>
+    R = L.
+interpolate([H0|T0], [H1|T1], R) =>
+    R = [H0,H1|T],
+    interpolate(T0, T1, T).
+
 
 %!  state_table(+States, +Options)// is det.
 %
@@ -287,14 +345,17 @@ state_row(Keys, Row) -->
     html(tr(\sequence(state_cell(Row), Keys))).
 
 state_cell(Row, Key) -->
-    { Value = Row.Key,
+    { Value = Row.get(Key),
       compound(Value),
       compound_name_arguments(Value, d, Ds)
     },
     !,
     sequence(cell_value, Ds).
 state_cell(Row, Key) -->
-    cell_value(Row.Key).
+    cell_value(Row.get(Key)),
+    !.
+state_cell(_, _) -->
+    html(td(&(nbsp))).
 
 cell_value(Value) -->
     { float(Value),

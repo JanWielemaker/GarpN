@@ -142,6 +142,7 @@ opt_link_garp_states(Series, Series, _).
 
 link_garp_states(QSeries0, QSeries, Options) :-
     findall(Id-State, qstate(Id, State, Options), GarpStates),
+    option(garp_states(GarpStates), Options, _),
     maplist(add_state(GarpStates), QSeries0, QSeries).
 
 add_state(GarpStates, State0, State) :-
