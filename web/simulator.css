@@ -75,3 +75,10 @@ th.quantity.name {
     bottom: 0px;
 }
 
+table.states td.qualitative {
+    text-align: center;
+}
+
+table.states td.float {
+    text-align: right;
+}

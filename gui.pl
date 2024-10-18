@@ -203,11 +203,7 @@ info(Request) :-
     saved(SHA1, Model, Options),
     q_series(string(Model), QSeries, [link_garp_states(true)|Options]),
     (   phrase(info_seq(Time, States), QSeries, _)
-    ->  with_output_to(string(S),
-                       print_term(States, [output(current_output)])),
-        reply_htmx([ 'Clicked at time ~2f'-[Time],
-                     pre(S)
-                   ])
+    ->  reply_htmx(\state_table(States, Options))
     ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
     ).
 
@@ -239,6 +235,75 @@ timed(Time, State) -->
 ... --> [] ; [_], ... .
 peek(X), [X] --> [X].
 
+%!  state_table(+States, +Options)// is det.
+%
+%   Print an HTML table of states.
+
+state_table(States, Options) -->
+    { option(id_mapping(IdMapping), Options, _{}),
+      States = [First|_],
+      dict_keys(First, Keys),
+      order_keys(Keys, Ordered)
+    },
+    html(table(class(states),
+               [ tr(\sequence(state_header(1, First, IdMapping), Ordered)),
+                 tr(\sequence(state_header(2, First, IdMapping), Ordered))
+               | \sequence(state_row(Ordered), States)
+               ])).
+
+state_header(Nth, Row, IdMapping, Key) -->
+    { Value = Row.Key,
+      compound(Value),
+      compound_name_arguments(Value, d, Ds)
+    },
+    !,
+    (   {Nth == 1}
+    ->  { length(Ds, Cols),
+          key_label(IdMapping, Key, Label)
+        },
+        html(th([colspan(Cols)], Label))
+    ;   derivative_headers(Ds, 0)
+    ).
+state_header(1, _Row, IdMapping, Key) -->
+    !,
+    { key_label(IdMapping, Key, Label) },
+    html(th(rowspan(2), Label)).
+state_header(2, _Row, _IdMapping, _Key) -->
+    [].
+
+derivative_headers([], _) -->
+    [].
+derivative_headers([_|T], 0) -->
+    !,
+    html(th('Value')),
+    derivative_headers(T, 1).
+derivative_headers([_|T], N) -->
+    !,
+    html(th('D~d'-[N])),
+    {N1 is N+1},
+    derivative_headers(T, N1).
+
+state_row(Keys, Row) -->
+    html(tr(\sequence(state_cell(Row), Keys))).
+
+state_cell(Row, Key) -->
+    { Value = Row.Key,
+      compound(Value),
+      compound_name_arguments(Value, d, Ds)
+    },
+    !,
+    sequence(cell_value, Ds).
+state_cell(Row, Key) -->
+    cell_value(Row.Key).
+
+cell_value(Value) -->
+    { float(Value),
+      !,
+      round_float(5, Value, Rounded)
+    },
+    html(td(class(float), '~2f'-[Rounded])).
+cell_value(Value) -->
+    html(td(class(qualitative), '~p'-[Value])).
 
 
 %!  run(+Request)
