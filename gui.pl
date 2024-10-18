@@ -372,23 +372,35 @@ cmp_value(1, S-G) -->
 cmp_value(2, S-G) -->
     { S == G },
     !.
+cmp_value(1, (C-T)-_) -->
+    { no_cmp_column(C) },
+    !,
+    cell_value([class([simulation])], t-T).
+cmp_value(2, _-(C-T)) -->
+    { no_cmp_column(C) },
+    !,
+    cell_value([class([garp])], t-T).
 cmp_value(1, S-_) -->
     !,
     cell_value([class([nomatch,simulation])], S).
 cmp_value(2, _-G) -->
     cell_value([class([nomatch,garp])], G).
 
-cell_value(Attrs, Value) -->
+no_cmp_column(t).
+no_cmp_column(garp_states).
+
+
+cell_value(Attrs, _K-Value) -->
     { var(Value) },
     html(td(Attrs, &(nbsp))).
-cell_value(Attrs, Value) -->
+cell_value(Attrs, _K-Value) -->
     { float(Value),
       !,
       round_float(5, Value, Rounded),
       join_attrs([class(float)], Attrs, Attrs1)
     },
     html(td(Attrs1, '~2f'-[Rounded])).
-cell_value(Attrs, Value) -->
+cell_value(Attrs, _K-Value) -->
     { join_attrs([class(qualitative)], Attrs, Attrs1)
     },
     html(td(Attrs1, '~p'-[Value])).

@@ -36,6 +36,9 @@ csv_column_rank(_,     3).
 %   Turn a state into a row,   unfolding  derivative terms (d(...)) into
 %   multiple columns. Possibly missing cells are   filled with a copy of
 %   Empty.
+%
+%   @arg Row is a list of `K-V` pairs, where `K` is a key or a term
+%   der(K,N), with `N>0`.
 
 state_row(Keys, State, Empty, Row) :-
     phrase(state_row(Keys, State, Empty), Row).
@@ -43,25 +46,34 @@ state_row(Keys, State, Empty, Row) :-
 state_row([], _, _) -->
     [].
 state_row([K|T], State, Empty) -->
-    state_cell(State.get(K)),
+    state_cell(K, State.get(K)),
     !,
     state_row(T, State, Empty).
-state_row([_|T], State, Empty) -->
+state_row([K|T], State, Empty) -->
     { copy_term(Empty, Cell) },
-    [Cell],
+    [K-Cell],
     state_row(T, State, Empty).
 
-state_cell(V) -->
+state_cell(K, V) -->
     { compound(V),
       compound_name_arguments(V, d, Args)
     },
     !,
-    sequence(one, Args).
-state_cell(V) -->
-    [V].
+    der_columns(K, 0, Args).
+state_cell(K, V) -->
+    [K-V].
 
-one(C) -->
-    [C].
+der_columns(_,_,[]) -->
+    !.
+der_columns(K,0,[H|T]) -->
+    !,
+    [K-H],
+    der_columns(K,1,T).
+der_columns(K,N,[H|T]) -->
+    !,
+    [der(K,N)-H],
+    {N1 is N+1},
+    der_columns(K,N1,T).
 
 
 %!  round_float_row(+Decimals, +RowIn, -Row) is det.
