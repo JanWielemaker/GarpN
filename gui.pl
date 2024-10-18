@@ -118,6 +118,7 @@ home -->
                        let data;
                        let layout;
                        let plot;
+                       let SHA1;
                       |})
          ])]).
 
@@ -197,9 +198,48 @@ derivatives_select(Name) -->
 
 info(Request) :-
     http_read_data(Request, Data, []),
-    memberchk(location=Atom, Data),
-    atom_number(Atom, X),
-    reply_htmx('Clicked at time ~2f'-[X]).
+    _{time:TimeAtom, sha1:SHA1} :< Data,
+    atom_number(TimeAtom, Time),
+    saved(SHA1, Model, Options),
+    q_series(string(Model), QSeries, [link_garp_states(true)|Options]),
+    (   phrase(info_seq(Time, States), QSeries, _)
+    ->  with_output_to(string(S),
+                       print_term(States, [output(current_output)])),
+        reply_htmx([ 'Clicked at time ~2f'-[Time],
+                     pre(S)
+                   ])
+    ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
+    ).
+
+info_seq(Time, States) -->
+    ...,
+    linked(Before), not_linked_list(BL), timed(Time,State),
+    not_linked_list(AL), linked(After), !,
+    { append([[Before], BL, [State], AL, [After]], States) }.
+
+linked(State) -->
+    [State],
+    { State.get(garp_states) = [_|_] }.
+
+not_linked_list([]) -->
+    [].
+not_linked_list([H|T]) -->
+    not_linked(H),
+    not_linked_list(T).
+
+not_linked(State) -->
+    [State],
+    { \+ State.get(garp_states) = [_|_] }.
+
+timed(Time, State) -->
+    [State],
+    peek(Next),
+    { State.t =< Time, Next.t >= Time }.
+
+... --> [] ; [_], ... .
+peek(X), [X] --> [X].
+
+
 
 %!  run(+Request)
 %
@@ -224,21 +264,23 @@ run(Request) :-
     ),
     form_derivatives(Form, Derivatives),
     id_mapping(IdMapping),
-    Options = [ iterations(Iterations),
+    Options = [ d(D),
+                match(Derivatives),
+                iterations(Iterations),
                 method(Method),
                 track(Track),
                 sample(Sample),
                 id_mapping(IdMapping)
               ],
     call_time(simulate(string(Model), Series, Options), Time),
-    annotate_garp_states(Series, Shapes, [d(D),match(Derivatives)|Options]),
+    annotate_garp_states(Series, Shapes, Options),
     js_id_mapping(IdMapping, JSMapping),
     plotly_traces(Series, VTraces, DTraces, JSMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
                  \download_links(Model, Options),
                  div([ id(plot),
-                       'hx-vals'('js:{location: plotly_clicked_at.x}'),
+                       'hx-vals'('js:{time: plotly_clicked_at.x, sha1:SHA1}'),
                        'hx-post'('/garp/htmx/info'),
                        'hx-trigger'('clicked-x'),
                        'hx-target'('#info')
@@ -424,21 +466,28 @@ download_links(Model, Options) -->
       ),
       http_link_to_id(csv,     path_postfix(SHA1), HREF),
       http_link_to_id(csvmap,  path_postfix(SHA1), MHREF),
-      http_link_to_id(csvgarp, path_postfix(SHA1), GHREF)
+      http_link_to_id(csvgarp, path_postfix(SHA1), GHREF),
+      JSSHA1 = SHA1
     },
-    html(div(class([downloads,narrow]),
-             [ ul([ li(a([href(HREF), download("garp-num.csv")],
-                         "Download as CSV")),
-                    li(a([href(MHREF), download("garp-map.csv")],
-                         "Mapping to Garp as CSV")),
-                    li(a([href(GHREF), download("garp.csv")],
-                         "Garp states as CSV"))
-                  ])
-             ])).
+    html([ \js_script({|javascript(JSSHA1)||SHA1 = JSSHA1;|}),
+           div(class([downloads,narrow]),
+               [ ul([ li(a([href(HREF), download("garp-num.csv")],
+                           "Download as CSV")),
+                      li(a([href(MHREF), download("garp-map.csv")],
+                           "Mapping to Garp as CSV")),
+                      li(a([href(GHREF), download("garp.csv")],
+                           "Garp states as CSV"))
+                    ])
+               ])
+         ]).
 
 :- http_handler(garp(download/csv/SHA1), download_csv(SHA1), [id(csv)]).
 :- http_handler(garp(download/csv/map/SHA1), download_map(SHA1), [id(csvmap)]).
 :- http_handler(garp(download/csv/garp/SHA1), download_garp(SHA1), [id(csvgarp)]).
+
+%!  download_csv(+SHA1, +Request) is det.
+%
+%   Download simulation values as CSV.
 
 download_csv(SHA1, _Request) :-
     saved(SHA1, Model, Options),
@@ -455,14 +504,24 @@ download_csv(SHA1, _Request) :-
     csv_write_stream(current_output, [Title|Compounds],
                      [ separator(0',)]).
 
+%!  download_map(+SHA1, +Request) is det.
+%
+%   Download the mapping to Garp as CSV.
+
 download_map(SHA1, _Request) :-
     saved(SHA1, Model, Options),
-    q_series(string(Model), QSeries, [d(1),link_garp_states(true)|Options]),
+    q_series(string(Model), QSeries, [link_garp_states(true)|Options]),
     option(id_mapping(IdMapping), Options, _{}),
     q_series_table(QSeries, Table, IdMapping),
     format('Content-type: text/csv~n~n'),
     csv_write_stream(current_output, Table,
                      [ separator(0',)]).
+
+%!  download_garp(+SHA1, +Request) is det.
+%
+%   Download the garp states as CSV.   Currently hard-wired to only take
+%   the 1st derivative.  Higher  derivatives   currently  only  harm the
+%   result.
 
 download_garp(SHA1, _Request) :-
     saved(SHA1, _Model, Options),
