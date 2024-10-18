@@ -1,11 +1,13 @@
 :- module(csv_util,
           [ key_label/3,
             order_keys/2,
+            state_row/4,                % +Keys, +State:dict, +Empty, -Row:list
             round_float_row/3,          % +Decimals, +RowIn, -Row
             round_float/3
           ]).
 :- use_module(library(pairs)).
 :- use_module(library(terms)).
+:- use_module(library(dcg/high_order)).
 
 %!  key_label(+IdMapping, +Key, -Label) is det.
 
@@ -28,6 +30,39 @@ csv_column_rank(state, 0) :- !.
 csv_column_rank(Key,   1) :- sub_atom(Key, _, _, _, number_of), !.
 csv_column_rank(Key,   2) :- sub_atom(Key, _, _, _, growth), !.
 csv_column_rank(_,     3).
+
+%!  state_row(+Keys, +State:dict, +Empty, -Row:list)
+%
+%   Turn a state into a row,   unfolding  derivative terms (d(...)) into
+%   multiple columns. Possibly missing cells are   filled with a copy of
+%   Empty.
+
+state_row(Keys, State, Empty, Row) :-
+    phrase(state_row(Keys, State, Empty), Row).
+
+state_row([], _, _) -->
+    [].
+state_row([K|T], State, Empty) -->
+    state_cell(State.get(K)),
+    !,
+    state_row(T, State, Empty).
+state_row([_|T], State, Empty) -->
+    { copy_term(Empty, Cell) },
+    [Cell],
+    state_row(T, State, Empty).
+
+state_cell(V) -->
+    { compound(V),
+      compound_name_arguments(V, d, Args)
+    },
+    !,
+    sequence(one, Args).
+state_cell(V) -->
+    [V].
+
+one(C) -->
+    [C].
+
 
 %!  round_float_row(+Decimals, +RowIn, -Row) is det.
 %

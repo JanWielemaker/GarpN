@@ -82,3 +82,19 @@ table.states td.qualitative {
 table.states td.float {
     text-align: right;
 }
+
+table.states td.match {
+    background-color: #7eff7d;
+}
+
+table.states td.nomatch {
+    background-color: #ff7c7d;
+}
+
+table.states tr.simulation {
+    background-color: #ddd;
+}
+
+table.states tr.garp {
+    background-color: #bbb;
+}

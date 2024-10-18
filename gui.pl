@@ -246,6 +246,9 @@ timed(Time, State) -->
 ... --> [] ; [_], ... .
 peek(X), [X] --> [X].
 
+%!  add_garp_states(+QStates, +GarpStates:list(pair(integer,dict)),
+%!                  -States) is det.
+
 add_garp_states(QStates, GStates, States) :-
     once(append([First|Skipped], [Last], QStates)),
     min_list(First.garp_states, Min),
@@ -306,7 +309,7 @@ state_table(States, Options) -->
     html(table(class(states),
                [ tr(\sequence(state_header(1, First, IdMapping), Ordered)),
                  tr(\sequence(state_header(2, First, IdMapping), Ordered))
-               | \sequence(state_row(Ordered), States)
+               | \state_rows(States, Ordered)
                ])).
 
 state_header(Nth, Row, IdMapping, Key) -->
@@ -341,30 +344,63 @@ derivative_headers([_|T], N) -->
     {N1 is N+1},
     derivative_headers(T, N1).
 
-state_row(Keys, Row) -->
-    html(tr(\sequence(state_cell(Row), Keys))).
-
-state_cell(Row, Key) -->
-    { Value = Row.get(Key),
-      compound(Value),
-      compound_name_arguments(Value, d, Ds)
+state_rows([], _) -->
+    [].
+state_rows([S,G|T], Keys) -->
+    { \+ is_garp_row(S),
+      is_garp_row(G),
+      !,
+      state_row(Keys, S, _, SCells),
+      state_row(Keys, G, _, GCells),
+      pairs_keys_values(Pairs, SCells, GCells)
     },
-    !,
-    sequence(cell_value, Ds).
-state_cell(Row, Key) -->
-    cell_value(Row.get(Key)),
-    !.
-state_cell(_, _) -->
-    html(td(&(nbsp))).
+    html(tr(class(simulation), \sequence(cmp_value(1), Pairs))),
+    html(tr(class(garp),       \sequence(cmp_value(2), Pairs))),
+    state_rows(T, Keys).
+state_rows([H|T], Keys) -->
+    { state_row(Keys, H, _, Cells) },
+    html(tr(\sequence(cell_value([]), Cells))),
+    state_rows(T, Keys).
 
-cell_value(Value) -->
+is_garp_row(Row) :-
+    \+ _Time = Row.get(t).
+
+cmp_value(1, S-G) -->
+    { S == G },
+    !,
+    cell_value([class(match),rowspan(2)], S).
+cmp_value(2, S-G) -->
+    { S == G },
+    !.
+cmp_value(1, S-_) -->
+    !,
+    cell_value([class([nomatch,simulation])], S).
+cmp_value(2, _-G) -->
+    cell_value([class([nomatch,garp])], G).
+
+cell_value(Attrs, Value) -->
+    { var(Value) },
+    html(td(Attrs, &(nbsp))).
+cell_value(Attrs, Value) -->
     { float(Value),
       !,
-      round_float(5, Value, Rounded)
+      round_float(5, Value, Rounded),
+      join_attrs([class(float)], Attrs, Attrs1)
     },
-    html(td(class(float), '~2f'-[Rounded])).
-cell_value(Value) -->
-    html(td(class(qualitative), '~p'-[Value])).
+    html(td(Attrs1, '~2f'-[Rounded])).
+cell_value(Attrs, Value) -->
+    { join_attrs([class(qualitative)], Attrs, Attrs1)
+    },
+    html(td(Attrs1, '~p'-[Value])).
+
+join_attrs(Attrs0, Attrs1, [class(C)|Attrs]) :-
+    select(class(C0), Attrs0, Attrs00),
+    select(class(C1), Attrs1, Attrs10),
+    !,
+    flatten([C0, C1], C),
+    append(Attrs00, Attrs10, Attrs).
+join_attrs(Attrs0, Attrs1, Attrs) :-
+    append(Attrs0, Attrs1, Attrs).
 
 
 %!  run(+Request)
