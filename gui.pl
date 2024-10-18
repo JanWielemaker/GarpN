@@ -147,6 +147,7 @@ default_model("").
 
 :- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run, []).
+:- http_handler(htmx(info), info, []).
 
 %!  analyze(+Request)
 %
@@ -190,6 +191,16 @@ derivatives_select(Name) -->
                 ])).
 
 
+%!  info(+Request)
+%
+%
+
+info(Request) :-
+    http_read_data(Request, Data, []),
+    memberchk(location=Atom, Data),
+    atom_number(Atom, X),
+    reply_htmx('Clicked at time ~2f'-[X]).
+
 %!  run(+Request)
 %
 %   Run the simulation
@@ -226,12 +237,18 @@ run(Request) :-
     reply_htmx([ hr([]),
                  \stats(Series, Time),
                  \download_links(Model, Options),
-                 div(id(plot),
+                 div([ id(plot),
+                       'hx-vals'('js:{location: plotly_clicked_at.x}'),
+                       'hx-post'('/garp/htmx/info'),
+                       'hx-trigger'('clicked-x'),
+                       'hx-target'('#info')
+                     ],
                      [ \rulers(ShowRulers),
                        div(id(plotly), []),
                        \traces(VTraces, DTraces, Shapes),
                        \js_script({|javascript||initShapes("plotly")|})
-                     ])
+                     ]),
+                 div([id(info),class(narrow)], [&(nbsp)])
                ]).
 
 js_id_mapping(Dict, JDict) :-
@@ -252,6 +269,7 @@ plot(Target, Title, Traces, Shapes) -->
                data = Traces;
                layout = { // title: Title,
                           shapes: Shapes,
+                          margin: { t: 30, b: 5 },
                           grid: { rows: 2,
                                   columns: 1,
                                   pattern: 'independent',

@@ -21,6 +21,11 @@ div.stats {
     margin-top: 3ex;
 }
 
+#info {
+    font-size: 80%;
+    font-style: italic;
+}
+
 #errors {
     color: red;
 }

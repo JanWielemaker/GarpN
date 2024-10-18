@@ -10,27 +10,28 @@ function initRulers(id) {
   };
 }
 
+let plotly_clicked_at;		// hack. How to pass info properly?
+
 function initShapes(id) {
   const div = document.getElementById(id);
-  div.on('plotly_afterplot', function() {
-    interactiveShapes(div);
+
+  div.addEventListener("click", (ev) => {
+    const loc = getPlotCoordinates(div,ev);
+    plotly_clicked_at = loc;
+    htmx.trigger(div, "clicked-x", loc);
   });
 }
 
-function interactiveShapes(div) {
-  const shapes = div.querySelectorAll("g.shape-group");
-  for(let i=0; i<shapes.length; i++)
-  { const shape = shapes[i];
-    const label = shape.textContent;
-    if ( label && shape.style.cursor != 'pointer' )
-    { shape.style.cursor = 'pointer';
-      shape.style.pointerEvents = 'auto';
-      shape.addEventListener("click", (ev) => {
-	console.log("Clicked ", label, ev);
-	setTimeout(()=>interactiveShapes(div));
-      });
-    }
-  }
+function getPlotCoordinates(div, ev)
+{ var xaxis = div._fullLayout.xaxis;
+  var yaxis = div._fullLayout.yaxis;
+  var l     = div._fullLayout.margin.l;
+  var t     = div._fullLayout.margin.t;
+
+  var x = xaxis.p2c(ev.x - l);
+  var y = yaxis.p2c(ev.y - t);
+
+  return { x, y };
 }
 
 function clear_output()
