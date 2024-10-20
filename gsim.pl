@@ -262,7 +262,8 @@ derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
 
 derived_initial_state(Formulas, Constants, State0, State) :-
     findall(Key, missing_init(Formulas, Constants, State0, Key), Missing),
-    dt_expression(Formulas, DTExpr),
+    dt_expression(Formulas, DTExpr0),
+    copy_term(DTExpr0, DTExpr),
     0 = DTExpr._DTKey,
     derived_initials(Missing, Unresolved, Formulas, DTExpr, Constants,
                      State0, State),
