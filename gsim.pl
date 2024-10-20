@@ -93,8 +93,9 @@ read_model(From, Formulas, Constants, State, Options) :-
     maplist(q_term(Options), Sorted, Quantities1),
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
     maplist(is_valid_model_term, Terms1),
-    foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas, Init)),
-    split_init(Init, Formulas, Constants, State).
+    foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas0, Init)),
+    split_init(Init, Formulas0, Constants0, State),
+    derived_constants(Formulas0, Constants0, Formulas, Constants).
 
 %!  read_to_terms(++Input, -Terms) is det.
 %
@@ -181,7 +182,7 @@ model_expression(Term, m(FormulasIn, InitIn),  m(Formulas, Init)) :-
 
 model_expression((Left := Right)-Bindings,
                  FormulasIn, Formulas, InitIn, Init),
-    dict_pairs(Bindings, _, [Id-Left]) =>
+    dict_pairs(Bindings, _, [Id-Left]) =>         % Left only binding: Right is ground
     Formulas = FormulasIn,
     Value is Right,
     Init = InitIn.put(Id, Value).
@@ -203,6 +204,36 @@ same_variables(T1, T2) :-
     term_variables(T1, V1), sort(V1, Vs1),
     term_variables(T2, V2), sort(V2, Vs2),
     Vs1 == Vs2.
+
+%!  derived_constants(+Formulas0, +Constants0, -Formulas, -Constants) is
+%!                    det.
+%
+%   If a formula just has constants at the  right, remove it and add the
+%   value to Constants.
+
+derived_constants(Formulas0, Constants0, Formulas, Constants) :-
+    dict_pairs(Formulas0, FTag, FPairs0),
+    derived_constants_(FPairs0, Constants0, FPairs, Constants),
+    dict_pairs(Formulas, FTag, FPairs).
+
+derived_constants_(FPairs0, Constants0, FPairs, Constants) :-
+    derived_constants__(FPairs0, Constants0, FPairs1, Constants1),
+    (   Constants0 == Constants1
+    ->  FPairs = FPairs0,
+        Constants = Constants0
+    ;   derived_constants_(FPairs1, Constants1, FPairs, Constants)
+    ).
+
+derived_constants__([], Constants, [], Constants).
+derived_constants__([Left-formula(Right, Bindings)|FT], Constants0, FPairs, Constants) :-
+    Bindings >:< Constants0,
+    is_dict(Bindings, #),                         % ground the tag
+    ground(Bindings), !,
+    Value is Right,
+    Constants1 = Constants0.put(Left, Value),
+    derived_constants__(FT, Constants1, FPairs, Constants).
+derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
+    derived_constants__(FT, Constants0, FPairs, Constants).
 
 %!  split_init(+Init, +Formulas, -Constants, -State) is det.
 %
