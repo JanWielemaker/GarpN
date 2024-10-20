@@ -78,19 +78,19 @@ home(_Request) :-
                     ]).
 
 home -->
-    { default_model(Model)
+    { default_model(Model, Source)
     },
     html([ h1("Garp numerical simulator"),
+           div(class(narrow), \model_menu(Model)),
            div('hx-ext'('response-targets'),
-               [
-           form(['hx-post'('/garp/htmx/run'),
+               [ form(['hx-post'('/garp/htmx/run'),
                  'hx-target'('#results'),
                  'hx-target-500'('#errors'),
                  'hx-on-htmx-before-request'('clear_output()')
                 ],
-                [ \model_area(Model),
+                [ \model_area(Source),
                   div([id(quantity_controls), class(narrow)],
-                      \q_menu(Model)),
+                      \q_menu(Model, Source)),
                   div(class([controls, narrow]),
                       [ label(for(iterations),
                               '# Iterations'),
@@ -102,25 +102,47 @@ home -->
                               ]),
                         ' ',
                         \methods,
-                        input([ type(hidden),
-                                name(track),
-                                value(all)
-                              ]),
+                        input([ type(hidden), name(track), value(all) ]),
+                        input([ type(hidden), name(model), id(model), value(Model) ]),
                         ' ',
                         input([ type(submit),
                                 value("Run!")
                               ])
                       ])
                 ]),
-           div([id(errors),class(narrow)], []),
-           div(id(results), []),
-           \js_script({|javascript||
-                       let data;
-                       let layout;
-                       let plot;
-                       let SHA1;
-                      |})
-         ])]).
+                 div([id(errors),class(narrow)], []),
+                 div(id(results), []),
+                 div(id(script), []),
+                 \js_script({|javascript(Model)||
+                             let model = Model;
+                             let data;
+                             let layout;
+                             let plot;
+                             let SHA1;
+                            |})
+               ])
+         ]).
+
+model_menu(Default) -->
+    { findall(File, directory_member(numeric, File,
+                                     [ extensions([pl]) ]), Files)
+    },
+    html(select([ 'hx-get'('/garp/htmx/set-model'),
+                  'hx-trigger'(change),
+                  'hx-target'('#quantity_controls'),
+                  name(model)
+                ],
+                \sequence(model_option(Default), Files))).
+
+model_option(Default, File) -->
+    { file_base_name(File, Base),
+      file_name_extension(Model, _, Base),
+      (   File == Default
+      ->  T = [selected]
+      ;   T = []
+      )
+    },
+    html(option([value(Model)|T], Model)).
 
 methods -->
     html([ label(for(method), 'Method'),
@@ -132,23 +154,44 @@ methods -->
 
 model_area(Model) -->
     html(div(class([model,narrow]),
-             textarea([ name(model),
-                        id(model),
+             textarea([ name(source),
+                        id(source),
+                        'hx-vals'('js:getModel()'),
                         'hx-post'('/garp/htmx/analyze'),
-                        'hx-trigger'('input changed delay:500ms'),
+                        'hx-trigger'('input changed delay:1000ms'),
                         'hx-target'('#quantity_controls'),
                         placeholder('Your numerical model')
                       ], Model))).
 
-default_model(Model) :-
+default_model(Model, Source) :-
     model_file(File),
     !,
-    read_file_to_string(File, Model, []).
-default_model("").
+    file_base_name(File, Base),
+    file_name_extension(Model, _, Base),
+    read_file_to_string(File, Source, []).
+default_model(none, "").
 
 :- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run, []).
 :- http_handler(htmx(info), info, []).
+:- http_handler(htmx('set-model'), set_model, []).
+
+%!  set_model(+Request)
+%
+%   Change the model
+
+set_model(Request) :-
+    http_parameters(Request, [ model(Model, []) ]),
+    numeric_model_file(Model, File),
+    read_file_to_string(File, Source, []),
+    reply_htmx(
+        [ \q_menu(Model, Source),
+          \js_script({|javascript(Model,Source)||setModel(Model,Source)|})
+        ]).
+
+numeric_model_file(Model, File) :-
+    format(atom(File), 'numeric/~w.pl', [Model]).
+
 
 %!  analyze(+Request)
 %
@@ -156,11 +199,11 @@ default_model("").
 
 analyze(Request) :-
     http_read_data(Request, Data, []),
-    memberchk(model=Source, Data),
-    reply_htmx(\q_menu(Source)).
+    _{model: Model, source: Source} :< Data,
+    reply_htmx(\q_menu(Model, Source)).
 
-q_menu(Source) -->
-    { id_mapping(IdMapping),
+q_menu(Model, Source) -->
+    { id_mapping(Model, IdMapping),
       catch(read_model(string(Source), Formulas, _Constants, _State0,
                        [ id_mapping(IdMapping) ]),
             error(_,_), fail),
@@ -172,7 +215,7 @@ q_menu(Source) -->
                [ tr([th(class(quantity), 'Quantity'), th('Link to Garp')]),
                  \sequence(q_control(IdMapping), Quantities)
                ])).
-q_menu(_) -->
+q_menu(_, _) -->
     [].
 
 q_control(IdMapping, Key) -->
@@ -465,6 +508,7 @@ run(Request) :-
                       sample(Sample, [integer, optional(true)]),
                       rulers(ShowRulers, [boolean, default(false)]),
                       derivative(D, [between(-1,3), default(1)]),
+                      source(Source, []),
                       model(Model, [])
                     ],
                     [ form_data(Form)
@@ -474,8 +518,9 @@ run(Request) :-
     ;   true
     ),
     form_derivatives(Form, Derivatives),
-    id_mapping(IdMapping),
-    Options = [ d(D),
+    id_mapping(Model, IdMapping),
+    Options = [ model(Model),
+                d(D),
                 match(Derivatives),
                 iterations(Iterations),
                 method(Method),
@@ -483,13 +528,13 @@ run(Request) :-
                 sample(Sample),
                 id_mapping(IdMapping)
               ],
-    call_time(simulate(string(Model), Series, Options), Time),
+    call_time(simulate(string(Source), Series, Options), Time),
     annotate_garp_states(Series, Shapes, Options),
     js_id_mapping(IdMapping, JSMapping),
     plotly_traces(Series, VTraces, DTraces, JSMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
-                 \download_links(Model, Options),
+                 \download_links(Source, Options),
                  div([ id(plot),
                        'hx-vals'('js:{time: plotly_clicked_at.x, sha1:SHA1}'),
                        'hx-post'('/garp/htmx/info'),
@@ -669,11 +714,11 @@ stats(Series, Time) -->
 :- dynamic
     saved/3.
 
-download_links(Model, Options) -->
-    { variant_sha1(Model+Options, SHA1),
-      (   saved(SHA1, Model, Options)
+download_links(Source, Options) -->
+    { variant_sha1(Source+Options, SHA1),
+      (   saved(SHA1, Source, Options)
       ->  true
-      ;   asserta(saved(SHA1, Model, Options))
+      ;   asserta(saved(SHA1, Source, Options))
       ),
       http_link_to_id(csv,     path_postfix(SHA1), HREF),
       http_link_to_id(csvmap,  path_postfix(SHA1), MHREF),

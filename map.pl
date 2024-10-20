@@ -130,10 +130,12 @@ saved_model_file(Model, File) :-
 %   model is saved, we use the current model.
 
 id_mapping(Model, Mapping) :-
+    Model \== engine,
     current_predicate(Model:qspace/4),
     !,
-    id_mapping(Model, Mapping).
+    id_mapping_(Model, Mapping).
 id_mapping(Model, Mapping) :-
+    Model \== engine,
     saved_model_file(Model, File),
     exists_file(File),
     $,
@@ -149,12 +151,14 @@ id_mapping(_Model, Mapping) :-
 %   is saved, we use the current model.
 
 qstate(Model, State, Values, Options) :-
+    Model \== engine,
     current_predicate(Model:qstate/2),
     !,
     option(d(N), Options, 3),
     Model:qstate(State, Values0),
     mapdict(keep_derivatives_(N), Values0, Values).
 qstate(Model, State, Values, Options) :-
+    Model \== engine,
     saved_model_file(Model, File),
     exists_file(File),
     $current_predicate(Model:qstate/2),
@@ -214,7 +218,8 @@ opt_link_garp_states(Series, Series, _).
 %!  link_garp_states(+QSeries0, -QSeries, +Options) is det.
 
 link_garp_states(QSeries0, QSeries, Options) :-
-    findall(Id-State, qstate(Id, State, Options), GarpStates),
+    option(model(Model), Options, engine),
+    findall(Id-State, qstate(Model, Id, State, Options), GarpStates),
     option(garp_states(GarpStates), Options, _),
     maplist(add_state(GarpStates), QSeries0, QSeries).
 

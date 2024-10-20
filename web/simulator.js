@@ -39,6 +39,18 @@ function clear_output()
   document.getElementById("results").innerHTML = "";
 }
 
+
+function setModel(name, content)
+{ model = name;
+  document.getElementById("source").value = content;
+  document.getElementById("model").value = name;
+}
+
+function getModel()
+{ return { model: model, source: document.getElementById("source").value };
+}
+
+
 		 /*******************************
 		 *        ERROR HANDLING        *
 		 *******************************/
