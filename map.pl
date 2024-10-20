@@ -5,7 +5,10 @@
             qstate/3,                   % +State, -Values, +Options
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
             q_series_table/3,           % +QSeries, -Table, +IdMapping
-            nq_series/3                 % +Series, -QSeries, +Options
+            nq_series/3,                % +Series, -QSeries, +Options
+            save_garp_results/1,        % +File
+            id_mapping/2,               % +Model, -Mapping
+            qstate/4                    % +Model, ?Id, -Values, +Options
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -26,11 +29,14 @@
 %   growth(Q) terms.
 
 id_mapping(Mapping) :-
-    findall(Id-Term, id_map(Id, Term), Pairs),
+    id_mapping_(engine, Mapping).
+
+id_mapping_(Module, Mapping) :-
+    findall(Id-Term, id_map(Module, Id, Term), Pairs),
     dict_pairs(Mapping, _, Pairs).
 
-id_map(Id, Term) :-
-    engine:qspace(Id, Term4, _Values, fail),
+id_map(Module, Id, Term) :-
+    Module:qspace(Id, Term4, _Values, fail),
     Term4 =.. [DV,Q|_],
     Term =.. [DV,Q].
 
@@ -94,6 +100,72 @@ unknown_var(min,  Val) => Val = min.
 smd_data(params, smd(_Name, _SE, parameters(P), _V, _R, _SS, _IS), Result) => Result = P.
 smd_data(values, smd(_Name, _SE, _P, par_values(V), _R, _SS, _IS), Result) => Result = V.
 smd_data(store,  smd(_Name, _SE, _P, _V, _R, _SS, store(IS)),      Result) => Result = store(IS).
+
+%!  save_garp_results(+Model)
+%
+%   Save the results of the simulation to File, so we can compare
+%   without running
+
+save_garp_results(Model) :-
+    saved_model_file(Model, File),
+    setup_call_cleanup(
+        open(File, write, Out),
+        save_garp_to_stream(Out, Model),
+        close(Out)).
+
+save_garp_to_stream(Out, Module) :-
+    format(Out, ':- module(~q, []).~n~n', [Module]),
+    forall(engine:qspace(Id, Term4, Values, Fail),
+           format(Out, '~q.~n',  [qspace(Id, Term4, Values, Fail)])),
+    nl(Out),
+    forall(qstate(State, Values, []),
+           format(Out, '~q.~n',  [qstate(State, Values)])).
+
+saved_model_file(Model, File) :-
+    format(atom(File), 'garp/~w.db', [Model]).
+
+%!  id_mapping(+Model, -Mapping) is det.
+%
+%   Extract the identifier mapping from a   saved Garp simulation. If no
+%   model is saved, we use the current model.
+
+id_mapping(Model, Mapping) :-
+    current_predicate(Model:qspace/4),
+    !,
+    id_mapping(Model, Mapping).
+id_mapping(Model, Mapping) :-
+    saved_model_file(Model, File),
+    exists_file(File),
+    $,
+    use_module(File, []),
+    current_predicate(Model:qspace/4),
+    id_mapping_(Model, Mapping).
+id_mapping(_Model, Mapping) :-
+    id_mapping(Mapping).
+
+%!  qstate(+Model, ?Id, -Values, +Options)
+%
+%   Extract qualitative states from a saved Garp simulation If no model
+%   is saved, we use the current model.
+
+qstate(Model, State, Values, Options) :-
+    current_predicate(Model:qstate/2),
+    !,
+    option(d(N), Options, 3),
+    Model:qstate(State, Values0),
+    mapdict(keep_derivatives_(N), Values0, Values).
+qstate(Model, State, Values, Options) :-
+    saved_model_file(Model, File),
+    exists_file(File),
+    $current_predicate(Model:qstate/2),
+    !,
+    qstate(Model, State, Values, Options).
+qstate(_Model, State, Values, Options) :-
+    qstate(State, Values, Options).
+
+keep_derivatives_(N, _K, V0, V) :-
+    keep_derivatives(N, V0, V).
+
 
 		 /*******************************
 		 *       NUM -> QUALITATIVE	*
