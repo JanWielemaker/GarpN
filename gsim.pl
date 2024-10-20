@@ -94,9 +94,9 @@ read_model(From, Formulas, Constants, State, Options) :-
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
     maplist(is_valid_model_term, Terms1),
     foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas0, Init)),
-    split_init(Init, Formulas0, Constants0, State),
+    split_init(Init, Formulas0, Constants0, State0),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
-    verify_model(Formulas, Constants, State).
+    derived_initial_state(Formulas, Constants, State0, State).
 
 %!  read_to_terms(++Input, -Terms) is det.
 %
@@ -256,23 +256,35 @@ derived_constants__([Left-formula(Right, Bindings)|FT], Constants0,
 derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
     derived_constants__(FT, Constants0, FPairs, Constants).
 
-%!  derived_initial_state(+Formulas, +State0, -State) is det.
+%!  derived_initial_state(+Formulas, +Constants, +State0, -State) is det.
 %
 %   Extend the initial state
 
-
-
-%!  verify_model(+Formulas, +Constants, +State) is det.
-%
-%   Verify that all formulas can be evaluated.
-%   @error existence_error(initial_value, Key)
-
-verify_model(Formulas, Constants, State) :-
-    findall(Key, missing_init(Formulas, Constants, State, Key), Missing),
-    (   Missing == []
+derived_initial_state(Formulas, Constants, State0, State) :-
+    findall(Key, missing_init(Formulas, Constants, State0, Key), Missing),
+    dt_expression(Formulas, DTExpr),
+    0 = DTExpr._DTKey,
+    derived_initials(Missing, Unresolved, Formulas, DTExpr, Constants,
+                     State0, State),
+    (   Unresolved == []
     ->  true
-    ;   existence_error(initial_values, Missing)
+    ;   existence_error(initial_values, Unresolved)
     ).
+
+derived_initials([], [], _, _, _, State, State).
+derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
+    select(Key, Missing, Missing1),
+    copy_term(Formulas.Key, formula(Right,Bindings)),
+    Constants >:< Bindings,
+    State0 >:< Bindings,
+    DTExpr >:< Bindings,
+    ground(Right),
+    !,
+    Value is Right,
+    State1 = State0.put(Key,Value),
+    derived_initials(Missing1, Unres, Formulas, DTExpr, Constants,
+                     State1, State).
+derived_initials(Missing, Missing, _, _, _, State, State).
 
 missing_init(Formulas, Constants, State, Key) :-
     get_dict(_Left, Formulas, formula(Right, Bindings)),
