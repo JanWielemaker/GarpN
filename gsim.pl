@@ -95,7 +95,8 @@ read_model(From, Formulas, Constants, State, Options) :-
     maplist(is_valid_model_term, Terms1),
     foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas0, Init)),
     split_init(Init, Formulas0, Constants0, State),
-    derived_constants(Formulas0, Constants0, Formulas, Constants).
+    derived_constants(Formulas0, Constants0, Formulas, Constants),
+    verify_model(Formulas, Constants, State).
 
 %!  read_to_terms(++Input, -Terms) is det.
 %
@@ -205,6 +206,26 @@ same_variables(T1, T2) :-
     term_variables(T2, V2), sort(V2, Vs2),
     Vs1 == Vs2.
 
+%!  split_init(+Init, +Formulas, -Constants, -State) is det.
+%
+%   Split the quantities for which we found an initial value into a dict
+%   with constants and the initial  state  dict.   Both  map  an id to a
+%   concrete number.
+
+split_init(Init, Formulas, Constants, State) :-
+    dict_pairs(Init, _, Pairs),
+    split_init_(Pairs, Formulas, ConstantPairs, StatePairs),
+    dict_pairs(Constants, _, ConstantPairs),
+    dict_pairs(State, _, StatePairs).
+
+split_init_([], _, [], []).
+split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
+    get_dict(Id, Formulas, _),
+    !,
+    split_init_(T, Formulas, ConstantPairs, StatePairs).
+split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
+    split_init_(T, Formulas, ConstantPairs, StatePairs).
+
 %!  derived_constants(+Formulas0, +Constants0, -Formulas, -Constants) is
 %!                    det.
 %
@@ -225,35 +246,37 @@ derived_constants_(FPairs0, Constants0, FPairs, Constants) :-
     ).
 
 derived_constants__([], Constants, [], Constants).
-derived_constants__([Left-formula(Right, Bindings)|FT], Constants0, FPairs, Constants) :-
+derived_constants__([Left-formula(Right, Bindings)|FT], Constants0,
+                    FPairs, Constants) :-
     Bindings >:< Constants0,
-    is_dict(Bindings, #),                         % ground the tag
-    ground(Bindings), !,
+    ground(Right), !,
     Value is Right,
     Constants1 = Constants0.put(Left, Value),
     derived_constants__(FT, Constants1, FPairs, Constants).
 derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
     derived_constants__(FT, Constants0, FPairs, Constants).
 
-%!  split_init(+Init, +Formulas, -Constants, -State) is det.
+%!  verify_model(+Formulas, +Constants, +State) is det.
 %
-%   Split the quantities for which we found an initial value into a dict
-%   with constants and the initial  state  dict.   Both  map  an id to a
-%   concrete number.
+%   Verify that all formulas can be evaluated.
+%   @error existence_error(initial_value, Key)
 
-split_init(Init, Formulas, Constants, State) :-
-    dict_pairs(Init, _, Pairs),
-    split_init_(Pairs, Formulas, ConstantPairs, StatePairs),
-    dict_pairs(Constants, _, ConstantPairs),
-    dict_pairs(State, _, StatePairs).
+verify_model(Formulas, Constants, State) :-
+    \+ \+ mapdict(verify_formula(Constants, State), Formulas).
 
-split_init_([], _, [], []).
-split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
-    get_dict(Id, Formulas, _),
-    !,
-    split_init_(T, Formulas, ConstantPairs, StatePairs).
-split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
-    split_init_(T, Formulas, ConstantPairs, StatePairs).
+verify_formula(Constants, State, _Left, formula(Right, Bindings)) :-
+    Bindings >:< Constants,
+    Bindings >:< State,
+    term_variables(Right, Vars),
+    (   Vars == []
+    ->  true
+    ;   get_dict(Key, Bindings, Var),
+        member(Var2, Vars),
+        Var2 == Var,
+        existence_error(initial_value, Key)
+    ).
+
+
 
 %!  intern_constants(+Constants, -DTExpr, +FormualsIn, -Formuals) is det.
 %
