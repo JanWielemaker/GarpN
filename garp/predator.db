@@ -1,0 +1,23 @@
+:- module(predator, []).
+
+qspace(number_of1,number_of(predator,number_of1,continuous,p),[plus],fail).
+qspace(growth1,growth(predator,growth1,continuous,mzp),[min,point(zero),plus],fail).
+qspace(number_of2,number_of(prey,number_of2,continuous,p),[plus],fail).
+qspace(growth2,growth(prey,growth2,continuous,mzp),[min,point(zero),plus],fail).
+
+qstate(1,_22146{growth1:d(zero,plus,plus,_22092),growth2:d(plus,plus,_22134,_22136),number_of1:d(plus,zero,plus,_22070),number_of2:d(plus,plus,plus,_22114)}).
+qstate(2,_22032{growth1:d(plus,plus,plus,_22000),growth2:d(plus,plus,_21954,_21956),number_of1:d(plus,plus,plus,_22022),number_of2:d(plus,plus,plus,_21978)}).
+qstate(3,_21948{growth1:d(plus,plus,plus,_21894),growth2:d(plus,zero,min,_21938),number_of1:d(plus,plus,plus,_21872),number_of2:d(plus,plus,zero,_21916)}).
+qstate(4,_22032{growth1:d(plus,plus,_21998,_22000),growth2:d(plus,min,min,_21956),number_of1:d(plus,plus,plus,_22022),number_of2:d(plus,plus,min,_21978)}).
+qstate(5,_21854{growth1:d(plus,plus,_21798,_21800),growth2:d(zero,min,min,_21844),number_of1:d(plus,plus,plus,_21778),number_of2:d(plus,zero,min,_21822)}).
+qstate(6,_22032{growth1:d(plus,plus,_21998,_22000),growth2:d(min,min,min,_21956),number_of1:d(plus,plus,plus,_22022),number_of2:d(plus,min,min,_21978)}).
+qstate(7,_21948{growth1:d(plus,zero,min,_21894),growth2:d(min,min,min,_21938),number_of1:d(plus,plus,zero,_21872),number_of2:d(plus,min,min,_21916)}).
+qstate(8,_22032{growth1:d(plus,min,min,_22000),growth2:d(min,min,_21954,_21956),number_of1:d(plus,plus,min,_22022),number_of2:d(plus,min,min,_21978)}).
+qstate(9,_21854{growth1:d(zero,min,min,_21800),growth2:d(min,min,_21842,_21844),number_of1:d(plus,zero,min,_21778),number_of2:d(plus,min,min,_21822)}).
+qstate(10,_22032{growth1:d(min,min,min,_22000),growth2:d(min,min,_21954,_21956),number_of1:d(plus,min,min,_22022),number_of2:d(plus,min,min,_21978)}).
+qstate(11,_21948{growth1:d(min,min,min,_21894),growth2:d(min,zero,plus,_21938),number_of1:d(plus,min,min,_21872),number_of2:d(plus,min,zero,_21916)}).
+qstate(12,_22032{growth1:d(min,min,_21998,_22000),growth2:d(min,plus,plus,_21956),number_of1:d(plus,min,min,_22022),number_of2:d(plus,min,plus,_21978)}).
+qstate(13,_21854{growth1:d(min,min,_21798,_21800),growth2:d(zero,plus,plus,_21844),number_of1:d(plus,min,min,_21778),number_of2:d(plus,zero,plus,_21822)}).
+qstate(14,_22032{growth1:d(min,min,_21998,_22000),growth2:d(plus,plus,plus,_21956),number_of1:d(plus,min,min,_22022),number_of2:d(plus,plus,plus,_21978)}).
+qstate(15,_21948{growth1:d(min,zero,plus,_21894),growth2:d(plus,plus,plus,_21938),number_of1:d(plus,min,zero,_21872),number_of2:d(plus,plus,plus,_21916)}).
+qstate(16,_22032{growth1:d(min,plus,plus,_22000),growth2:d(plus,plus,_21954,_21956),number_of1:d(plus,min,plus,_22022),number_of2:d(plus,plus,plus,_21978)}).

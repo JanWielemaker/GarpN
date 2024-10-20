@@ -1,0 +1,13 @@
+:- module('force-and-motion', []).
+
+qspace(gravity1,gravity(object,gravity1,continuous,zp),[point(zero),plus],fail).
+qspace(air_resistance1,air_resistance(object,air_resistance1,continuous,zp),[point(zero),plus],fail).
+qspace(velocity1,velocity(object,velocity1,continuous,zp),[point(zero),plus],fail).
+qspace(distance1,distance(object,distance1,continuous,zp),[point(zero),plus],fail).
+qspace(net_force1,net_force(object,net_force1,continuous,zp),[point(zero),plus],fail).
+qspace(acceleration1,acceleration(object,acceleration1,continuous,zp),[point(zero),plus],fail).
+
+qstate(1,_338{acceleration1:d(plus,min,_326,_328),air_resistance1:d(zero,plus,_238,_240),distance1:d(zero,zero,_282,_284),gravity1:d(plus,zero,zero,_218),net_force1:d(plus,min,_304,_306),velocity1:d(zero,plus,_260,_262)}).
+qstate(2,_3766{acceleration1:d(plus,min,_3644,_3646),air_resistance1:d(plus,plus,_3732,_3734),distance1:d(zero,plus,_3688,_3690),gravity1:d(plus,zero,zero,_3756),net_force1:d(plus,min,_3666,_3668),velocity1:d(plus,plus,_3710,_3712)}).
+qstate(3,_3894{acceleration1:d(plus,min,_3882,_3884),air_resistance1:d(plus,plus,_3794,_3796),distance1:d(plus,plus,_3838,_3840),gravity1:d(plus,zero,zero,_3774),net_force1:d(plus,min,_3860,_3862),velocity1:d(plus,plus,_3816,_3818)}).
+qstate(4,_2808{acceleration1:d(zero,zero,_2686,_2688),air_resistance1:d(plus,zero,_2774,_2776),distance1:d(plus,plus,_2730,_2732),gravity1:d(plus,zero,zero,_2798),net_force1:d(zero,zero,_2708,_2710),velocity1:d(plus,zero,_2752,_2754)}).
