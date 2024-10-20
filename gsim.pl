@@ -256,27 +256,33 @@ derived_constants__([Left-formula(Right, Bindings)|FT], Constants0,
 derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
     derived_constants__(FT, Constants0, FPairs, Constants).
 
+%!  derived_initial_state(+Formulas, +State0, -State) is det.
+%
+%   Extend the initial state
+
+
+
 %!  verify_model(+Formulas, +Constants, +State) is det.
 %
 %   Verify that all formulas can be evaluated.
 %   @error existence_error(initial_value, Key)
 
 verify_model(Formulas, Constants, State) :-
-    \+ \+ mapdict(verify_formula(Constants, State), Formulas).
+    findall(Key, missing_init(Formulas, Constants, State, Key), Missing),
+    (   Missing == []
+    ->  true
+    ;   existence_error(initial_values, Missing)
+    ).
 
-verify_formula(Constants, State, _Left, formula(Right, Bindings)) :-
+missing_init(Formulas, Constants, State, Key) :-
+    get_dict(_Left, Formulas, formula(Right, Bindings)),
     Bindings >:< Constants,
     Bindings >:< State,
     term_variables(Right, Vars),
-    (   Vars == []
-    ->  true
-    ;   get_dict(Key, Bindings, Var),
-        member(Var2, Vars),
-        Var2 == Var,
-        existence_error(initial_value, Key)
-    ).
-
-
+    Vars \== [],
+    get_dict(Key, Bindings, Var),
+    member(Var2, Vars),
+    Var2 == Var.
 
 %!  intern_constants(+Constants, -DTExpr, +FormualsIn, -Formuals) is det.
 %
