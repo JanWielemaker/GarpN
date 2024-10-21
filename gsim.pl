@@ -173,8 +173,8 @@ is_valid_model_term_(Term), number(Term) =>
     true.
 is_valid_model_term_(Term), var(Term) =>
     true.
-is_valid_model_term_(_Term) =>
-    fail.
+is_valid_model_term_(Term) =>
+    type_error(function, Term).
 
 %!  model_expression(+TermAndBindings, +Model0, -Model1)
 
