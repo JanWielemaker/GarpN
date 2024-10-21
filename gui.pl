@@ -137,7 +137,7 @@ model_menu(Default) -->
 model_option(Default, File) -->
     { file_base_name(File, Base),
       file_name_extension(Model, _, Base),
-      (   File == Default
+      (   Model == Default
       ->  T = [selected]
       ;   T = []
       )
