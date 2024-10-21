@@ -1,6 +1,5 @@
 :- module(map,
           [ id_mapping/1,               % -Mapping:dict
-            q_series/2,                 % -QSeries, +Options
             q_series/3,                 % +Model, -QSeries, +Options
             qstate/3,                   % +State, -Values, +Options
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
