@@ -231,20 +231,19 @@ add_state(GarpStates, State0, State) :-
 matching_state(State, _Id-GarpState) :-
     \+ \+ State >:< GarpState.
 
-%!  q_series(-QSeries, +Options) is det.
 %!  q_series(+Model, -QSeries, +Options) is det.
 %
 %   Options
 %
 %     - d(N)
 %     Add up to the Nth derivative.  Default 3.
+%     - model(Model)
+%     (Saved) Garp model to compare against.
 
-q_series(QSeries, Options) :-
-    q_series(file('predator.pl'), QSeries, Options).
-
-q_series(Model, QSeries, Options) :-
-    id_mapping(Mapping),
-    simulate(Model, Series,
+q_series(Source, QSeries, Options) :-
+    option(model(Model), Options, engine),
+    id_mapping(Model, Mapping),
+    simulate(Source, Series,
              [ track(all),
                id_mapping(Mapping)
              | Options

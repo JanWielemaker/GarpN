@@ -237,7 +237,8 @@ derivatives_select(Name) -->
 
 %!  info(+Request)
 %
-%
+%   Print info afte the user  clicks  in   the  chart  at a certain time
+%   point.
 
 info(Request) :-
     http_read_data(Request, Data, []),

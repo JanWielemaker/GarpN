@@ -272,7 +272,8 @@ derived_initial_state(Formulas, Constants, State0, State) :-
     ;   existence_error(initial_values, Unresolved)
     ).
 
-derived_initials([], [], _, _, _, State, State).
+derived_initials([], [], _, _, _, State, State) :-
+    !.
 derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
     select(Key, Missing, Missing1),
     copy_term(Formulas.Key, formula(Right,Bindings)),
