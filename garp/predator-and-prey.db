@@ -1,4 +1,4 @@
-:- module(predator, []).
+:- module('predator-and-prey', []).
 
 qspace(number_of1,number_of(predator,number_of1,continuous,p),[plus],fail).
 qspace(growth1,growth(predator,growth1,continuous,mzp),[min,point(zero),plus],fail).
