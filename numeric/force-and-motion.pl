@@ -1,17 +1,16 @@
-y := y + stroom_1 * dt.
-stroom_1 := vy.
-vy := vy + ay*dt.
-ay := fnetto/m.
-fz := m*g.
-flucht := 0.5*cw*rho*opp*vy^2.
-fnetto := fz + flucht.
+distance(object) := distance(object) + velocity(object) * dt.
+velocity(object) := velocity(object) + acceleration(object) * dt.
+acceleration(object) := net_force(object)/m.
+gravity(object) := m*g.
+air_resistance(object) := 0.5*cw*rho*opp*velocity(object)^2.
+net_force(object) := gravity(object) + air_resistance(object).
 
 t := t + dt.
 t := 0.
-dt := 0.1.
+dt := 0.01.
 
-y := 70.
-vy := 0.
+distance(object) := 70.
+velocity(object) := 0.
 m := 0.270.
 g := -9.81.
 opp := 0.0347.
