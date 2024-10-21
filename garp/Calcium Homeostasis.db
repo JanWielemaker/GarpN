@@ -1,0 +1,12 @@
+:- module('Calcium Homeostasis', []).
+
+qspace(ca_ions1,ca_ions(blood,ca_ions1,continuous,plus),[interval],fail).
+qspace(ca_ions2,ca_ions(bones,ca_ions2,continuous,plus),[interval],fail).
+qspace(resorption_ca_ions1,resorption_ca_ions(kidneys,resorption_ca_ions1,continuous,plus),[interval],fail).
+qspace(pth1,pth(parathyriod_gland,pth1,continuous,plus),[interval],fail).
+qspace(difference1,difference(thyroid,difference1,continuous,mzp),[min,point(zero),plus],fail).
+qspace(calcitonin1,calcitonin(thyroid,calcitonin1,continuous,plus),[interval],fail).
+qspace(norm1,norm(thyroid,norm1,continuous,norm),[interval],fail).
+
+qstate(1,_17004{ca_ions1:d(_16856,plus,_16860,_16862),ca_ions2:d(_16878,min,_16882,_16884),calcitonin1:d(_16966,min,_16970,_16972),difference1:d(min,plus,_16948,_16950),norm1:d(_16988,zero,zero,_16994),pth1:d(_16922,plus,_16926,_16928),resorption_ca_ions1:d(_16900,plus,_16904,_16906)}).
+qstate(2,_15678{ca_ions1:d(_15662,zero,_15666,_15668),ca_ions2:d(_15640,zero,_15644,_15646),calcitonin1:d(_15552,zero,_15556,_15558),difference1:d(zero,zero,_15578,_15580),norm1:d(_15530,zero,zero,_15536),pth1:d(_15596,zero,_15600,_15602),resorption_ca_ions1:d(_15618,zero,_15622,_15624)}).
