@@ -89,6 +89,7 @@ state_quantity_value(State, Dict) :-
 unknown_var(unk, _) => true.
 unknown_var(unknown, _) => true.
 unknown_var(nil, _) => true.
+unknown_var(interval, _) => true.
 unknown_var(?, _) => true.
 unknown_var(pos, Val) => Val = plus.    % used for derivatives
 unknown_var(neg, Val) => Val = min.
