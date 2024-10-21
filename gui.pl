@@ -782,7 +782,8 @@ download_map(SHA1, _Request) :-
 
 download_garp(SHA1, _Request) :-
     saved(SHA1, _Model, Options),
-    findall(State-Values, qstate(State, Values, [d(1)|Options]), Pairs),
+    option(model(Model), Options, engine),
+    findall(State-Values, qstate(Model, State, Values, [d(1)|Options]), Pairs),
     maplist(state_into_dict, Pairs, Data),
     option(id_mapping(IdMapping), Options, _{}),
     q_series_table(Data, Table, IdMapping),
