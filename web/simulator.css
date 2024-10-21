@@ -48,9 +48,10 @@ th.quantity.name {
     font-weight: normal;
 }
 
-#plot {
+div.plotly {
     position: relative;
     overflow: hidden;
+    aspect-ratio: 5/1;
 }
 
 .ruler {

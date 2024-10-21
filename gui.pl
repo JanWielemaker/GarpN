@@ -543,7 +543,7 @@ run(Request) :-
                        'hx-target'('#info')
                      ],
                      [ \rulers(ShowRulers),
-                       div(id(plotly), []),
+                       div([id(plotly),class(plotly)], []),
                        \traces(VTraces, DTraces, Shapes),
                        \js_script({|javascript||initShapes("plotly")|})
                      ]),
@@ -569,53 +569,81 @@ plot(Target, Title, Traces, Shapes) -->
                layout = { // title: Title,
                           shapes: Shapes,
                           margin: { t: 30, b: 5 },
-                          grid: { rows: 2,
+                          hovermode: "x",
+                          /* grid: { rows: 1,
                                   columns: 1,
                                   pattern: 'independent',
                                   roworder: 'top to bottom'
                                 },
-                          xaxis2: { matches: 'x' }
+                          xaxis2: { matches: 'x' } */
                         };
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
-plotly_traces(Series, VTraces, DTraces, JSMapping) :-
+plotly_traces(Series, Traces, [], JSMapping) :-
     Series = [First|_],
-    dict_keys(First, Keys),
-    split_keys(Keys, VKeys, DKeys),
-    maplist(serie(x-y,   Series, JSMapping), VKeys, VTraces),
-    maplist(serie(x2-y2, Series, JSMapping), DKeys, DTraces).
+    dict_keys(First, Keys0),
+    delete(Keys0, t, Keys),
+    maplist(range(Series), Keys, Ranges),
+    pairs_keys_values(Ranges, Mins, Maxs),
+    min_list(Mins, Min),
+    max_list(Maxs, Max),
+    maplist(rescale(Min-Max), Ranges, Scales),
+    maplist(serie(x-y, Series, JSMapping), Keys, Scales, Traces).
 
-split_keys([], [], []).
-split_keys([t|T], VL, DL) :-
-    !,
-    split_keys(T, VL, DL).
-split_keys([V|T], [V|VL], DL) :-
-    sub_atom(V, _, _, _, number_of),
-    !,
-    split_keys(T, VL, DL).
-split_keys([V|T], VL, [V|DL]) :-
-    sub_atom(V, _, _, _, growth),
-    !,
-    split_keys(T, VL, DL).
-split_keys([V|T], [V|VL], DL) :-
-    split_keys(T, VL, DL).
+range(Series, Key, Min-Max) :-
+    maplist(get_dict(Key), Series, Ys),
+    min_list(Ys, Min),
+    max_list(Ys, Max).
 
-serie(Axis, Series, JSMapping, Key, Trace) :-
-    Trace0 = trace{x:Times, y:Values,
-                   mode:lines, name:JSMapping.get(Key, Key)},
-    convlist(tv(Key), Series, TVs),
+rescale(GMin-GMax, Min-Max, Scale) :-
+    GDiff is GMax-GMin,
+    scale(Scale),
+    SMin is Min*Scale,
+    SMax is Max*Scale,
+    SDiff is SMax - SMin,
+    fair(GDiff, SDiff),
+    !.
+
+fair(Candidate, Ref), Ref =\= 0 =>
+    abs(Candidate/Ref) < 5,
+    abs(Candidate/Ref) > 0.2.
+fair(Candidate, Ref), Candidate =\= 0 =>
+    abs(Ref/Candidate) < 5,
+    abs(Ref/Candidate) > 0.2.
+fair(_, _) =>
+    true.
+
+
+scale(X) :-                             % 1, 5, 10, 50, ...
+    between(0, 20, S),
+    (   X is 10^S
+    ;   X is 5*10^S
+    ).
+
+serie(Axis, Series, JSMapping, Key, Scale, Trace) :-
+    Trace0 = trace{x:Times, y:Values, mode:lines, name:Label},
+    serie_label(JSMapping, Key, Scale, Label),
+    convlist(tv(Key, Scale), Series, TVs),
     pairs_keys_values(TVs, Times, Values),
     set_axis(Axis, Trace0, Trace).
+
+serie_label(JSMapping, Key, Scale, Label) :-
+    Label0 = JSMapping.get(Key, Key),
+    (   Scale =:= 1
+    ->  Label = Label0
+    ;   format(string(Label), '~w (*~w)', [Label0, Scale])
+    ).
 
 set_axis(x-y, Trace, Trace) :- !.
 set_axis(X-Y, Trace0, Trace) :-
     Trace = Trace0.put(_{xaxis:X, yaxis:Y}).
 
-tv(Key, State, T-V) :-
+tv(Key, Scale, State, T-V) :-
     get_dict(t, State, T),
-    get_dict(Key, State, V),
-    number(V).
+    get_dict(Key, State, V0),
+    number(V0),
+    V is V0*Scale.
 
 		 /*******************************
 		 *        MAPPING TO GARP	*
