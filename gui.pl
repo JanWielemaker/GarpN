@@ -268,6 +268,7 @@ info(Request) :-
 info_seq(Time, States) -->
     ...,
     linked(Before), not_linked_list(BL), timed(Time,State),
+    { \+ State.get(garp_states) = [_|_] },
     not_linked_list(AL), linked(After), !,
     { append([[Before], BL, [State], AL, [After]], States) }.
 
