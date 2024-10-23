@@ -16,14 +16,6 @@ key_label(_, t, "Time") :-
 key_label(_, garp_states, "Garp states") :-
     !.
 key_label(IdMapping, Key, Label) :-
-    growth(Q) = IdMapping.get(Key),
-    !,
-    format(atom(Label), '\u0394~w', [Q]).
-key_label(IdMapping, Key, Label) :-
-    number_of(Q) = IdMapping.get(Key),
-    !,
-    format(atom(Label), '#~w', [Q]).
-key_label(IdMapping, Key, Label) :-
     format(atom(Label), '~w', [IdMapping.get(Key)]),
     !.
 key_label(_, Key, Key).
@@ -39,6 +31,7 @@ csv_column_rank(t,     0) :- !.
 csv_column_rank(state, 0) :- !.
 csv_column_rank(Key,   1) :- sub_atom(Key, _, _, _, number_of), !.
 csv_column_rank(Key,   2) :- sub_atom(Key, _, _, _, growth), !.
+csv_column_rank(garp_states, 4) :- !.
 csv_column_rank(_,     3).
 
 %!  state_row(+KeysDers, +State:dict, +Empty, -Row:list)

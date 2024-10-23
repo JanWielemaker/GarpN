@@ -438,8 +438,8 @@ state_rows([S,G|T], KeysDers) -->
     { \+ is_garp_row(S),
       is_garp_row(G),
       !,
-      state_row(KeysDers, S, _, SCells),
-      state_row(KeysDers, G, _, GCells),
+      state_row(KeysDers, S, _Empty1, SCells),
+      state_row(KeysDers, G, _Empty2, GCells),
       pairs_keys_values(Pairs, SCells, GCells)
     },
     html(tr(class(simulation), \sequence(cmp_value(1), Pairs))),
@@ -468,18 +468,29 @@ cmp_value(2, _-(C-T)) -->
     { no_cmp_column(C) },
     !,
     cell_value([class([garp])], C-T).
+cmp_value(1, S-_) -->                   % for ambiguous and matched states
+    { empty(S) },
+    !,
+    cell_value([class([simulation])], S).
+cmp_value(2, S-G) -->
+    { empty(S) },
+    !,
+    cell_value([class([garp])], G).
 cmp_value(1, S-_) -->
     !,
     cell_value([class([nomatch,simulation])], S).
 cmp_value(2, _-G) -->
     cell_value([class([nomatch,garp])], G).
 
+empty(_K-V), var(V) => true.
+empty(_) => fail.
+
 no_cmp_column(t).
 no_cmp_column(garp_states).
 
 
-cell_value(Attrs, _K-Value) -->
-    { var(Value) },
+cell_value(Attrs, Pair) -->
+    { empty(Pair) },
     html(td(Attrs, &(nbsp))).
 cell_value(Attrs, _K-Value) -->
     { float(Value),
