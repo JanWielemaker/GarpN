@@ -253,6 +253,9 @@ info(Request) :-
     (   phrase(info_seq(Time, States0), QSeries, _)
     ->  add_garp_states(States0, QStates, States),
         reply_htmx(\state_table(States, Options))
+    ;   phrase((...,timed(Time,State),...), QSeries, _),
+        add_garp_states(State, QStates, States)
+    ->  reply_htmx(\state_table(States, Options))
     ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
     ).
 
@@ -293,7 +296,7 @@ peek(X), [X] --> [X].
 %!  add_garp_states(+QStates, +GarpStates:list(pair(integer,dict)),
 %!                  -States) is det.
 
-add_garp_states(QStates, GStates, States) :-
+add_garp_states(QStates, GStates, States), is_list(QStates) =>
     once(append([First|Skipped], [Last], QStates)),
     min_list(First.garp_states, Min),
     max_list(Last.garp_states, Max),
@@ -302,10 +305,22 @@ add_garp_states(QStates, GStates, States) :-
     maplist(align_keys(First), GStates2, GStates3),
     interpolate(Skipped, GStates3, Compare),
     append([[First],Compare,[Last]], States).
+add_garp_states(QState, GStates, States),
+    is_dict(QState), QState.garp_states = [_|_] =>
+    include(in_state_set(QState.garp_states), GStates, GStates1),
+    maplist(add_state_no, GStates1, GStates2),
+    maplist(align_keys(QState), GStates2, GStates3),
+    States = [QState|GStates3].
+add_garp_states(QState, _GStates, States),
+    is_dict(QState), QState.garp_states == [] =>
+    States = [QState].                  % todo: find candidates.
 
 in_state_range(Min, Max, Id-_) :-
     Id > Min,
     Id < Max.
+
+in_state_set(Set, Id-_) :-
+    memberchk(Id, Set).
 
 add_state_no(Id-State0, State) :-
     State = State0.put(garp_states, Id).
