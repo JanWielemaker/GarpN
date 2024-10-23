@@ -55,7 +55,7 @@ qstate_value(Match, N, State, Qid, Value) :-
     state_quantity_value(State, Dict),
     Qid = Dict.get(name),
     (   N2 = Match.get(Qid)
-    ->  N2 > 0,
+    ->  N2 >= 0,
         qstate_value(N2, Dict, Value)
     ;   qstate_value(N, Dict, Value)
     ).
@@ -155,8 +155,11 @@ qstate(Model, State, Values, Options) :-
     current_predicate(Model:qstate/2),
     !,
     option(d(N), Options, 3),
+    option(match(Match), Options, #{}),
     Model:qstate(State, Values0),
-    mapdict(keep_derivatives_(N), Values0, Values).
+    dict_pairs(Values0, Tag, Pairs0),
+    convlist(keep_derivatives_(Match, N), Pairs0, Pairs),
+    dict_pairs(Values, Tag, Pairs).
 qstate(Model, State, Values, Options) :-
     Model \== engine,
     saved_model_file(Model, File),
@@ -167,8 +170,12 @@ qstate(Model, State, Values, Options) :-
 qstate(_Model, State, Values, Options) :-
     qstate(State, Values, Options).
 
-keep_derivatives_(N, _K, V0, V) :-
-    keep_derivatives(N, V0, V).
+keep_derivatives_(Match, N, K-V0, K-V) :-
+    (   N2 = Match.get(K)
+    ->  N2 >= 0,
+        keep_derivatives(N2, V0, V)
+    ;   keep_derivatives(N, V0, V)
+    ).
 
 
 		 /*******************************
