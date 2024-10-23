@@ -244,6 +244,9 @@ info(Request) :-
     http_read_data(Request, Data, []),
     _{time:TimeAtom, sha1:SHA1} :< Data,
     atom_number(TimeAtom, Time),
+    info(SHA1, Time).
+
+info(SHA1, Time) :-
     saved(SHA1, Model, Options),
     q_series(string(Model), QSeries,
              [ link_garp_states(true),
@@ -253,11 +256,16 @@ info(Request) :-
     (   phrase(info_seq(Time, States0), QSeries, _)
     ->  add_garp_states(States0, QStates, States),
         reply_htmx(\state_table(States, Options))
-    ;   phrase((...,timed(Time,State),...), QSeries, _),
-        add_garp_states(State, QStates, States)
-    ->  reply_htmx(\state_table(States, Options))
+    ;   phrase((...,timed(Time,State),...), QSeries, _)
+    ->  full_garp_states(GarpStates, Options),
+        add_garp_states(State, GarpStates, States),
+        reply_htmx(\state_table(States, Options))
     ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
     ).
+
+full_garp_states(GarpStates, Options) :-
+    option(model(ModelName), Options, engine),
+    findall(Id-QState, qstate(ModelName, Id, QState, [d(1)]), GarpStates).
 
 %!  info_seq(+Time, -States)// is semidet.
 %
@@ -310,8 +318,7 @@ add_garp_states(QState, GStates, States),
     is_dict(QState), QState.garp_states = [_|_] =>
     include(in_state_set(QState.garp_states), GStates, GStates1),
     maplist(add_state_no, GStates1, GStates2),
-    maplist(align_keys(QState), GStates2, GStates3),
-    States = [QState|GStates3].
+    States = [QState|GStates2].
 add_garp_states(QState, _GStates, States),
     is_dict(QState), QState.garp_states == [] =>
     States = [QState].                  % todo: find candidates.
@@ -362,67 +369,86 @@ interpolate([H0|T0], [H1|T1], R) =>
 
 state_table(States, Options) -->
     { option(id_mapping(IdMapping), Options, _{}),
-      States = [First|_],
-      dict_keys(First, Keys),
-      order_keys(Keys, Ordered)
+      (   option(keys(Keys), Options)
+      ->  true
+      ;   maplist(dict_keys, States, KeysL),
+          append(KeysL, AllKeys),
+          sort(AllKeys, Keys0),
+          order_keys(Keys0, Keys)
+      ),
+      maplist(key_derivative(States), Keys, KeyDers),
+      dict_pairs(DerDict, #, KeyDers)
     },
     html(table(class(states),
-               [ tr(\sequence(state_header(1, First, IdMapping), Ordered)),
-                 tr(\sequence(state_header(2, First, IdMapping), Ordered))
-               | \state_rows(States, Ordered)
+               [ tr(\sequence(state_header(1, DerDict, IdMapping), Keys)),
+                 tr(\sequence(state_header(2, DerDict, IdMapping), Keys))
+               | \state_rows(States, KeyDers)
                ])).
 
-state_header(Nth, Row, IdMapping, Key) -->
-    { Value = Row.Key,
-      compound(Value),
-      compound_name_arguments(Value, d, Ds)
+key_derivative(States, Key, Key-Der) :-
+    maplist(state_der(Key), States, Ders),
+    max_list(Ders, Der).
+
+state_der(Key, State, Der) :-
+    (   Value = State.get(Key),
+        compound(Value),
+        compound_name_arity(Value, d, Arity)
+    ->  Der is Arity-1
+    ;   Der = 0
+    ).
+
+state_header(Nth, DerDict, IdMapping, Key) -->
+    { Der = DerDict.get(Key,0),
+      Der > 0
     },
     !,
     (   {Nth == 1}
-    ->  { length(Ds, Cols),
+    ->  { Cols is Der+1,
           key_label(IdMapping, Key, Label)
         },
         html(th([colspan(Cols)], Label))
-    ;   derivative_headers(Ds, 0)
+    ;   derivative_headers(0, Der)
     ).
-state_header(1, _Row, IdMapping, Key) -->
+state_header(1, _Rows, IdMapping, Key) -->
     !,
     { key_label(IdMapping, Key, Label) },
     html(th(rowspan(2), Label)).
-state_header(2, _Row, _IdMapping, _Key) -->
+state_header(2, _Rows, _IdMapping, _Key) -->
     [].
 
-derivative_headers([], _) -->
-    [].
-derivative_headers([_|T], 0) -->
+derivative_headers(Nth, Der) -->
+    { Nth > Der },
+    !.
+derivative_headers(0, Der) -->
     !,
     { h_label(value, Label) },
     html(th(Label)),
-    derivative_headers(T, 1).
-derivative_headers([_|T], N) -->
-    !,
-    { h_label(d(N), Label) },
+    derivative_headers(1, Der).
+derivative_headers(Nth, Der) -->
+    { h_label(d(Nth), Label) },
     html(th(Label)),
-    {N1 is N+1},
-    derivative_headers(T, N1).
+    {Nth1 is Nth+1},
+    derivative_headers(Nth1, Der).
+
+%!  state_rows(+Rows, +KeysDers:list(pair(Key-Der)))// is det.
 
 state_rows([], _) -->
     [].
-state_rows([S,G|T], Keys) -->
+state_rows([S,G|T], KeysDers) -->
     { \+ is_garp_row(S),
       is_garp_row(G),
       !,
-      state_row(Keys, S, _, SCells),
-      state_row(Keys, G, _, GCells),
+      state_row(KeysDers, S, _, SCells),
+      state_row(KeysDers, G, _, GCells),
       pairs_keys_values(Pairs, SCells, GCells)
     },
     html(tr(class(simulation), \sequence(cmp_value(1), Pairs))),
     html(tr(class(garp),       \sequence(cmp_value(2), Pairs))),
-    state_rows(T, Keys).
-state_rows([H|T], Keys) -->
-    { state_row(Keys, H, _, Cells) },
+    state_rows(T, KeysDers).
+state_rows([H|T], KeysDers) -->
+    { state_row(KeysDers, H, _, Cells) },
     html(tr(\sequence(cell_value([]), Cells))),
-    state_rows(T, Keys).
+    state_rows(T, KeysDers).
 
 is_garp_row(Row) :-
     \+ _Time = Row.get(t).

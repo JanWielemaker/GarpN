@@ -41,50 +41,64 @@ csv_column_rank(Key,   1) :- sub_atom(Key, _, _, _, number_of), !.
 csv_column_rank(Key,   2) :- sub_atom(Key, _, _, _, growth), !.
 csv_column_rank(_,     3).
 
-%!  state_row(+Keys, +State:dict, +Empty, -Row:list)
+%!  state_row(+KeysDers, +State:dict, +Empty, -Row:list)
 %
 %   Turn a state into a row,   unfolding  derivative terms (d(...)) into
 %   multiple columns. Possibly missing cells are   filled with a copy of
 %   Empty.
 %
+%   @arg KeysDers is a list of pairs Key-Der, where Der is the
+%   highest derivative shown or 0 if this is just a plain value.
 %   @arg Row is a list of `K-V` pairs, where `K` is a key or a term
 %   der(K,N), with `N>0`.
 
-state_row(Keys, State, Empty, Row) :-
-    phrase(state_row(Keys, State, Empty), Row).
+state_row(KeysDers, State, Empty, Row) :-
+    phrase(state_row(KeysDers, State, Empty), Row).
 
 state_row([], _, _) -->
     [].
-state_row([K|T], State, Empty) -->
-    state_cell(K, State.get(K)),
+state_row([K-D|T], State, Empty) -->
+    state_cell(K, D, State.get(K), Empty),
     !,
     state_row(T, State, Empty).
-state_row([K|T], State, Empty) -->
+state_row([K-D|T], State, Empty) -->
     { copy_term(Empty, Cell) },
-    [K-Cell],
+    state_cell(K, D, Cell, Empty),
     state_row(T, State, Empty).
 
-state_cell(K, V) -->
-    { compound(V),
-      compound_name_arguments(V, d, Args)
-    },
+state_cell(K, 0, V, _Empty) -->
     !,
-    der_columns(K, 0, Args).
-state_cell(K, V) -->
     [K-V].
+state_cell(K, D, V, Empty) -->
+    der_columns(0, D, K, V, Empty).
 
-der_columns(_,_,[]) -->
+der_columns(N,D,_,_,_) -->
+    { N > D },
     !.
-der_columns(K,0,[H|T]) -->
+der_columns(0,D,K,V, Empty) -->
     !,
+    { val_or_der(0, V, H, Empty) },
     [K-H],
-    der_columns(K,1,T).
-der_columns(K,N,[H|T]) -->
+    der_columns(1, D, K, V, Empty).
+der_columns(N,D,K,V, Empty) -->
     !,
+    { val_or_der(0, V, H, Empty) },
     [der(K,N)-H],
     {N1 is N+1},
-    der_columns(K,N1,T).
+    der_columns(N1,D,K,V, Empty).
 
+val_or_der(0, V, H, _Empty), compound(V), compound_name_arity(V,d,_) =>
+    arg(1, V, H).
+val_or_der(0, V, H, _Empty) =>
+    H = V.
+val_or_der(D, V, H, Empty), compound(V), compound_name_arity(V,d,_) =>
+    FA is D+1,
+    (   arg(FA, V, H)
+    ->  true
+    ;   copy_term(Empty, H)
+    ).
+val_or_der(_D, _V, H, Empty) =>
+    copy_term(Empty, H).
 
 %!  round_float_row(+Decimals, +RowIn, -Row) is det.
 %
