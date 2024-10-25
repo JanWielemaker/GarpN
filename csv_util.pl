@@ -4,7 +4,7 @@
             series_key_derivative/3,    % +Series, +Key, -KerDer:pair
             key_state_derivative/3,     % +Key, +State, -Der:nonneg
             state_row/4,                % +Keys, +State:dict, +Empty, -Row:list
-            state_trace_value/4,        % +KeyDer, +State, +Empty, -Value
+            state_trace_value/4,        % +KeyDer, +Empty, +State, -Value
             round_float_row/3,          % +Decimals, +RowIn, -Row
             round_float/3               % +Decimals, +Value, -Rounded
           ]).
@@ -101,12 +101,12 @@ der_columns(N,D,K,V, Empty) -->
     {N1 is N+1},
     der_columns(N1,D,K,V, Empty).
 
-%!  state_trace_value(+KeyDer, +State, +Empty, -Value) is det.
+%!  state_trace_value(+KeyDer, +Empty, +State, -Value) is det.
 %
 %   Extract the value for the trace  Key-Der   of  State. If this is not
 %   available, Value is a copy of Empty.
 
-state_trace_value(K-D, State, Empty, V) :-
+state_trace_value(K-D, Empty, State, V) :-
     (   get_dict(K, State, V0)
     ->  val_or_der(D, V0, V, Empty)
     ;   copy_term(Empty, V)

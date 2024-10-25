@@ -7,7 +7,8 @@
             nq_series/3,                % +Series, -QSeries, +Options
             save_garp_results/1,        % +File
             id_mapping/2,               % +Model, -Mapping
-            qstate/4                    % +Model, ?Id, -Values, +Options
+            qstate/4,                   % +Model, ?Id, -Values, +Options
+            zero_asymptote/2            % +Values, +Options
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -17,6 +18,7 @@
 :- use_module(csv_util).
 :- use_module(library(dicts)).
 :- use_module(library(dcg/high_order)).
+:- use_module(library(lists)).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -172,6 +174,148 @@ keep_derivatives_(Match, N, K-V0, K-V) :-
     ;   keep_derivatives(N, V0, V)
     ).
 
+%!  asymptotes(+Series, -Asymptotes) is det.
+%
+%   True when Asymptotes  is  a  list   of  Key-Der  pairs  denoting the
+%   asymptotic traces.
+
+asymptotes(Series, Asymptotes) :-
+    Series = [First|_],
+    dict_keys(First, Keys0),
+    delete(Keys0, t, Keys),
+    maplist(key_state_derivative_r(First), Keys, Ders),
+    asymptotes(Keys, Ders, Series, Asymptotes).
+
+key_state_derivative_r(State, Key, Der) :-
+    key_state_derivative(Key, State, Der).
+
+asymptotes([], _, _, []).
+asymptotes([K|KT], [D|DT], Series, Asymptotes) :-
+    maplist(state_trace_value(K-D, _Empty), Series, Values),
+    (   zero_asymptote(Values, [])
+    ->  Asymptotes = [K-D|TA],
+        D1 is D-1
+    ;   Asymptotes = TA,
+        D1 = -1                 % if this derivative is not an asymptote,
+    ),                          % lower derivatives are surely not one
+    (   D1 >= 0
+    ->  asymptotes([K|KT], [D1|DT], Series, TA)
+    ;   asymptotes(KT, DT, Series, TA)
+    ).
+
+%!  zero_asymptote(+Values, +Options) is semidet.
+%
+%   Find whether Values approaches zero. Note that we will start finding
+%   asymptotes from the highest considered   derivative,  so looking for
+%   zero is enough.  Scenarios:
+%
+%     - Value is monotonic and slope decreases monotonic.
+%     - Value oscillates with decreasing amplitude
+%       - Create sequence of local min/max and prove both to be
+%         asymtotic.
+%
+%    Options:
+%
+%      - fraction(Number)
+%        Demand the end values to be Number times smaller than the max.
+%        Default is 100.
+%      - min_cycles(Integer)
+%        Demand that decreasing oscillation passes at least Integer
+%        cycles.  Default is 10.
+
+zero_asymptote(Values, Options) :-
+    length(Values, Len),
+    HeadLen is Len//10,
+    length(Head, HeadLen),
+    append(Head, Consider, Values),
+    zero_asymptote(Consider, 1, Options).
+
+zero_asymptote(Values, Level, Options) :-
+    option(fraction(Frac), Options, 20),
+    min_list(Values, Min),
+    max_list(Values, Max),
+    last(Values, Last),
+    (   Max > 0,
+        Min > 0,
+        Last < Max/Frac
+    ->  monotonic_decreasing(Values)
+    ;   Max < 0,
+        Min < 0,
+        Last > Min/Frac
+    ->  maplist(neg, Values, Values1),
+        monotonic_decreasing(Values1)
+    ;   abs(Last) < max(abs(Max),abs(Min))
+    ->  option(min_cycles(Min), Options, 10),
+        local_extremes(Values, Highs, Lows),
+        length(Highs, LH), LH >= Min,
+        length(Lows, LL), LL >= Min,
+        Level1 is Level + 1,
+        Level =< 5,
+        zero_asymptote(Highs, Level1, Options),
+        zero_asymptote(Lows, Level1, Options)
+    ).
+
+neg(Y, Yneg) :- Yneg is -Y.
+
+monotonic_decreasing([H1,H2|T]) :-
+    D is H1-H2,
+    D >= 0,
+    monotonic_decreasing(T, H2, D).
+
+monotonic_decreasing([], _, _).
+monotonic_decreasing([H|T], V, D) :-
+    D2 is V-H,
+    D2 >= 0,
+    D2 =< D,
+    monotonic_decreasing(T, H, D2).
+
+%!  local_extremes(+Values, -Highs, -Lows) is det.
+%
+%   Find the local minima and maxima of a series.
+
+local_extremes([V1,V2,V3|T0], Highs, Lows) :-
+    V2 > V1,
+    $,
+    (   V3 < V2
+    ->  Highs = [V2|T],
+        local_extremes([V3|T0], T, Lows)
+    ;   V3 =:= V2
+    ->  (   append(_, [V4|T1], T0),
+            (   V4 < V2
+            ->  !,
+                Highs = [V2|T]
+            ;   V4 > V2
+            ->  !,
+                Highs = T
+            )
+        ->  local_extremes([V4|T1], T, Lows)
+        ;   Highs = [],
+            Lows = []
+        )
+    ;   local_extremes([V2,V3|T0], Highs, Lows)
+    ).
+local_extremes([V1,V2,V3|T0], Highs, Lows) :-
+    V2 < V1,
+    $,
+    (   V3 > V2
+    ->  Lows = [V2|T],
+        local_extremes([V3|T0], Highs, T)
+    ;   V3 =:= V2
+    ->  (   append(_, [V4|T1], T0),
+            (   V4 > V2
+            ->  !,
+                Lows = [V2|T]
+            ;   V4 < V2
+            ->  !,
+                Lows = T
+            )
+        ->  local_extremes([V4|T1], Highs, T)
+        ;   Lows = []
+        )
+    ;   local_extremes([V2,V3|T0], Highs, Lows)
+    ).
+local_extremes(_, [], []).
+
 
 		 /*******************************
 		 *       NUM -> QUALITATIVE	*
@@ -187,6 +331,8 @@ keep_derivatives_(Match, N, K-V0, K-V) :-
 %   `plus`.
 
 series_qualitative(Series, Qualitative) :-
+    asymptotes(Series, Asymptotes),
+    pp(Asymptotes),
     maplist(state_qualitative, Series, Qualitative).
 
 state_qualitative(Dict, QDict) :-
