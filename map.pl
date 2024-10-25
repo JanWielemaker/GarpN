@@ -174,34 +174,77 @@ keep_derivatives_(Match, N, K-V0, K-V) :-
     ;   keep_derivatives(N, V0, V)
     ).
 
-%!  asymptotes(+Series, -Asymptotes) is det.
+%!  asymptotes(+Series, -Asymptotes, +Options) is det.
 %
 %   True when Asymptotes  is  a  list   of  Key-Der  pairs  denoting the
 %   asymptotic traces.
 
-asymptotes(Series, Asymptotes) :-
+asymptotes(Series, Asymptotes, Options) :-
     Series = [First|_],
     dict_keys(First, Keys0),
     delete(Keys0, t, Keys),
     maplist(key_state_derivative_r(First), Keys, Ders),
-    asymptotes(Keys, Ders, Series, Asymptotes).
+    asymptotes(Keys, Ders, Series, Asymptotes, Options).
 
 key_state_derivative_r(State, Key, Der) :-
     key_state_derivative(Key, State, Der).
 
-asymptotes([], _, _, []).
-asymptotes([K|KT], [D|DT], Series, Asymptotes) :-
+asymptotes([], _, _, [], _).
+asymptotes([K|KT], [D|DT], Series, Asymptotes, Options) :-
     maplist(state_trace_value(K-D, _Empty), Series, Values),
-    (   zero_asymptote(Values, [])
-    ->  Asymptotes = [K-D|TA],
+    (   zero_asymptote(Values, [type(How)|Options])
+    ->  Asymptotes = [asymptote(K,D,How)|TA],
         D1 is D-1
     ;   Asymptotes = TA,
         D1 = -1                 % if this derivative is not an asymptote,
     ),                          % lower derivatives are surely not one
     (   D1 >= 0
-    ->  asymptotes([K|KT], [D1|DT], Series, TA)
-    ;   asymptotes(KT, DT, Series, TA)
+    ->  asymptotes([K|KT], [D1|DT], Series, TA, Options)
+    ;   asymptotes(KT, DT, Series, TA, Options)
     ).
+
+%!  stable_from(+Series, -Asymptotes, -Time, +Options) is semidet.
+%
+%   True when some traces in Series are asymptotes towards zero.
+%
+%   @arg Asymptotes is a list of asymptote(Key,Derivative,How) terms.
+
+stable_from(Series, Asymptotes, Time, Options) :-
+    asymptotes(Series, Asymptotes, Options),
+    maplist(zero_from(Series, Options), Asymptotes, Nths),
+    max_list(Nths, Nth),
+    nth0(Nth, Series, State),
+    Time = State.t.
+
+zero_from(Series, Options, asymptote(K,D,How), Nth) :-
+    maplist(state_trace_value(K-D, _Empty), Series, Values),
+    min_list(Values, Min),
+    max_list(Values, Max),
+    option(fraction(Frac), Options, 20),
+    skip_leadin(Values, Skipped, Consider, Options),
+    zero_from(How, Min, Max, Consider, Nth0, Frac),
+    length(Skipped, NSkipped),
+    Nth is NSkipped+Nth0.
+
+zero_from(asc, Min, _, Consider, Nth0, Frac) =>
+    MinV is Min/Frac,
+    nth0(Nth0, Consider, Value),
+    Value > MinV.
+zero_from(desc, _, Max, Consider, Nth0, Frac) =>
+    MaxV is Max/Frac,
+    nth0(Nth0, Consider, Value),
+    Value < MaxV.
+zero_from(osc, Min, Max, Consider, Nth0, Frac) =>
+    MinV is Min/Frac,
+    MaxV is Max/Frac,
+    reverse(Consider, Values),
+    nth0(Nth00, Values, Value),
+    (   Value < MinV
+    ;   Value > MaxV
+    ),
+    !,
+    length(Consider, Len),
+    Nth0 is Len-Nth00.
 
 %!  zero_asymptote(+Values, +Options) is semidet.
 %
@@ -216,21 +259,35 @@ asymptotes([K|KT], [D|DT], Series, Asymptotes) :-
 %
 %    Options:
 %
-%      - fraction(Number)
+%      - fraction(+Number)
 %        Demand the end values to be Number times smaller than the max.
-%        Default is 100.
-%      - min_cycles(Integer)
+%        Default is 20.
+%      - min_cycles(+Integer)
 %        Demand that decreasing oscillation passes at least Integer
 %        cycles.  Default is 10.
+%      - skip(+Percentage)
+%        Skip the first Percentage Values.  Default 10%.
+%      - type(-Type)
+%        One of `desc` (descending to zero), `asc` (ascending to zero)
+%        or `osc` (oscillating with ever smaller amplitude to zero).
 
 zero_asymptote(Values, Options) :-
-    length(Values, Len),
-    HeadLen is Len//10,
-    length(Head, HeadLen),
-    append(Head, Consider, Values),
-    zero_asymptote(Consider, 1, Options).
+    skip_leadin(Values, _Skipped, Consider, Options),
+    option(type(How), Options, _),
+    zero_asymptote(Consider, 1, How, Options).
 
-zero_asymptote(Values, Level, Options) :-
+skip_leadin(Values, Head, Values1, Options) :-
+    option(skip(Perc), Options, 10),
+    (   Perc > 0
+    ->  length(Values, Len),
+        HeadLen is round((Len*Perc)/100),
+        length(Head, HeadLen),
+        append(Head, Values1, Values)
+    ;   Values1 = Values,
+        Head = []
+    ).
+
+zero_asymptote(Values, Level, How, Options) :-
     option(fraction(Frac), Options, 20),
     min_list(Values, Min),
     max_list(Values, Max),
@@ -238,12 +295,14 @@ zero_asymptote(Values, Level, Options) :-
     (   Max > 0,
         Min > 0,
         Last < Max/Frac
-    ->  monotonic_decreasing(Values)
+    ->  monotonic_decreasing(Values),
+        How = desc
     ;   Max < 0,
         Min < 0,
         Last > Min/Frac
     ->  maplist(neg, Values, Values1),
-        monotonic_decreasing(Values1)
+        monotonic_decreasing(Values1),
+        How = asc
     ;   abs(Last) < max(abs(Max),abs(Min))
     ->  option(min_cycles(Min), Options, 10),
         local_extremes(Values, Highs, Lows),
@@ -251,8 +310,9 @@ zero_asymptote(Values, Level, Options) :-
         length(Lows, LL), LL >= Min,
         Level1 is Level + 1,
         Level =< 5,
-        zero_asymptote(Highs, Level1, Options),
-        zero_asymptote(Lows, Level1, Options)
+        zero_asymptote(Highs, Level1, _, Options),
+        zero_asymptote(Lows, Level1, _, Options),
+        How = osc
     ).
 
 neg(Y, Yneg) :- Yneg is -Y.
@@ -331,8 +391,11 @@ local_extremes(_, [], []).
 %   `plus`.
 
 series_qualitative(Series, Qualitative) :-
-    asymptotes(Series, Asymptotes),
-    pp(Asymptotes),
+    stable_from(Series, Asymptotes, Time, []),
+    !,
+    pp(Time-Asymptotes),
+    maplist(state_qualitative, Series, Qualitative).
+series_qualitative(Series, Qualitative) :-
     maplist(state_qualitative, Series, Qualitative).
 
 state_qualitative(Dict, QDict) :-
