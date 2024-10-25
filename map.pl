@@ -393,18 +393,51 @@ local_extremes(_, [], []).
 series_qualitative(Series, Qualitative) :-
     stable_from(Series, Asymptotes, Time, []),
     !,
+    stable_min_derivatives(Asymptotes, Asymptotes1),
     pp(Time-Asymptotes),
-    maplist(state_qualitative, Series, Qualitative).
+    maplist(state_qualitative_a(Asymptotes1,Time), Series, Qualitative).
 series_qualitative(Series, Qualitative) :-
     maplist(state_qualitative, Series, Qualitative).
 
-state_qualitative(Dict, QDict) :-
-    dict_pairs(Dict, _, Pairs),
-    maplist(value_qualitative, Pairs, QPairs),
-    dict_pairs(QDict, _, QPairs).
+stable_min_derivatives(Asymptotes0, Asymptotes) :-
+    sort(Asymptotes0, Asymptotes1),
+    stable_min_derivatives_(Asymptotes1, Asymptotes).
 
-value_qualitative(Q-V, Q-D) :-
-    to_qualitative(Q, V, D).
+stable_min_derivatives_([], []).
+stable_min_derivatives_([H1,H2|T0], T) :-
+    arg(1, H1, Key),
+    arg(1, H2, Key),
+    !,
+    stable_min_derivatives_([H1|T0], T).
+stable_min_derivatives_([H|T0], [H|T]) :-
+    stable_min_derivatives_(T0, T).
+
+state_qualitative_a(Asymptotes, Time, Dict, QDict) :-
+    (   Time >= Dict.t
+    ->  mapdict(to_qualitative_z(Asymptotes), Dict, QDict)
+    ;   mapdict(to_qualitative, Dict, QDict)
+    ).
+
+state_qualitative(Dict, QDict) :-
+    mapdict(to_qualitative, Dict, QDict).
+
+to_qualitative_z(Asymptotes, Q, V0, R) :-
+    to_qualitative(Q, V0, R0),
+    (   memberchk(asymptote(Q,D,_), Asymptotes)
+    ->  to_zero(D, R0, R)
+    ;   R = R0
+    ).
+
+:- det(to_zero/3).
+to_zero(0, _, R) => R = zero.
+to_zero(N, V0, R), V0 =.. [d|Args] =>
+    length(Keep, N),
+    append(Keep, ToZero, Args),
+    maplist(to_zero, ToZero, Zero),
+    append(Keep, Zero, Args1),
+    R =.. [d|Args1].
+
+to_zero(_, zero).
 
 to_qualitative(Q, d(V,D1), R) =>
     R = d(QV,QD1),
