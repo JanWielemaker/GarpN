@@ -254,12 +254,12 @@ info(SHA1, Time) :-
              | Options
              ]),
     (   phrase(info_seq(Time, States0), QSeries, _)
-    ->  add_garp_states(States0, QStates, States),
-        reply_htmx(\state_table(States, Options))
+    ->  add_garp_states(States0, QStates, States, Cmp),
+        reply_htmx(\state_table(States, [Cmp|Options]))
     ;   phrase((...,timed(Time,State),...), QSeries, _)
     ->  full_garp_states(GarpStates, Options),
-        add_garp_states(State, GarpStates, States),
-        reply_htmx(\state_table(States, Options))
+        add_garp_states(State, GarpStates, States, Cmp),
+        reply_htmx(\state_table(States, [Cmp|Options]))
     ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
     ).
 
@@ -303,9 +303,10 @@ timed(Time, State) -->
 peek(X), [X] --> [X].
 
 %!  add_garp_states(+QStates, +GarpStates:list(pair(integer,dict)),
-%!                  -States) is det.
+%!                  -States, -Compare) is det.
 
-add_garp_states(QStates, GStates, States), is_list(QStates) =>
+add_garp_states(QStates, GStates, States, Cmp), is_list(QStates) =>
+    Cmp = cmp(true),
     once(append([First|Skipped], [Last], QStates)),
     min_list(First.garp_states, Min),
     max_list(Last.garp_states, Max),
@@ -314,14 +315,17 @@ add_garp_states(QStates, GStates, States), is_list(QStates) =>
     maplist(align_keys(First), GStates2, GStates3),
     interpolate(Skipped, GStates3, Compare),
     append([[First],Compare,[Last]], States).
-add_garp_states(QState, GStates, States),
+add_garp_states(QState, GStates, States, Cmp),
     is_dict(QState), QState.garp_states = [_|_] =>
+    Cmp = cmp(true),
     include(in_state_set(QState.garp_states), GStates, GStates1),
     maplist(add_state_no, GStates1, GStates2),
     States = [QState|GStates2].
-add_garp_states(QState, _GStates, States),
+add_garp_states(QState, GStates, States, Cmp),
     is_dict(QState), QState.garp_states == [] =>
-    States = [QState].                  % todo: find candidates.
+    Cmp = cmp_to(QState),
+    maplist(add_state_no, GStates, GStates1),
+    States = [QState|GStates1].                  % todo: find candidates.
 
 in_state_range(Min, Max, Id-_) :-
     Id > Min,
@@ -382,7 +386,7 @@ state_table(States, Options) -->
     html(table(class(states),
                [ tr(\sequence(state_header(1, DerDict, IdMapping), Keys)),
                  tr(\sequence(state_header(2, DerDict, IdMapping), Keys))
-               | \state_rows(States, KeyDers)
+               | \state_rows(States, KeyDers, Options)
                ])).
 
 state_header(Nth, DerDict, IdMapping, Key) -->
@@ -418,56 +422,71 @@ derivative_headers(Nth, Der) -->
     {Nth1 is Nth+1},
     derivative_headers(Nth1, Der).
 
-%!  state_rows(+Rows, +KeysDers:list(pair(Key-Der)))// is det.
+%!  state_rows(+Rows, +KeysDers:list(pair(Key-Der)), +Options)// is det.
 
-state_rows([], _) -->
+state_rows([], _, _) -->
     [].
-state_rows([S,G|T], KeysDers) -->
+state_rows([S,G|T], KeysDers, Options) -->
     { \+ is_garp_row(S),
       is_garp_row(G),
+      option(cmp(true), Options),
       !,
       state_row(KeysDers, S, _Empty1, SCells),
       state_row(KeysDers, G, _Empty2, GCells),
       pairs_keys_values(Pairs, SCells, GCells)
     },
-    html(tr(class(simulation), \sequence(cmp_value(1), Pairs))),
-    html(tr(class(garp),       \sequence(cmp_value(2), Pairs))),
-    state_rows(T, KeysDers).
-state_rows([H|T], KeysDers) -->
+    html(tr(class(simulation), \sequence(cmp_value(1, 2), Pairs))),
+    html(tr(class(garp),       \sequence(cmp_value(2, 2), Pairs))),
+    state_rows(T, KeysDers, Options).
+state_rows([H|T], KeysDers, Options) -->
+    { option(cmp_to(State), Options),
+      State \== H,
+      !,
+      state_row(KeysDers, State, _, RefCells),
+      state_row(KeysDers, H,     _, Cells),
+      pairs_keys_values(Pairs, RefCells, Cells)
+    },
+    html(tr(class(garp), \sequence(cmp_value(2, 1), Pairs))),
+    state_rows(T, KeysDers, Options).
+state_rows([H|T], KeysDers, Options) -->
     { state_row(KeysDers, H, _, Cells) },
     html(tr(\sequence(cell_value([]), Cells))),
-    state_rows(T, KeysDers).
+    state_rows(T, KeysDers, Options).
 
 is_garp_row(Row) :-
     \+ _Time = Row.get(t).
 
-cmp_value(1, S-G) -->
+cmp_value(1, RS, S-G) -->
     { S == G },
     !,
-    cell_value([class(match),rowspan(2)], S).
-cmp_value(2, S-G) -->
+    cell_value([class(match),rowspan(RS)], S).
+cmp_value(2, 1, S-G) -->
+    { S == G },
+    !,
+    cell_value([class([match,garp])], S).
+cmp_value(2, _, S-G) -->
     { S == G },
     !.
-cmp_value(1, (C-T)-_) -->
+cmp_value(1, _, (C-T)-_) -->
     { no_cmp_column(C) },
     !,
     cell_value([class([simulation])], C-T).
-cmp_value(2, _-(C-T)) -->
+cmp_value(2, _, _-(C-T)) -->
     { no_cmp_column(C) },
     !,
     cell_value([class([garp])], C-T).
-cmp_value(1, S-_) -->                   % for ambiguous and matched states
+cmp_value(1, _, S-_) -->                   % for ambiguous and matched states
     { empty(S) },
     !,
     cell_value([class([simulation])], S).
-cmp_value(2, S-G) -->
+cmp_value(2, _, S-G) -->
     { empty(S) },
     !,
     cell_value([class([garp])], G).
-cmp_value(1, S-_) -->
+cmp_value(1, _, S-_) -->
     !,
     cell_value([class([nomatch,simulation])], S).
-cmp_value(2, _-G) -->
+cmp_value(2, _, _-G) -->
     cell_value([class([nomatch,garp])], G).
 
 empty(_K-V), var(V) => true.
