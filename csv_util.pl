@@ -96,7 +96,7 @@ der_columns(0,D,K,V, Empty) -->
     der_columns(1, D, K, V, Empty).
 der_columns(N,D,K,V, Empty) -->
     !,
-    { val_or_der(0, V, H, Empty) },
+    { val_or_der(N, V, H, Empty) },
     [der(K,N)-H],
     {N1 is N+1},
     der_columns(N1,D,K,V, Empty).

@@ -394,7 +394,6 @@ series_qualitative(Series, Qualitative) :-
     stable_from(Series, Asymptotes, Time, []),
     !,
     stable_min_derivatives(Asymptotes, Asymptotes1),
-    pp(Time-Asymptotes),
     maplist(state_qualitative_a(Asymptotes1,Time), Series, Qualitative).
 series_qualitative(Series, Qualitative) :-
     maplist(state_qualitative, Series, Qualitative).
@@ -413,7 +412,7 @@ stable_min_derivatives_([H|T0], [H|T]) :-
     stable_min_derivatives_(T0, T).
 
 state_qualitative_a(Asymptotes, Time, Dict, QDict) :-
-    (   Time >= Dict.t
+    (   Dict.t >= Time
     ->  mapdict(to_qualitative_z(Asymptotes), Dict, QDict)
     ;   mapdict(to_qualitative, Dict, QDict)
     ).
