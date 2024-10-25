@@ -500,14 +500,14 @@ cell_value(Attrs, garp_states-[]) -->
 cell_value(Attrs, garp_states-[Match]) -->
     { join_attrs([class(['garp-link', match])], Attrs, Attrs1)
     },
-    html(td(Attrs1, '~p'-[Match])).
+    html(td(Attrs1, '<~p>'-[Match])).
 cell_value(Attrs, garp_states-Value) -->
     { Value = [_,_|_],
       !,
       atomics_to_string(Value, ",", Label),
       join_attrs([class(['garp-link', ambiguous])], Attrs, Attrs1)
     },
-    html(td(Attrs1, Label)).
+    html(td(Attrs1, ['<',Label,'>'])).
 cell_value(Attrs, garp_states-Value) -->
     { integer(Value),
       !,
