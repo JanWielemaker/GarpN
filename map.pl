@@ -429,13 +429,13 @@ to_qualitative_z(Asymptotes, Q, V0, R) :-
     ).
 
 :- det(to_zero/3).
-to_zero(0, _, R) => R = zero.
 to_zero(N, V0, R), V0 =.. [d|Args] =>
     length(Keep, N),
     append(Keep, ToZero, Args),
     maplist(to_zero, ToZero, Zero),
     append(Keep, Zero, Args1),
     R =.. [d|Args1].
+to_zero(0, _, R) => R = zero.
 
 to_zero(_, zero).
 
