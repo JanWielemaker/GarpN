@@ -4,8 +4,8 @@ pth(parathyriod_gland) := pth(parathyriod_gland) + inflow_pth * dt.
 t := t + dt.
 
 ca_ions(bones) := calcitonin(thyroid)*c_calcitonin_ca_bones-pth(parathyriod_gland)*c_pth_ca_bones.
-resorption_ca_ions(kidneys) := ca_ions(bones)*c_ca_bones_resorption_ca.
-ca_ions(blood) := ca_ions(bones)*c_ca_bones_ca_blood- resorption_ca_ions(kidneys)*c_resorption_ca_ca_blood.
+resorption_ca_ions(kidneys) := -ca_ions(bones)*c_ca_bones_resorption_ca.
+ca_ions(blood) := ca_ions(bones)*c_ca_bones_ca_blood + resorption_ca_ions(kidneys)*c_resorption_ca_ca_blood.
 difference(thyroid) := ca_ions(blood)-norm(thyroid).
 inflow_calcitonin := difference(thyroid)*c_calcitonin.
 inflow_pth := difference(thyroid)*c_pth.
