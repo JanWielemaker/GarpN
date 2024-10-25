@@ -576,7 +576,6 @@ run(Request) :-
     plotly_traces(Series, VTraces, DTraces, JSMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
-                 \download_links(Source, Options),
                  div([ id(plot),
                        'hx-vals'('js:{time: plotly_clicked_at.x, sha1:SHA1}'),
                        'hx-post'('/garp/htmx/info'),
@@ -588,7 +587,8 @@ run(Request) :-
                        \traces(VTraces, DTraces, Shapes),
                        \js_script({|javascript||initShapes("plotly")|})
                      ]),
-                 div([id(info),class(narrow)], [&(nbsp)])
+                 div([id(info),class(narrow)], [&(nbsp)]),
+                 \download_links(Source, Options)
                ]).
 
 js_id_mapping(Dict, JDict) :-
