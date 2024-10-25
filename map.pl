@@ -490,8 +490,8 @@ q_title_cell(Key, _Sample, IdMapping) -->
     },
     [Label].
 
-one(C) -->
-    [C].
+one(C) --> {var(C)}, !, [*].
+one(C) --> [C].
 
 derivative_titles([], _, _) -->
     [].
