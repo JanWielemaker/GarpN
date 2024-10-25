@@ -15,7 +15,6 @@
 
 :- use_module(gsim).
 :- use_module(csv_util).
-:- use_module(library(aggregate)).
 :- use_module(library(dicts)).
 :- use_module(library(dcg/high_order)).
 
@@ -97,10 +96,6 @@ unknown_var(plus, Val) => Val = plus.   % quantity space values
 unknown_var(zero, Val) => Val = zero.
 unknown_var(min,  Val) => Val = min.
 
-smd_data(params, smd(_Name, _SE, parameters(P), _V, _R, _SS, _IS), Result) => Result = P.
-smd_data(values, smd(_Name, _SE, _P, par_values(V), _R, _SS, _IS), Result) => Result = V.
-smd_data(store,  smd(_Name, _SE, _P, _V, _R, _SS, store(IS)),      Result) => Result = store(IS).
-
 %!  save_garp_results(+Model)
 %
 %   Save the results of the simulation to File, so we can compare
@@ -181,6 +176,15 @@ keep_derivatives_(Match, N, K-V0, K-V) :-
 		 /*******************************
 		 *       NUM -> QUALITATIVE	*
 		 *******************************/
+
+%!  series_qualitative(+Series, -Qualitative) is det.
+%
+%   Where Series is a list of  dicts   holding  values, Qualitative is a
+%   list of qualitative states.
+%
+%   @tbd Deal with quatity spaces. Currently assumes all quantity spaces
+%   are {negative, zero, possitive}, represented   as  `min`, `zero` and
+%   `plus`.
 
 series_qualitative(Series, Qualitative) :-
     maplist(state_qualitative, Series, Qualitative).
@@ -429,10 +433,8 @@ insert_value_(_, Var, _, _Done), var(Var) => true.
 		 *******************************/
 
 %!  q_series_table(+Qseries, -Table, +IdMapping)
-
-q_series_table(QSeries, Table) :-
-    id_mapping(IdMapping),
-    q_series_table(QSeries, Table, IdMapping).
+%
+%   Translate a qualitative series into CSV format.
 
 q_series_table(QSeries, [Title|Rows], IdMapping) :-
     QSeries = [First|_],
