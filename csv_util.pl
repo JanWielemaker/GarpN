@@ -1,15 +1,15 @@
 :- module(csv_util,
-          [ key_label/3,
-            order_keys/2,
-            state_row/4,                % +Keys, +State:dict, +Empty, -Row:list
-            round_float_row/3,          % +Decimals, +RowIn, -Row
-            round_float/3,
+          [ key_label/3,                % +IdMapping, +Key, -Label
+            order_keys/2,               % +Keys, -Ordered
             series_key_derivative/3,    % +Series, +Key, -KerDer:pair
-            key_state_derivative/3      % +Key, +State, -Der:nonneg
+            key_state_derivative/3,     % +Key, +State, -Der:nonneg
+            state_row/4,                % +Keys, +State:dict, +Empty, -Row:list
+            state_trace_value/4,        % +KeyDer, +State, +Empty, -Value
+            round_float_row/3,          % +Decimals, +RowIn, -Row
+            round_float/3               % +Decimals, +Value, -Rounded
           ]).
 :- use_module(library(pairs)).
 :- use_module(library(terms)).
-:- use_module(library(dcg/high_order)).
 
 %!  key_label(+IdMapping, +Key, -Label) is det.
 
@@ -100,6 +100,17 @@ der_columns(N,D,K,V, Empty) -->
     [der(K,N)-H],
     {N1 is N+1},
     der_columns(N1,D,K,V, Empty).
+
+%!  state_trace_value(+KeyDer, +State, +Empty, -Value) is det.
+%
+%   Extract the value for the trace  Key-Der   of  State. If this is not
+%   available, Value is a copy of Empty.
+
+state_trace_value(K-D, State, Empty, V) :-
+    (   get_dict(K, State, V0)
+    ->  val_or_der(D, V0, V, Empty)
+    ;   copy_term(Empty, V)
+    ).
 
 val_or_der(0, V, H, _Empty), compound(V), compound_name_arity(V,d,_) =>
     arg(1, V, H).
