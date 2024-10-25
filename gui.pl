@@ -376,7 +376,7 @@ state_table(States, Options) -->
           sort(AllKeys, Keys0),
           order_keys(Keys0, Keys)
       ),
-      maplist(key_derivative(States), Keys, KeyDers),
+      maplist(series_key_derivative(States), Keys, KeyDers),
       dict_pairs(DerDict, #, KeyDers)
     },
     html(table(class(states),
@@ -384,18 +384,6 @@ state_table(States, Options) -->
                  tr(\sequence(state_header(2, DerDict, IdMapping), Keys))
                | \state_rows(States, KeyDers)
                ])).
-
-key_derivative(States, Key, Key-Der) :-
-    maplist(state_der(Key), States, Ders),
-    max_list(Ders, Der).
-
-state_der(Key, State, Der) :-
-    (   Value = State.get(Key),
-        compound(Value),
-        compound_name_arity(Value, d, Arity)
-    ->  Der is Arity-1
-    ;   Der = 0
-    ).
 
 state_header(Nth, DerDict, IdMapping, Key) -->
     { Der = DerDict.get(Key,0),

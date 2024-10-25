@@ -3,7 +3,9 @@
             order_keys/2,
             state_row/4,                % +Keys, +State:dict, +Empty, -Row:list
             round_float_row/3,          % +Decimals, +RowIn, -Row
-            round_float/3
+            round_float/3,
+            series_key_derivative/3,    % +Series, +Key, -KerDer:pair
+            key_state_derivative/3      % +Key, +State, -Der:nonneg
           ]).
 :- use_module(library(pairs)).
 :- use_module(library(terms)).
@@ -33,6 +35,25 @@ csv_column_rank(Key,   1) :- sub_atom(Key, _, _, _, number_of), !.
 csv_column_rank(Key,   2) :- sub_atom(Key, _, _, _, growth), !.
 csv_column_rank(garp_states, 4) :- !.
 csv_column_rank(_,     3).
+
+%!  series_key_derivative(+Series, +Key, -KerDer:pair) is det.
+%!  key_state_derivative(+Key, +State, -Der:nonneg) is det.
+%
+%   Determine the derivative representation for Key in State or a Series
+%   of states. The derivative is 0 if  this   is  a  plain value, 1 if a
+%   value and first derivative are combined on Key, etc.
+
+series_key_derivative(States, Key, Key-Der) :-
+    maplist(key_state_derivative(Key), States, Ders),
+    max_list(Ders, Der).
+
+key_state_derivative(Key, State, Der) :-
+    (   Value = State.get(Key),
+        compound(Value),
+        compound_name_arity(Value, d, Arity)
+    ->  Der is Arity-1
+    ;   Der = 0
+    ).
 
 %!  state_row(+KeysDers, +State:dict, +Empty, -Row:list)
 %
