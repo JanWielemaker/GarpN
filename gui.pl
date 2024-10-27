@@ -475,12 +475,12 @@ cmp_value(2, _, _-(C-T)) -->
     { no_cmp_column(C) },
     !,
     cell_value([class([garp])], C-T).
-cmp_value(1, _, S-_) -->                   % for ambiguous and matched states
-    { empty(S) },
+cmp_value(1, _, S-G) -->                   % for ambiguous and matched states
+    { empty(S) ; empty(G) },
     !,
     cell_value([class([simulation])], S).
 cmp_value(2, _, S-G) -->
-    { empty(S) },
+    { empty(S) ; empty(G) },
     !,
     cell_value([class([garp])], G).
 cmp_value(1, _, S-_) -->
