@@ -628,7 +628,7 @@ plot(Target, Title, Traces, Shapes) -->
                data = Traces;
                layout = { // title: Title,
                           shapes: Shapes,
-                          margin: { t: 30, b: 5 },
+                          margin: { t: 30, b: 25 },
                           hovermode: "x",
                           /* grid: { rows: 1,
                                   columns: 1,
