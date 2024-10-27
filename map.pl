@@ -277,7 +277,7 @@ zero_asymptote(Values, Options) :-
     zero_asymptote(Consider, 1, How, Options).
 
 skip_leadin(Values, Head, Values1, Options) :-
-    option(skip(Perc), Options, 10),
+    option(skip(Perc), Options, 30),
     (   Perc > 0
     ->  length(Values, Len),
         HeadLen is round((Len*Perc)/100),
@@ -293,12 +293,12 @@ zero_asymptote(Values, Level, How, Options) :-
     max_list(Values, Max),
     last(Values, Last),
     (   Max > 0,
-        Min > 0,
+        Min >= 0,
         Last < Max/Frac
     ->  monotonic_decreasing(Values),
         How = desc
-    ;   Max < 0,
-        Min < 0,
+    ;   Min < 0,
+        Max =< 0,
         Last > Min/Frac
     ->  maplist(neg, Values, Values1),
         monotonic_decreasing(Values1),
@@ -317,17 +317,32 @@ zero_asymptote(Values, Level, How, Options) :-
 
 neg(Y, Yneg) :- Yneg is -Y.
 
+%!  monotonic_decreasing(+Values) is semidet.
+%
+%   True when Values is monotonic  decreasing   towards  zero. We assume
+%   this to be true if
+%
+%     - The values are derivative are monotonically decreasing
+%     - The above stops, but all remaining values are less then
+%       0.001 of the initial.  The latter covers cases where
+%       rounding errors come into play.  Alternatively, we could
+%       average over some value.
+
 monotonic_decreasing([H1,H2|T]) :-
     D is H1-H2,
     D >= 0,
-    monotonic_decreasing(T, H2, D).
+    monotonic_decreasing(T, H2, D, H1).
 
-monotonic_decreasing([], _, _).
-monotonic_decreasing([H|T], V, D) :-
+monotonic_decreasing([], _, _, _).
+monotonic_decreasing([H|T], V, D, Scale) :-
     D2 is V-H,
     D2 >= 0,
     D2 =< D,
-    monotonic_decreasing(T, H, D2).
+    !,
+    monotonic_decreasing(T, H, D2, Scale).
+monotonic_decreasing(Remainder, _, _, Scale) :-
+    Max is Scale/1000,
+    maplist(>(Max), Remainder).
 
 %!  local_extremes(+Values, -Highs, -Lows) is det.
 %
