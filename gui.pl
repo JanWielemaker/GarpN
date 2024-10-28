@@ -369,6 +369,11 @@ state_table(States, Options) -->
                | \state_rows(States, KeyDers, Options)
                ])).
 
+%!  plain_rows(+Rows, -Plain) is det.
+%
+%   Expand cmp_to(Ref, Rows) terms in Rows.
+
+:- det(plain_rows/2).
 plain_rows(Rows, Plain) :-
     phrase(plain_rows(Rows), Plain).
 
@@ -383,6 +388,10 @@ plain_rows(cmp_to(_,Rows)) -->
     plain_rows(Rows).
 plain_rows(Row) -->
     [Row].
+
+%!  state_header(+Nth, +DerDict, +IdMapping, +Key)//
+%
+%   Emit the Nth header row for Key
 
 state_header(Nth, DerDict, IdMapping, Key) -->
     { Der = DerDict.get(Key,0),
