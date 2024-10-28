@@ -249,16 +249,15 @@ mapping_table(Request) :-
 mapping_table(SHA1, Time) :-
     saved(SHA1, Model, Options),
     q_series(string(Model), QSeries,
-             [ link_garp_states(true),
-               garp_states(QStates)
+             [ link_garp_states(true)
              | Options
              ]),
+    full_garp_states(GarpStates, Options),
     (   phrase(info_seq(Time, States0), QSeries, _)
-    ->  add_garp_states(States0, QStates, States, Cmp),
+    ->  add_garp_states(States0, GarpStates, States, Cmp),
         reply_htmx(\state_table(States, [Cmp|Options]))
     ;   phrase((...,timed(Time,State),...), QSeries, _)
-    ->  full_garp_states(GarpStates, Options),
-        add_garp_states(State, GarpStates, States, Cmp),
+    ->  add_garp_states(State, GarpStates, States, Cmp),
         reply_htmx(\state_table(States, [Cmp|Options]))
     ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
     ).
@@ -312,8 +311,7 @@ add_garp_states(QStates, GStates, States, Cmp), is_list(QStates) =>
     max_list(Last.garp_states, Max),
     include(in_state_range(Min,Max), GStates, GStates1),
     maplist(add_state_no, GStates1, GStates2),
-    maplist(align_keys(First), GStates2, GStates3),
-    interpolate(Skipped, GStates3, Compare),
+    interpolate_nq(Skipped, GStates2, Compare),
     append([[First],Compare,[Last]], States).
 add_garp_states(QState, GStates, States, Cmp),
     is_dict(QState), QState.garp_states = [_|_] =>
@@ -337,34 +335,15 @@ in_state_set(Set, Id-_) :-
 add_state_no(Id-State0, State) :-
     State = State0.put(garp_states, Id).
 
-align_keys(First, GState0, GState) :-
-    dict_pairs(GState0, Tag, GPairs0),
-    convlist(align_key(First), GPairs0, GPairs),
-    dict_pairs(GState, Tag, GPairs).
+%!  interpolate_nq(+Numeric, +Qualitative, -Rows) is det.
 
-align_key(QState, K-V0, K-V) :-
-    QV = QState.get(K),
-    !,
-    align_derivatives(QV, V0, V).
-
-align_derivatives(QV, V0, V),
-    compound(QV),
-    compound_name_arguments(QV,d,QD),
-    compound_name_arguments(V0,d,D0) =>
-    length(QD, L),
-    length(D1, L),
-    append(D1, _, D0),
-    compound_name_arguments(V,d,D1).
-align_derivatives(_QV, V0, V) =>
-    V = V0.
-
-interpolate([], L, R) =>
+interpolate_nq([], L, R) =>
     R = L.
-interpolate(L, [], R) =>
+interpolate_nq(L, [], R) =>
     R = L.
-interpolate([H0|T0], [H1|T1], R) =>
-    R = [H0,H1|T],
-    interpolate(T0, T1, T).
+interpolate_nq([H0|T0], [H1|T1], R) =>
+    R = [cmp_to(H0, [H0,H1])|T],
+    interpolate_nq(T0, T1, T).
 
 
 %!  state_table(+States, +Options)// is det.
@@ -372,15 +351,16 @@ interpolate([H0|T0], [H1|T1], R) =>
 %   Print an HTML table of states.
 
 state_table(States, Options) -->
-    { option(id_mapping(IdMapping), Options, _{}),
+    { plain_rows(States, StatesPlain),
+      option(id_mapping(IdMapping), Options, _{}),
       (   option(keys(Keys), Options)
       ->  true
-      ;   maplist(dict_keys, States, KeysL),
+      ;   maplist(dict_keys, StatesPlain, KeysL),
           append(KeysL, AllKeys),
           sort(AllKeys, Keys0),
           order_keys(Keys0, Keys)
       ),
-      maplist(series_key_derivative(States), Keys, KeyDers),
+      maplist(series_key_derivative(StatesPlain), Keys, KeyDers),
       dict_pairs(DerDict, #, KeyDers)
     },
     html(table(class(states),
@@ -388,6 +368,21 @@ state_table(States, Options) -->
                  tr(\sequence(state_header(2, DerDict, IdMapping), Keys))
                | \state_rows(States, KeyDers, Options)
                ])).
+
+plain_rows(Rows, Plain) :-
+    phrase(plain_rows(Rows), Plain).
+
+plain_rows([]) -->
+    !.
+plain_rows([H|T]) -->
+    !,
+    plain_rows(H),
+    plain_rows(T).
+plain_rows(cmp_to(_,Rows)) -->
+    !,
+    plain_rows(Rows).
+plain_rows(Row) -->
+    [Row].
 
 state_header(Nth, DerDict, IdMapping, Key) -->
     { Der = DerDict.get(Key,0),
@@ -426,17 +421,10 @@ derivative_headers(Nth, Der) -->
 
 state_rows([], _, _) -->
     [].
-state_rows([S,G|T], KeysDers, Options) -->
-    { \+ is_garp_row(S),
-      is_garp_row(G),
-      option(cmp(true), Options),
-      !,
-      state_row(KeysDers, S, _Empty1, SCells),
-      state_row(KeysDers, G, _Empty2, GCells),
-      pairs_keys_values(Pairs, SCells, GCells)
+state_rows([cmp_to(Ref, Rows)|T], KeysDers, Options) -->
+    { merge_options([cmp_to(Ref)], Options, Options1)
     },
-    html(tr(class(simulation), \sequence(cmp_value(1, 2), Pairs))),
-    html(tr(class(garp),       \sequence(cmp_value(2, 2), Pairs))),
+    state_rows(Rows, KeysDers, Options1),
     state_rows(T, KeysDers, Options).
 state_rows([H|T], KeysDers, Options) -->
     { option(cmp_to(State), Options),
@@ -452,9 +440,6 @@ state_rows([H|T], KeysDers, Options) -->
     { state_row(KeysDers, H, _, Cells) },
     html(tr(\sequence(cell_value([]), Cells))),
     state_rows(T, KeysDers, Options).
-
-is_garp_row(Row) :-
-    \+ _Time = Row.get(t).
 
 cmp_value(1, RS, S-G) -->
     { S == G },
