@@ -695,7 +695,7 @@ insert_value_(_, Var, _, _Done), var(Var) => true.
 q_series_table(QSeries, [Title|Rows], IdMapping) :-
     QSeries = [First|_],
     dict_keys(First, Keys0),
-    order_keys(Keys0, Keys),
+    order_keys(IdMapping, Keys0, Keys),
     phrase(q_title_row(Keys, First, IdMapping), TitleCells),
     Title =.. [row|TitleCells],
     maplist(q_sample_row(Keys), QSeries, Rows).

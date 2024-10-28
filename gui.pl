@@ -209,7 +209,7 @@ q_menu(Model, Source) -->
             error(_,_), fail),
       dict_keys(Formulas, Keys),
       delete(Keys, t, Quantities0),
-      order_keys(Quantities0, Quantities)
+      order_keys(IdMapping, Quantities0, Quantities)
     },
     html(table(class(quantities),
                [ tr([th(class(quantity), 'Quantity'), th('Link to Garp')]),
@@ -358,7 +358,7 @@ state_table(States, Options) -->
       ;   maplist(dict_keys, StatesPlain, KeysL),
           append(KeysL, AllKeys),
           sort(AllKeys, Keys0),
-          order_keys(Keys0, Keys)
+          order_keys(IdMapping, Keys0, Keys)
       ),
       maplist(series_key_derivative(StatesPlain), Keys, KeyDers),
       dict_pairs(DerDict, #, KeyDers)
@@ -822,13 +822,13 @@ download_links(Source, Options) -->
 download_csv(SHA1, _Request) :-
     saved(SHA1, Model, Options),
     simulate(string(Model), Series, Options),
+    option(id_mapping(IdMapping), Options, _{}),
     Series = [First|_],
     dict_keys(First, Keys0),
-    order_keys(Keys0, Keys),
+    order_keys(IdMapping, Keys0, Keys),
     dicts_to_compounds(Series, Keys, dict_fill(-), Compounds0),
     maplist(round_float_row(4), Compounds0, Compounds),
     format('Content-type: text/csv~n~n'),
-    option(id_mapping(IdMapping), Options, _{}),
     maplist(key_label(IdMapping), Keys, Labels),
     Title =.. [row|Labels],
     csv_write_stream(current_output, [Title|Compounds],

@@ -1,6 +1,6 @@
 :- module(csv_util,
           [ key_label/3,                % +IdMapping, +Key, -Label
-            order_keys/2,               % +Keys, -Ordered
+            order_keys/3,               % +IdMapping, +Keys, -Ordered
             series_key_derivative/3,    % +Series, +Key, -KerDer:pair
             key_state_derivative/3,     % +Key, +State, -Der:nonneg
             state_row/4,                % +Keys, +State:dict, +Empty, -Row:list
@@ -22,9 +22,9 @@ key_label(IdMapping, Key, Label) :-
     !.
 key_label(_, Key, Key).
 
-%!  order_keys(+Keys, -Ordered) is det.
+%!  order_keys(+IdMapping, +Keys, -Ordered) is det.
 
-order_keys(Keys0, Keys) :-
+order_keys(IdMapping, Keys0, Keys) :-
     map_list_to_pairs(csv_column_rank, Keys0, Pairs),
     keysort(Pairs, PairsS),
     pairs_values(PairsS, Keys).
