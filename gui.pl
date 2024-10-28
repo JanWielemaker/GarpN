@@ -317,7 +317,7 @@ add_garp_states(QStates, GStates, States, Cmp), is_list(QStates) =>
     append([[First],Compare,[Last]], States).
 add_garp_states(QState, GStates, States, Cmp),
     is_dict(QState), QState.garp_states = [_|_] =>
-    Cmp = cmp(true),
+    Cmp = cmp_to(QState),
     include(in_state_set(QState.garp_states), GStates, GStates1),
     maplist(add_state_no, GStates1, GStates2),
     States = [QState|GStates2].
