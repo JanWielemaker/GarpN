@@ -173,7 +173,7 @@ default_model(none, "").
 
 :- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run, []).
-:- http_handler(htmx(info), info, []).
+:- http_handler(htmx('mapping-table'), mapping_table, []).
 :- http_handler(htmx('set-model'), set_model, []).
 
 %!  set_model(+Request)
@@ -235,18 +235,18 @@ derivatives_select(Name) -->
                 ])).
 
 
-%!  info(+Request)
+%!  mapping_table(+Request)
 %
-%   Print info afte the user  clicks  in   the  chart  at a certain time
-%   point.
+%   Print a table with the mapping to Garp  aftet the user clicks in the
+%   chart at a certain time point.
 
-info(Request) :-
+mapping_table(Request) :-
     http_read_data(Request, Data, []),
     _{time:TimeAtom, sha1:SHA1} :< Data,
     atom_number(TimeAtom, Time),
-    info(SHA1, Time).
+    mapping_table(SHA1, Time).
 
-info(SHA1, Time) :-
+mapping_table(SHA1, Time) :-
     saved(SHA1, Model, Options),
     q_series(string(Model), QSeries,
              [ link_garp_states(true),
@@ -597,16 +597,16 @@ run(Request) :-
                  \stats(Series, Time),
                  div([ id(plot),
                        'hx-vals'('js:{time: plotly_clicked_at.x, sha1:SHA1}'),
-                       'hx-post'('/garp/htmx/info'),
+                       'hx-post'('/garp/htmx/mapping-table'),
                        'hx-trigger'('clicked-x'),
-                       'hx-target'('#info')
+                       'hx-target'('#mapping-table')
                      ],
                      [ \rulers(ShowRulers),
                        div([id(plotly),class(plotly)], []),
                        \traces(VTraces, DTraces, Shapes),
                        \js_script({|javascript||initShapes("plotly")|})
                      ]),
-                 div([id(info),class(narrow)], [&(nbsp)]),
+                 div([id('mapping-table'),class(narrow)], [&(nbsp)]),
                  \download_links(Source, Options)
                ]).
 
