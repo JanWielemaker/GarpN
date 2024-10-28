@@ -25,16 +25,20 @@ key_label(_, Key, Key).
 %!  order_keys(+IdMapping, +Keys, -Ordered) is det.
 
 order_keys(IdMapping, Keys0, Keys) :-
-    map_list_to_pairs(csv_column_rank, Keys0, Pairs),
+    map_list_to_pairs(csv_column_rank(IdMapping), Keys0, Pairs),
     keysort(Pairs, PairsS),
     pairs_values(PairsS, Keys).
 
-csv_column_rank(t,     0) :- !.
-csv_column_rank(state, 0) :- !.
-csv_column_rank(Key,   1) :- sub_atom(Key, _, _, _, number_of), !.
-csv_column_rank(Key,   2) :- sub_atom(Key, _, _, _, growth), !.
-csv_column_rank(garp_states, 4) :- !.
-csv_column_rank(_,     3).
+csv_column_rank(_IdMapping, t,           Rank) => Rank = 1-1.
+csv_column_rank(_IdMapping, state,       Rank) => Rank = 1-1.
+csv_column_rank(_IdMapping, garp_states, Rank) => Rank = 4-1.
+csv_column_rank(IdMapping,  Key,         Rank),
+    Term = IdMapping.get(Key),
+    functor(Term, Attr, 1) =>
+    arg(1, Term, Obj),
+    Rank = 2-t(Obj-Attr).
+csv_column_rank(_IdMapping, Key,         Rank) =>
+    Rank = 3-Key.
 
 %!  series_key_derivative(+Series, +Key, -KerDer:pair) is det.
 %!  key_state_derivative(+Key, +State, -Der:nonneg) is det.

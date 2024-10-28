@@ -576,8 +576,7 @@ run(Request) :-
               ],
     call_time(simulate(string(Source), Series, Options), Time),
     annotate_garp_states(Series, Shapes, Options),
-    js_id_mapping(IdMapping, JSMapping),
-    plotly_traces(Series, VTraces, DTraces, JSMapping),
+    plotly_traces(Series, VTraces, DTraces, IdMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
                  div([ id(plot),
@@ -594,14 +593,6 @@ run(Request) :-
                  div([id('mapping-table'),class(narrow)], [&(nbsp)]),
                  \download_links(Source, Options)
                ]).
-
-js_id_mapping(Dict, JDict) :-
-    dict_pairs(Dict, _, Pairs),
-    maplist(jid, Pairs, JPairs),
-    dict_pairs(JDict, #, JPairs).
-
-jid(K-V, K-A) :-
-    format(string(A), '~w', [V]).
 
 traces(VTraces, DTraces, Shapes) -->
     { append(VTraces, DTraces, Traces)
@@ -625,16 +616,17 @@ plot(Target, Title, Traces, Shapes) -->
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
-plotly_traces(Series, Traces, [], JSMapping) :-
+plotly_traces(Series, Traces, [], IdMapping) :-
     Series = [First|_],
     dict_keys(First, Keys0),
-    delete(Keys0, t, Keys),
+    delete(Keys0, t, Keys1),
+    order_keys(IdMapping, Keys1, Keys),
     maplist(range(Series), Keys, Ranges),
     pairs_keys_values(Ranges, Mins, Maxs),
     min_list(Mins, Min),
     max_list(Maxs, Max),
     maplist(rescale(Min-Max), Ranges, Scales),
-    maplist(serie(x-y, Series, JSMapping), Keys, Scales, Traces).
+    maplist(serie(x-y, Series, IdMapping), Keys, Scales, Traces).
 
 range(Series, Key, Min-Max) :-
     maplist(get_dict(Key), Series, Ys),
@@ -666,15 +658,15 @@ scale(X) :-                             % 1, 5, 10, 50, ...
     ;   X is 5*10^S
     ).
 
-serie(Axis, Series, JSMapping, Key, Scale, Trace) :-
+serie(Axis, Series, IdMapping, Key, Scale, Trace) :-
     Trace0 = trace{x:Times, y:Values, mode:lines, name:Label},
-    serie_label(JSMapping, Key, Scale, Label),
+    serie_label(IdMapping, Key, Scale, Label),
     convlist(tv(Key, Scale), Series, TVs),
     pairs_keys_values(TVs, Times, Values),
     set_axis(Axis, Trace0, Trace).
 
-serie_label(JSMapping, Key, Scale, Label) :-
-    Label0 = JSMapping.get(Key, Key),
+serie_label(IdMapping, Key, Scale, Label) :-
+    key_label(IdMapping, Key, Label0),
     (   Scale =:= 1
     ->  Label = Label0
     ;   format(string(Label), '~w (*~w)', [Label0, Scale])
