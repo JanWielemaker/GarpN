@@ -6,7 +6,8 @@
             state_row/4,                % +Keys, +State:dict, +Empty, -Row:list
             state_trace_value/4,        % +KeyDer, +Empty, +State, -Value
             round_float_row/3,          % +Decimals, +RowIn, -Row
-            round_float/3               % +Decimals, +Value, -Rounded
+            round_float/3,              % +Decimals, +Value, -Rounded
+            key_obj_attr/4              % +IdMapping, +Key, -Obj:atom,-Attr:atom
           ]).
 :- use_module(library(pairs)).
 :- use_module(library(terms)).
@@ -33,12 +34,19 @@ csv_column_rank(_IdMapping, t,           Rank) => Rank = 1-1.
 csv_column_rank(_IdMapping, state,       Rank) => Rank = 1-1.
 csv_column_rank(_IdMapping, garp_states, Rank) => Rank = 4-1.
 csv_column_rank(IdMapping,  Key,         Rank),
-    Term = IdMapping.get(Key),
-    functor(Term, Attr, 1) =>
-    arg(1, Term, Obj),
+    key_obj_attr(IdMapping, Key, Obj, Attr) =>
     Rank = 2-t(Obj-Attr).
 csv_column_rank(_IdMapping, Key,         Rank) =>
     Rank = 3-Key.
+
+%!  key_obj_attr(+IdMapping, +Key, -Obj:atom, -Attr:atom) is det.
+
+key_obj_attr(IdMapping, Key, Obj, Attr),
+    Term = IdMapping.get(Key),
+    functor(Term, Attr, 1) =>
+    arg(1, Term, Obj).
+key_obj_attr(_, Key, _Obj, Attr) =>
+    Attr = Key.
 
 %!  series_key_derivative(+Series, +Key, -KerDer:pair) is det.
 %!  key_state_derivative(+Key, +State, -Der:nonneg) is det.

@@ -361,10 +361,13 @@ state_table(States, Options) -->
           order_keys(IdMapping, Keys0, Keys)
       ),
       maplist(series_key_derivative(StatesPlain), Keys, KeyDers),
-      dict_pairs(DerDict, #, KeyDers)
+      dict_pairs(DerDict, #, KeyDers),
+      maplist(key_obj_attr(IdMapping), Keys, Objs, _Attrs),
+      obj_colspans(Objs, KeyDers, ObjSpans)
     },
     html(table(class(states),
-               [ tr(\sequence(state_header(1, DerDict, IdMapping), Keys)),
+               [ tr(\sequence(obj_header, ObjSpans)),
+                 tr(\sequence(state_header(1, DerDict, IdMapping), Keys)),
                  tr(\sequence(state_header(2, DerDict, IdMapping), Keys))
                | \state_rows(States, KeyDers, Options)
                ])).
@@ -389,6 +392,29 @@ plain_rows(cmp_to(_,Rows)) -->
 plain_rows(Row) -->
     [Row].
 
+obj_colspans([], _, []).
+obj_colspans([O|OT], [_Key-Der|KeyDers], [O-Colspan|CST]) :-
+    Colspan0 is Der+1,
+    obj_colspan(O, OT, OT1, KeyDers, KeyDers1, Colspan0, Colspan),
+    obj_colspans(OT1, KeyDers1, CST).
+
+obj_colspan(O, [O|OT], OT1, [_Key-Der|KeyDers], KeyDers1, Colspan0, Colspan) =>
+    Colspan1 is Colspan0+Der+1,
+    obj_colspan(O, OT, OT1, KeyDers, KeyDers1, Colspan1, Colspan).
+obj_colspan(_, OT, OT1, KeyDers, KeyDers1, Colspan0, Colspan) =>
+    OT1 = OT,
+    KeyDers1 = KeyDers,
+    Colspan = Colspan0.
+
+obj_header(Obj-1) -->
+    { var(Obj) },
+    !,
+    html(th([])).
+obj_header(Obj-1) -->
+    html(th(Obj)).
+obj_header(Obj-AttrCount) -->
+    html(th([class(entity), colspan(AttrCount)], Obj)).
+
 %!  state_header(+Nth, +DerDict, +IdMapping, +Key)//
 %
 %   Emit the Nth header row for Key
@@ -400,17 +426,23 @@ state_header(Nth, DerDict, IdMapping, Key) -->
     !,
     (   {Nth == 1}
     ->  { Cols is Der+1,
-          key_label(IdMapping, Key, Label)
+          key_obj_attr(IdMapping, Key, Obj, Attr),
+          (   var(Obj)
+          ->  key_label(IdMapping, Key, Label),
+              Extra = []
+          ;   Label = Attr,
+              Extra = [class(property)]
+          )
         },
-        html(th([colspan(Cols)], Label))
+        html(th([colspan(Cols)|Extra], Label))
     ;   derivative_headers(0, Der)
     ).
-state_header(1, _Rows, IdMapping, Key) -->
+state_header(2, _Rows, IdMapping, Key) -->
     !,
     { key_label(IdMapping, Key, Label) },
-    html(th(rowspan(2), Label)).
-state_header(2, _Rows, _IdMapping, _Key) -->
-    [].
+    html(th(Label)).
+state_header(1, _Rows, _IdMapping, _Key) -->
+    html(th([])).
 
 derivative_headers(Nth, Der) -->
     { Nth > Der },

@@ -76,6 +76,25 @@ div.plotly {
     bottom: 0px;
 }
 
+table.states {
+    border-collapse: collapse;
+}
+
+table.states td {
+    padding: 0px 5px;
+    border: 1px solid #888;
+}
+
+table.states th {
+    padding: 0px 5px;
+    border: 1px solid #888;
+}
+
+th.property {
+    font-weight: normal;
+    font-style: italic;
+}
+
 table.states td.qualitative {
     text-align: center;
 }
