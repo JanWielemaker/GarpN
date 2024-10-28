@@ -337,6 +337,10 @@ add_state_no(Id-State0, State) :-
 
 %!  interpolate_nq(+Numeric, +Qualitative, -Rows) is det.
 
+interpolate_nq([], [], R) =>
+    R = [].
+interpolate_nq([Last], L, R) =>
+    R = [cmp_to(Last, [Last|L])].
 interpolate_nq([], L, R) =>
     R = L.
 interpolate_nq(L, [], R) =>
