@@ -20,6 +20,7 @@
 :- use_module(gsim).
 :- use_module(map).
 :- use_module(csv_util).
+:- use_module(equations).
 
 http:location(garp, root(garp), []).
 http:location(htmx, garp(htmx), []).
@@ -89,6 +90,7 @@ home -->
                  'hx-on-htmx-before-request'('clear_output()')
                 ],
                 [ \model_area(Source),
+                  \mathlive_model(Source),
                   div([id(quantity_controls), class(narrow)],
                       \q_menu(Model, Source)),
                   div(class([controls, narrow]),
@@ -162,6 +164,11 @@ model_area(Model) -->
                         'hx-target'('#quantity_controls'),
                         placeholder('Your numerical model')
                       ], Model))).
+
+mathlive_model(Model) -->
+    { read_model_to_terms(string(Model), Terms)
+    },
+    html(div(class(narrow), \equations(Terms))).
 
 default_model(Model, Source) :-
     model_file(File),

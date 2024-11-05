@@ -1,7 +1,8 @@
 :- module(gsim,
           [ read_model/5,         % +Source, -Formulas, -Constants, -State0, +Opts
             simulate/3,           % +ModelSrc, -Series, +Options
-            add_derivative/2      % +Series, -DSeries
+            add_derivative/2,     % +Series, -DSeries
+            read_model_to_terms/2 % ++Input, -Terms
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -87,7 +88,7 @@ simulate(From, Series, Options) :-
 %   @arg State0 is a dict `QuantityId` -> `Value`.
 
 read_model(From, Formulas, Constants, State, Options) :-
-    read_to_terms(From, Terms0),
+    read_model_to_terms(From, Terms0),
     maplist(quantity, Terms0, Quantities0),
     sort(Quantities0, Sorted),
     maplist(q_term(Options), Sorted, Quantities1),
@@ -98,13 +99,13 @@ read_model(From, Formulas, Constants, State, Options) :-
     derived_constants(Formulas0, Constants0, Formulas, Constants),
     derived_initial_state(Formulas, Constants, State0, State).
 
-%!  read_to_terms(++Input, -Terms) is det.
+%!  read_model_to_terms(++Input, -Terms) is det.
 %
 %   Read the input into a list of Prolog terms.
 
-read_to_terms(file(File), Terms) =>
+read_model_to_terms(file(File), Terms) =>
     read_file_to_terms(File, Terms, [module(gsim)]).
-read_to_terms(string(String), Terms) =>
+read_model_to_terms(string(String), Terms) =>
     setup_call_cleanup(
         open_string(String, In),
         read_stream_to_terms(In, Terms, [module(gsim)]),
