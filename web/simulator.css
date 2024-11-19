@@ -169,14 +169,6 @@ math-field::part(container) {
     border: 0px;
 }
 
-/*
-math-field:focus math-field::part(virtual-keyboard-toggle) {
-    display: flex;
-    height: 20px;
-    background: red;
-}
-*/
-
 /* Hide the virtual keyboard toggle */
 math-field::part(virtual-keyboard-toggle) {
     height: 20px;
@@ -185,4 +177,9 @@ math-field::part(virtual-keyboard-toggle) {
 /* Hide the menu toggle */
 math-field::part(menu-toggle) {
     height: 20px;
+}
+
+/* docs say this is the placeholder */
+math-field::part(prompt) {
+    top: 10px;
 }
