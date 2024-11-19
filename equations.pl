@@ -3,11 +3,15 @@
           ]).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(http/html_write)).
+:- use_module(library(http/js_write)).
 :- use_module(library(http/html_head)).
 
 :- html_resource(mathlive,
                  [ virtual(true),
-                   requires([ 'https://unpkg.com/mathlive'
+                   ordered(true),
+                   requires([ 'https://unpkg.com/mathlive',
+                              %'/garp/mathlive.js',
+                              '/garp/equations.js'
                             ])
                  ]).
 :- html_resource('https://unpkg.com/mathlive',
@@ -20,12 +24,17 @@
 
 equations(Eqs) -->
     html_requires(mathlive),
-    html(div(class(equations),
-             \sequence(equation, Eqs))).
+    html(div([id(equations), class(equations)],
+             \sequence(equation, Eqs))),
+    js_script({|javascript||
+               ml_init();
+              |}).
+
 
 equation(Eq) -->
     { phrase(eq_to_mathjax(Eq), Codes),
-      string_codes(String, Codes)
+      string_codes(String, Codes),
+      pp(String)
     },
     html(div(class(equation),
              'math-field'(String))).
@@ -36,12 +45,14 @@ eq_to_mathjax(Left := Right) ==>
     "=",
     expression(Right).
 
-quantity(Q) -->
-    format('\\text{~q}', [Q]).
+quantity(Q), compound(Q), Q =.. [A,E] ==>
+    format('\\prop{~w}{~w}', [A,E]).
+quantity(Q) ==>
+    format('\\unit{~w}', [Q]).
 
-expression(A + B) ==> expression(A), "+", expression(B).
-expression(A - B) ==> expression(A), "-", expression(B).
-expression(A * B) ==> expression(A), "\\times ", expression(B).
+expression(A + B) ==> expression(A), " + ", expression(B).
+expression(A - B) ==> expression(A), " - ", expression(B).
+expression(A * B) ==> expression(A), " \\cdot ", expression(B).
 expression(A / B) ==> "\\frac{", expression(A), "}{", expression(B), "}".
 expression(Q), ground(Q) ==> quantity(Q).
 

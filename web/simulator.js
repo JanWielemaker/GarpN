@@ -1,3 +1,7 @@
+		 /*******************************
+		 *        PLOTLY SUPPORT        *
+		 *******************************/
+
 function initRulers(id) {
   const plot  = document.getElementById(id);
   const hrule = document.getElementById("hrule");
