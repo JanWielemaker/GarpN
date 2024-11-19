@@ -89,8 +89,9 @@ home -->
                  'hx-target-500'('#errors'),
                  'hx-on-htmx-before-request'('clear_output()')
                 ],
-                [ \model_area(Source),
-                  \mathlive_model(Source),
+                [ % \model_area(Source),
+                  div([id('ml-model'), class(narrow)],
+                      \mathlive_model(Source)),
                   div([id(quantity_controls), class(narrow)],
                       \q_menu(Model, Source)),
                   div(class([controls, narrow]),
@@ -105,7 +106,9 @@ home -->
                         ' ',
                         \methods,
                         input([ type(hidden), name(track), value(all) ]),
-                        input([ type(hidden), name(model), id(model), value(Model) ]),
+                        input([ type(hidden), name(model), id(model),
+                                value(Model)
+                              ]),
                         ' ',
                         input([ type(submit),
                                 value("Run!")
@@ -154,6 +157,10 @@ methods -->
                   ])
          ]).
 
+%!  model_area(+Source:string)// is det.
+%
+%   Emit the model area as a `<textarea>`.
+
 model_area(Model) -->
     html(div(class([model,narrow]),
              textarea([ name(source),
@@ -164,6 +171,10 @@ model_area(Model) -->
                         'hx-target'('#quantity_controls'),
                         placeholder('Your numerical model')
                       ], Model))).
+
+%!  mathlive_model(+Source:string)// is det.
+%
+%   Emit the model area as a set of mathlife equations.
 
 mathlive_model(Model) -->
     { read_model_to_terms(string(Model), Terms)
@@ -193,6 +204,8 @@ set_model(Request) :-
     read_file_to_string(File, Source, []),
     reply_htmx(
         [ \q_menu(Model, Source),
+          div([id('ml-model'), 'hx-swap-oob'(true)],
+              \mathlive_model(Source)),
           \js_script({|javascript(Model,Source)||setModel(Model,Source)|})
         ]).
 

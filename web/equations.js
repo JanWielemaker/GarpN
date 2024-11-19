@@ -9,7 +9,7 @@ function ml_init()
     mf.macros = {
       ... mf.macros,
       prop:     '\\,\\text{#1}^{#2}\\,{}',
-      variable: '\\text{#1}'
+      variable: '\\,\\text{#1}'
     };
   }
 }

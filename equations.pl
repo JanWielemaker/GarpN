@@ -61,7 +61,13 @@ expression(A + B) ==> expression(A), " + ", expression(B).
 expression(A - B) ==> expression(A), " - ", expression(B).
 expression(A * B) ==> expression(A), " \\cdot ", expression(B).
 expression(A / B) ==> "\\frac{", expression(A), "}{", expression(B), "}".
+expression(A ^ B) ==> expression(A), "^{", const_expression(B), "}".
 expression(Q), ground(Q) ==> quantity(Q).
+
+const_expression(C), number(C) ==>
+    format('~W', [C, [float_format('~999h')]]).
+const_expression(E) ==>
+    expression(E).
 
 format(Fmt, Args, Head, Tail) :-
     format(codes(Head, Tail), Fmt, Args).
