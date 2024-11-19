@@ -11,11 +11,15 @@
                  [ virtual(true),
                    ordered(true),
                    requires([ 'https://unpkg.com/mathlive',
+                              %'https://unpkg.com/@cortex-js/compute-engine',
                               %'/garp/mathlive.js',
                               '/garp/equations.js'
                             ])
                  ]).
 :- html_resource('https://unpkg.com/mathlive',
+                 [ mime_type(text/javascript)
+                 ]).
+:- html_resource('https://unpkg.com/@cortex-js/compute-engine',
                  [ mime_type(text/javascript)
                  ]).
 
@@ -51,7 +55,7 @@ quantity(Q), compound(Q), Q =.. [A,E] ==>
 quantity(Q), atom(Q) ==>
     format('\\variable{~w}', [Q]).
 quantity(Q), number(Q) ==>
-    format('\\placeholder[c]{~w}', [Q]).
+    format('\\placeholder[c]{~W}', [Q, [float_format('~999h')]]).
 
 expression(A + B) ==> expression(A), " + ", expression(B).
 expression(A - B) ==> expression(A), " - ", expression(B).
@@ -97,8 +101,10 @@ latex_cmd(Command) -->
 ltx_name(Name) -->
     csym(Name).
 
-ltx_args(prop, Args) ==> ltx_nargs(2, Args).
-ltx_args(_,    Args) ==> curl_args(Args).
+ltx_args(prop,     Args) ==> ltx_nargs(2, Args).
+ltx_args(variable, Args) ==> ltx_nargs(1, Args).
+ltx_args(cdot,     Args) ==> {Args = []}.
+ltx_args(_,        Args) ==> curl_args(Args).
 
 ltx_nargs(0, []) --> !.
 ltx_nargs(N, [H|T]) --> ltx_arg(H), {N1 is N-1}, ltx_nargs(N1, T).

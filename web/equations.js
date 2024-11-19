@@ -19,7 +19,7 @@ function ml_value()
   const eql = document.getElementById("equations");
   for(eq of eql.children) {
     const mf = eq.querySelector("math-field");
-    val.push(mf.getValue('math-json'));
+    val.push(mf.getValue(/*'math-json'*/));
   }
   return val;
 }
