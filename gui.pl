@@ -82,40 +82,42 @@ home -->
     { default_model(Model, Source)
     },
     html([ h1("Garp numerical simulator"),
-           div(class(narrow), \model_menu(Model)),
-           div('hx-ext'('response-targets'),
-               [ form(['hx-post'('/garp/htmx/run'),
-                 'hx-target'('#results'),
-                 'hx-target-500'('#errors'),
-                 'hx-on-htmx-before-request'('clear_output()')
-                ],
-                [ % \model_area(Source),
-                  div([id('ml-model'), class(narrow)],
-                      \mathlive_model(Source)),
-                  div([id(quantity_controls), class(narrow)],
-                      \q_menu(Model, Source)),
-                  div(class([controls, narrow]),
-                      [ label(for(iterations),
-                              '# Iterations'),
-                        input([ type(number),
-                                name(iterations),
-                                min(10),
-                                value(1000),
-                                max(100_000)
-                              ]),
-                        ' ',
-                        \methods,
-                        input([ type(hidden), name(track), value(all) ]),
-                        input([ type(hidden), name(model), id(model),
-                                value(Model)
-                              ]),
-                        ' ',
-                        input([ type(submit),
-                                value("Run!")
-                              ])
-                      ])
-                ]),
-                 div([id(errors),class(narrow)], []),
+           div(class([narrow,content]),
+               [ \model_menu(Model),
+                 div('hx-ext'('response-targets'),
+                     [ form(['hx-post'('/garp/htmx/run'),
+                             'hx-target'('#results'),
+                             'hx-target-500'('#errors'),
+                             'hx-on-htmx-before-request'('clear_output()')
+                            ],
+                            [ % \model_area(Source),
+                                div([id('ml-model')],
+                                    \mathlive_model(Source)),
+                                div([id(quantity_controls)],
+                                    \q_menu(Model, Source)),
+                                div(class([controls]),
+                                    [ label(for(iterations),
+                                            '# Iterations'),
+                                      input([ type(number),
+                                              name(iterations),
+                                              min(10),
+                                              value(1000),
+                                              max(100_000)
+                                            ]),
+                                      ' ',
+                                      \methods,
+                                      input([ type(hidden), name(track), value(all) ]),
+                                      input([ type(hidden), name(model), id(model),
+                                              value(Model)
+                                            ]),
+                                      ' ',
+                                      input([ type(submit),
+                                              value("Run!")
+                                            ])
+                                    ])
+                            ]),
+                       div([id(errors)], [])
+                     ]),
                  div(id(results), []),
                  div(id(script), []),
                  \js_script({|javascript(Model)||
@@ -162,7 +164,7 @@ methods -->
 %   Emit the model area as a `<textarea>`.
 
 model_area(Model) -->
-    html(div(class([model,narrow]),
+    html(div(class([model]),
              textarea([ name(source),
                         id(source),
                         'hx-vals'('js:getModel()'),
@@ -179,7 +181,7 @@ model_area(Model) -->
 mathlive_model(Model) -->
     { read_model_to_terms(string(Model), Terms)
     },
-    html(div(class(narrow), \equations(Terms))).
+    html(div(\equations(Terms))).
 
 default_model(Model, Source) :-
     model_file(File),
