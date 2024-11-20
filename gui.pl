@@ -225,14 +225,17 @@ numeric_model_file(Model, File) :-
 %   Analyze the model and fill the quantity controls.
 
 analyze(Request) :-
+    fail,
     !,
     http_read_json_dict(Request, Data, []),
     with_output_to(string(Text),
                    print_term(Data, [output(current_output)])),
     reply_htmx(pre(Text)).
 analyze(Request) :-
-    http_read_data(Request, Data, []),
-    _{model: Model, source: Source} :< Data,
+    http_read_json_dict(Request, Data, []),
+    _{model:ModelS, ml_data:MlData} :< Data,
+    atom_string(Model, ModelS),
+    latex_to_prolog_source(MlData, Source),
     reply_htmx(\q_menu(Model, Source)).
 
 q_menu(Model, Source) -->
