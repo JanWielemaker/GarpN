@@ -73,6 +73,8 @@ home(_Request) :-
                       script([type('text/javascript'),
                               src('/garp/node_modules/htmx.org/dist/ext/response-targets.js')], []),
                       script([type('text/javascript'),
+                              src('/garp/node_modules/htmx.org/dist/ext/json-enc.js')], []),
+                      script([type('text/javascript'),
                               src('/garp/simulator.js')], []),
                       script([type('text/javascript'),
                               src('/garp/plotly-2.32.0.min.js')], [])
@@ -222,6 +224,12 @@ numeric_model_file(Model, File) :-
 %
 %   Analyze the model and fill the quantity controls.
 
+analyze(Request) :-
+    !,
+    http_read_json_dict(Request, Data, []),
+    with_output_to(string(Text),
+                   print_term(Data, [output(current_output)])),
+    reply_htmx(pre(Text)).
 analyze(Request) :-
     http_read_data(Request, Data, []),
     _{model: Model, source: Source} :< Data,

@@ -29,7 +29,14 @@
 
 equations(Eqs) -->
     html_requires(mathlive),
-    html(div([id(equations), class(equations)],
+    html(div([ id(equations),
+               'hx-post'('/garp/htmx/analyze'),
+               'hx-vals'('js:{"ml_data": ml_value()}'),
+               'hx-trigger'('change delay:1000ms'),
+               'hx-target'('#quantity_controls'),
+               'hx-ext'('json-enc'),
+               class(equations)
+             ],
              \sequence(equation, Eqs))),
     js_script({|javascript||
                ml_init();
