@@ -120,16 +120,16 @@ home -->
                                     ])
                             ]),
                        div([id(errors)], [])
-                     ]),
-                 div(id(results), []),
-                 div(id(script), []),
-                 \js_script({|javascript||
-                             let data;
-                             let layout;
-                             let plot;
-                             let SHA1;
-                            |})
-               ])
+                     ])
+               ]),
+           div(id(results), []),
+           div(id(script), []),
+           \js_script({|javascript||
+                       let data;
+                       let layout;
+                       let plot;
+                       let SHA1;
+                      |})
          ]).
 
 model_menu(Default) -->
