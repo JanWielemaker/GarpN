@@ -36,3 +36,7 @@ function ml_value(eql)
   }
   return val;
 }
+
+function ml_value_string(eql)
+{ return ml_value(eql).join("\v");
+}

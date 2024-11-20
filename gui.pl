@@ -88,6 +88,7 @@ home -->
                [ \model_menu(Model),
                  div('hx-ext'('response-targets'),
                      [ form(['hx-post'('/garp/htmx/run'),
+                             'hx-vals'('js:{"ml_source": ml_value_string()}'),
                              'hx-target'('#results'),
                              'hx-target-500'('#errors'),
                              'hx-on-htmx-before-request'('clear_output()')
@@ -109,9 +110,6 @@ home -->
                                       ' ',
                                       \methods,
                                       input([ type(hidden), name(track), value(all)]),
-                                      input([ type(hidden), name(source), id(source),
-                                              value(Source)
-                                            ]),
                                       input([ type(hidden), name(model), id(model),
                                               value(Model)
                                             ]),
@@ -125,8 +123,7 @@ home -->
                      ]),
                  div(id(results), []),
                  div(id(script), []),
-                 \js_script({|javascript(Model)||
-                             let model = Model;
+                 \js_script({|javascript||
                              let data;
                              let layout;
                              let plot;
@@ -164,21 +161,6 @@ methods -->
                   ])
          ]).
 
-%!  model_area(+Source:string)// is det.
-%
-%   Emit the model area as a `<textarea>`.
-
-model_area(Model) -->
-    html(div(class([model]),
-             textarea([ name(source),
-                        id(source),
-                        'hx-vals'('js:getModel()'),
-                        'hx-post'('/garp/htmx/analyze'),
-                        'hx-trigger'('input changed delay:1000ms'),
-                        'hx-target'('#quantity_controls'),
-                        placeholder('Your numerical model')
-                      ], Model))).
-
 %!  mathlive_model(+Source:string)// is det.
 %
 %   Emit the model area as a set of mathlife equations.
@@ -213,7 +195,7 @@ set_model(Request) :-
         [ \q_menu(Model, Source),
           div([id('ml-model'), 'hx-swap-oob'(true)],
               \mathlive_model(Source)),
-          \js_script({|javascript(Model,Source)||setModel(Model,Source)|})
+          \js_script({|javascript(Model)||setModel(Model)|})
         ]).
 
 numeric_model_file(Model, File) :-
@@ -631,7 +613,7 @@ run(Request) :-
                       sample(Sample, [integer, optional(true)]),
                       rulers(ShowRulers, [boolean, default(false)]),
                       derivative(D, [between(-1,3), default(1)]),
-                      source(Source, []),
+                      ml_source(MlSource, []),
                       model(Model, [])
                     ],
                     [ form_data(Form)
@@ -651,6 +633,7 @@ run(Request) :-
                 sample(Sample),
                 id_mapping(IdMapping)
               ],
+    latex_to_prolog_source(MlSource, Source),
     call_time(simulate(string(Source), Series, Options), Time),
     annotate_garp_states(Series, Shapes, Options),
     plotly_traces(Series, VTraces, DTraces, IdMapping),

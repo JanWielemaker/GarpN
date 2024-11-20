@@ -88,14 +88,20 @@ format(Fmt, Args, Head, Tail) :-
 		 *            PARSE		*
 		 *******************************/
 
-%!  latex_to_prolog_source(+LaTeX:list(string), -Source:string) is det.
+%!  latex_to_prolog_source(+LaTeX, -Source:string) is det.
 %
 %   Translate MathLive LaTeX output to a source text.
+%
+%   @arg LaTeX is either a list of strings or a string
+%   where the equations are separated by \v (vertical tab)
 
-latex_to_prolog_source(LaTeX, Source) :-
+latex_to_prolog_source(LaTeX, Source), is_list(LaTeX) =>
     maplist(latex_prolog, LaTeX, Prolog),
     with_output_to(string(Source),
                    maplist(portray_clause, Prolog)).
+latex_to_prolog_source(LaTeX, Source) =>
+    split_string(LaTeX, "\v", "", Equations),
+    latex_to_prolog_source(Equations, Source).
 
 %!  latex_prolog(+LaTeX:string, -Prolog:term) is det.
 
