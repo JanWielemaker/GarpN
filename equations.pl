@@ -36,7 +36,7 @@ equations(Eqs) -->
     html(div([ id(equations),
                'hx-post'('/garp/htmx/analyze'),
                'hx-vals'('js:{"ml_data": ml_value()}'),
-               'hx-trigger'('change delay:1000ms'),
+               'hx-trigger'('input delay:1000ms'),
                'hx-target'('#quantity_controls'),
                'hx-ext'('json-enc'),
                class(equations)

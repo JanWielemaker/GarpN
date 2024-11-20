@@ -8,11 +8,10 @@ function ml_prep(mf)
     prop:     '\\,\\text{#1}^{#2}\\,{}',
     variable: '\\,\\text{#1}'
   };
-  mf.addEventListener("change", (ev) => {
+  mf.addEventListener("input", (ev) => {
     const eql = ev.target.closest(".equations");
     if ( eql )
-      eql.dispatchEvent(new Event('change', { bubbles: true }));
-    console.log(ev.target, eql);
+      eql.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
 
