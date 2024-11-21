@@ -1,0 +1,32 @@
+:- module('QRpaper slide19 2024 11 14', []).
+
+%!  qspace(?ParameterInstance, ?ParameterDef, ?ValueList, ?Fail).
+
+qspace(x1,x(an_e,x1,continuous,qzptpp),[point(zero),plus,point(transition(x1)),plusplus],fail).
+qspace(y1,y(an_e,y1,continuous,mzp),[min,point(zero),plus],fail).
+qspace(z1,z(an_e,z1,continuous,qzlmh),[point(zero),low,point(mid(z1)),high],fail).
+
+
+%!   qrel(?Rel).
+
+qrel(inf_neg_by(y1,z1)).
+qrel(inf_pos_by(y1,x1)).
+qrel(equal(transition(x1),mid(z1))).
+
+
+%!   qstate(?State, ?Values).
+
+qstate(1,_6600{x1:d(plusplus,zero,zero,_6546),y1:d(zero,plus,_6566,_6568),z1:d(low,zero,zero,_6590)}).
+qstate(2,_6066{x1:d(plusplus,zero,zero,_6056),y1:d(plus,plus,_6032,_6034),z1:d(low,zero,zero,_6012)}).
+
+
+%!   qstate_from(?State, ?From:list).
+
+qstate_from(2,[1]).
+qstate_from(1,[input]).
+
+
+%!   qstate_to(?State, ?Cause).
+
+qstate_to(2,[]).
+qstate_to(1,[to(cause([to_interval_above(y1)]),conditions([par_values([value(y1,unk,zero,plus)])]),results([par_relations([d_greater(y1,zero)]),par_values([value(y1,unk,plus,_3658)])]),to_state([2]),closed)]).

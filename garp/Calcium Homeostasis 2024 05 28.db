@@ -1,4 +1,4 @@
-:- module('Calcium Homeostasis', []).
+:- module('Calcium Homeostasis 2024 05 28', []).
 
 %!  qspace(?ParameterInstance, ?ParameterDef, ?ValueList, ?Fail).
 
@@ -27,8 +27,8 @@ qrel(prop_neg(ca_ions1,ca_ions2)).
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_360{ca_ions1:d(_212,plus,_216,_218),ca_ions2:d(_234,min,_238,_240),calcitonin1:d(_322,min,_326,_328),difference1:d(min,plus,_304,_306),norm1:d(_344,zero,zero,_350),pth1:d(_278,plus,_282,_284),resorption_ca_ions1:d(_256,plus,_260,_262)}).
-qstate(2,_2622{ca_ions1:d(_2606,zero,_2610,_2612),ca_ions2:d(_2584,zero,_2588,_2590),calcitonin1:d(_2496,zero,_2500,_2502),difference1:d(zero,zero,_2522,_2524),norm1:d(_2474,zero,zero,_2480),pth1:d(_2540,zero,_2544,_2546),resorption_ca_ions1:d(_2562,zero,_2566,_2568)}).
+qstate(1,_7852{ca_ions1:d(_7704,plus,_7708,_7710),ca_ions2:d(_7726,min,_7730,_7732),calcitonin1:d(_7814,min,_7818,_7820),difference1:d(min,plus,_7796,_7798),norm1:d(_7836,zero,zero,_7842),pth1:d(_7770,plus,_7774,_7776),resorption_ca_ions1:d(_7748,plus,_7752,_7754)}).
+qstate(2,_6526{ca_ions1:d(_6510,zero,_6514,_6516),ca_ions2:d(_6488,zero,_6492,_6494),calcitonin1:d(_6400,zero,_6404,_6406),difference1:d(zero,zero,_6426,_6428),norm1:d(_6378,zero,zero,_6384),pth1:d(_6444,zero,_6448,_6450),resorption_ca_ions1:d(_6466,zero,_6470,_6472)}).
 
 
 %!   qstate_from(?State, ?From:list).
@@ -40,4 +40,4 @@ qstate_from(1,[input]).
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(2,[]).
-qstate_to(1,[to(cause([to_point_above(difference1),from_smaller_to_equal(ca_ions1,norm1)]),conditions([par_values([value(difference1,unk,min,plus)]),par_relations([smaller(ca_ions1,norm1)])]),results([par_relations([d_greater_or_equal(difference1,zero),equal(ca_ions1,norm1),d_greater_or_equal(ca_ions1,norm1)]),par_values([value(difference1,unk,zero,_394)])]),to_state([2]),closed)]).
+qstate_to(1,[to(cause([to_point_above(difference1),from_smaller_to_equal(ca_ions1,norm1)]),conditions([par_values([value(difference1,unk,min,plus)]),par_relations([smaller(ca_ions1,norm1)])]),results([par_relations([d_greater_or_equal(difference1,zero),equal(ca_ions1,norm1),d_greater_or_equal(ca_ions1,norm1)]),par_values([value(difference1,unk,zero,_4298)])]),to_state([2]),closed)]).

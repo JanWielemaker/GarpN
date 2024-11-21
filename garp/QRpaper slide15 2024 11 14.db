@@ -1,0 +1,29 @@
+:- module('QRpaper slide15 2024 11 14', []).
+
+%!  qspace(?ParameterInstance, ?ParameterDef, ?ValueList, ?Fail).
+
+qspace(x1,x(an_e,x1,continuous,qzp),[point(zero),plus],fail).
+qspace(y1,y(an_e,y1,continuous,qp),[p],fail).
+
+
+%!   qrel(?Rel).
+
+qrel(prop_pos(y1,x1)).
+
+
+%!   qstate(?State, ?Values).
+
+qstate(1,_3746{x1:d(zero,plus,_3712,_3714),y1:d(p,plus,_3734,_3736)}).
+qstate(2,_3500{x1:d(plus,plus,_3488,_3490),y1:d(p,plus,_3466,_3468)}).
+
+
+%!   qstate_from(?State, ?From:list).
+
+qstate_from(2,[1]).
+qstate_from(1,[input]).
+
+
+%!   qstate_to(?State, ?Cause).
+
+qstate_to(2,[]).
+qstate_to(1,[to(cause([to_interval_above(x1)]),conditions([par_values([value(x1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero)]),par_values([value(x1,unk,plus,_2242)])]),to_state([2]),closed)]).
