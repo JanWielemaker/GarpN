@@ -48,8 +48,7 @@ opt_help(help(usage),
 set_model_file([File]) =>
     asserta(model_file(File)).
 set_model_file(_) =>
-    argv_usage(debug),
-    halt(1).
+    true.
 
 :- http_handler(root(.),    http_redirect(see_other, garp(home)), []).
 :- http_handler(garp(.),    http_redirect(see_other, garp(home)), []).
@@ -81,7 +80,10 @@ home(_Request) :-
                     ]).
 
 home -->
-    { default_model(Model, Source)
+    { (   default_model(Model, Source)
+      ->  true
+      ;   Model = none
+      )
     },
     html([ h1("Garp numerical simulator"),
            div(class([narrow,content]),
@@ -93,31 +95,30 @@ home -->
                              'hx-target-500'('#errors'),
                              'hx-on-htmx-before-request'('clear_output()')
                             ],
-                            [ % \model_area(Source),
-                                div([id('ml-model')],
-                                    \mathlive_model(Source)),
-                                div([id(quantity_controls)],
-                                    \q_menu(Model, Source)),
-                                div(class([controls]),
-                                    [ label(for(iterations),
-                                            '# Iterations'),
-                                      input([ type(number),
-                                              name(iterations),
-                                              min(10),
-                                              value(1000),
-                                              max(100_000)
-                                            ]),
-                                      ' ',
-                                      \methods,
-                                      input([ type(hidden), name(track), value(all)]),
-                                      input([ type(hidden), name(model), id(model),
-                                              value(Model)
-                                            ]),
-                                      ' ',
-                                      input([ type(submit),
-                                              value("Run!")
-                                            ])
-                                    ])
+                            [ div([id('ml-model')],
+                                  \mathlive_model(Source)),
+                              div([id(quantity_controls)],
+                                  \q_menu(Model, Source)),
+                              div(class([controls]),
+                                  [ label(for(iterations),
+                                          '# Iterations'),
+                                    input([ type(number),
+                                            name(iterations),
+                                            min(10),
+                                            value(1000),
+                                            max(100_000)
+                                          ]),
+                                    ' ',
+                                    \methods,
+                                    input([ type(hidden), name(track), value(all)]),
+                                    input([ type(hidden), name(model), id(model),
+                                            value(Model)
+                                          ]),
+                                    ' ',
+                                    input([ type(submit),
+                                            value("Run!")
+                                          ])
+                                  ])
                             ]),
                        div([id(errors)], [])
                      ])
@@ -133,15 +134,22 @@ home -->
          ]).
 
 model_menu(Default) -->
-    { findall(File, directory_member(numeric, File,
-                                     [ extensions([pl]) ]), Files)
+    { findall(File, directory_member(garp, File,
+                                     [ extensions([db]) ]), Files)
     },
     html(select([ 'hx-get'('/garp/htmx/set-model'),
                   'hx-trigger'(change),
                   'hx-target'('#quantity_controls'),
                   name(model)
                 ],
-                \sequence(model_option(Default), Files))).
+                \model_options(Default, Files))).
+
+model_options(none, Files) ==>
+    html(option([value(none), selected, disabled(true)],
+                'Please select a Model')),
+    sequence(model_option(_), Files).
+model_options(Default, Files) ==>
+    sequence(model_option(Default), Files).
 
 model_option(Default, File) -->
     { file_base_name(File, Base),
@@ -165,8 +173,10 @@ methods -->
 %
 %   Emit the model area as a set of mathlife equations.
 
-mathlive_model(Model) -->
-    { read_model_to_terms(string(Model), Terms)
+mathlive_model(Source), var(Source) ==>
+    [].
+mathlive_model(Source) ==>
+    { read_model_to_terms(string(Source), Terms)
     },
     html(div(\equations(Terms))).
 
@@ -181,16 +191,22 @@ default_model(none, "").
 :- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
-:- http_handler(htmx('set-model'), set_model, []).
+:- http_handler(htmx('set-model'), set_model_handler, []).
 
-%!  set_model(+Request)
+%!  set_model_handler(+Request)
 %
 %   Change the model
 
-set_model(Request) :-
+set_model_handler(Request) :-
     http_parameters(Request, [ model(Model, []) ]),
-    numeric_model_file(Model, File),
-    read_file_to_string(File, Source, []),
+    set_model(Model).
+
+set_model(Model) :-
+    (   Model == none
+    ->  true
+    ;   numeric_model_file(Model, File),
+        read_file_to_string(File, Source, [])
+    ),
     reply_htmx(
         [ \q_menu(Model, Source),
           div([id('ml-model'), 'hx-swap-oob'(true)],
@@ -216,8 +232,14 @@ analyze(Request) :-
                              setModel(Model,Source)|})
                ]).
 
+%!  q_menu(+Model, +Source)// is det.
+%
+%   Emit the found quantities with a menu that asks whether or not to
+%   consider mapping this quantity to Garp.
+
 q_menu(Model, Source) -->
-    { id_mapping(Model, IdMapping),
+    { nonvar(Source),                            % there is no model
+      id_mapping(Model, IdMapping),
       catch(read_model(string(Source), Formulas, _Constants, _State0,
                        [ id_mapping(IdMapping) ]),
             error(_,_), fail),
