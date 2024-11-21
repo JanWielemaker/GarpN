@@ -68,6 +68,7 @@ quantity(Q), atom(Q) ==>
 quantity(Q), number(Q) ==>
     format('\\placeholder[c]{~W}', [Q, [float_format('~999h')]]).
 
+expression(-(A))  ==> "-", expression(A).
 expression(A + B) ==> expression(A), " + ", expression(B).
 expression(A - B) ==> expression(A), " - ", expression(B).
 expression(A * B) ==> expression(A), " \\cdot ", expression(B).
@@ -119,6 +120,11 @@ latex_var(Q) -->
      latex_variable(Q).
 
 latex_expression(Expr) -->
+    latex_symbol('('),
+    !,
+    latex_expression(Expr),
+    latex_symbol(')').
+latex_expression(Expr) -->
     latex_whites,
     latex_add_expression(Left),
     (   add_op(Op)
@@ -151,6 +157,10 @@ latex_exp_expression(Expr) -->
 latex_exp_expression(Expr) -->
     latex_number(Expr),
     !.
+latex_exp_expression(-Expr) -->
+    latex_symbol(-),
+    !,
+    latex_exp_expression(Expr).
 latex_exp_expression(Expr) -->
     cmd_expresion(Expr).
 
