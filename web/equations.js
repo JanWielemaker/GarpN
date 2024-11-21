@@ -5,7 +5,7 @@
 function ml_prep(mf)
 { mf.macros = {
     ... mf.macros,
-    prop:     '\\,\\text{#1}^{#2}\\,{}',
+    prop:     '\\,\\text{#1}^\\text{#2}\\,{}',
     variable: '\\,\\text{#1}'
   };
   mf.addEventListener("input", (ev) => {
