@@ -87,7 +87,7 @@ home -->
     },
     html([ h1("Garp numerical simulator"),
            div(class([narrow,content]),
-               [ \model_menu(Model),
+               [ \model_menus(Model),
                  div('hx-ext'('response-targets'),
                      [ form(['hx-post'('/garp/htmx/run'),
                              'hx-vals'('js:{"ml_source": ml_value_string()}'),
@@ -133,6 +133,17 @@ home -->
                       |})
          ]).
 
+%!  model_menus(+Default)//
+%
+%   Add the menus above the model. One for loading an existing model and
+%   one to (re-)start the numerical model.
+
+model_menus(Default) -->
+    html(div(class('model-menus'),
+             [ \model_menu(Default),
+               \init_model_menu
+             ])).
+
 model_menu(Default) -->
     { findall(File, directory_member(garp, File,
                                      [ extensions([db]) ]), Files)
@@ -160,6 +171,29 @@ model_option(Default, File) -->
       )
     },
     html(option([value(Model)|T], Model)).
+
+%!  init_model_menu//
+%
+%   Provide options for populating the numerical model.
+
+init_model_menu -->
+    html(select([ 'hx-get'('/garp/htmx/start-model'),
+                  'hx-vals'('js:{model: currentModel()}'),
+                  'hx-trigger'(change),
+                  'hx-target'('#quantity_controls'),
+                  name(init_model),
+                  class('init-model')
+                ],
+                [ option([value(nil), selected, disabled(true)],
+                         '(Re-)start model'),
+                  option(value(clear), 'Clear'),
+                  option(value(load),  'Load stored model'),
+                  option(value(start), 'Start fresh model')
+                ])).
+
+%!  methods//
+%
+%   Create the menu for the numerical simulation technique.
 
 methods -->
     html([ label(for(method), 'Method'),
@@ -192,6 +226,7 @@ default_model(none, "").
 :- http_handler(htmx(run), run, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
 :- http_handler(htmx('set-model'), set_model_handler, []).
+:- http_handler(htmx('start-model'), start_model_handler, []).
 
 %!  set_model_handler(+Request)
 %
@@ -205,8 +240,13 @@ set_model(Model) :-
     (   Model == none
     ->  true
     ;   numeric_model_file(Model, File),
-        read_file_to_string(File, Source, [])
+        exists_file(File)
+    ->  read_file_to_string(File, Source, [])
+    ;   Source = ""
     ),
+    set_model(Model, Source).
+
+set_model(Model, Source) :-
     reply_htmx(
         [ \q_menu(Model, Source),
           div([id('ml-model'), 'hx-swap-oob'(true)],
@@ -216,6 +256,21 @@ set_model(Model) :-
 
 numeric_model_file(Model, File) :-
     format(atom(File), 'numeric/~w.pl', [Model]).
+
+start_model_handler(Request) :-
+    http_parameters(Request,
+                    [ model(Model, []),
+                      init_model(Mode, [])
+                    ]),
+    start_model(Model, Mode).
+
+start_model(Model, load) =>
+    set_model(Model).
+start_model(Model, clear) =>
+    set_model(Model, "").
+start_model(Model, Mode) =>
+    format(string(String), '~p ~p', [Model, Mode]),
+    reply_htmx(pre(String)).
 
 
 %!  analyze(+Request)

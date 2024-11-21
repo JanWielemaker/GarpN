@@ -49,6 +49,11 @@ function setModel(name)
   clear_output();
 }
 
+function currentModel()
+{ return document.getElementById("model").value;
+}
+
+
 		 /*******************************
 		 *        ERROR HANDLING        *
 		 *******************************/

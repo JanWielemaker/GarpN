@@ -7,6 +7,10 @@ div.model {
     sizing: border-box;
 }
 
+select.init-model {
+    float:right;
+}
+
 div.downloads {
     margin-top: 1ex;
 }
