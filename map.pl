@@ -8,7 +8,8 @@
             save_garp_results/1,        % +File
             id_mapping/2,               % +Model, -Mapping
             qstate/4,                   % +Model, ?Id, -Values, +Options
-            zero_asymptote/2            % +Values, +Options
+            zero_asymptote/2,           % +Values, +Options
+            saved_model_file/2
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -24,26 +25,27 @@
 */
 
 %!  id_mapping(-Mapping:dict) is det.
+%!  id_mapping(+Model, -Mapping:dict) is det.
 %
 %   Compute the mapping of  Garp  quantity   names  to  number_of(Q)  or
 %   growth(Q) terms.
 
 id_mapping(Mapping) :-
-    id_mapping_(engine, Mapping).
+    id_mapping(engine, Mapping).
 
-id_mapping_(Module, Mapping) :-
-    findall(Id-Term, id_map(Module, Id, Term), Pairs),
+id_mapping(Model, Mapping) :-
+    findall(Id-Term, id_map(Model, Id, Term), Pairs),
     dict_pairs(Mapping, _, Pairs).
 
-id_map(Module, Id, Term) :-
-    Module:qspace(Id, Term4, _Values, fail),
+id_map(Model, Id, Term) :-
+    m_qspace(Model, Id, Term4, _Values),
     Term4 =.. [DV,Q|_],
     Term =.. [DV,Q].
 
 %!  qstate(?Id, -Values, +Options)
 %
 %   Get the qualitative state from Garp  in   the  same  notation as our
-%   simulator.
+%   simulator.  Always runs in `engine`.
 
 qstate(State, Values, Options) :-
     engine:state(State, _),
@@ -97,6 +99,15 @@ unknown_var(neg, Val) => Val = min.
 unknown_var(plus, Val) => Val = plus.   % quantity space values
 unknown_var(zero, Val) => Val = zero.
 unknown_var(min,  Val) => Val = min.
+unknown_var(Val0, Val), qspace_val(Val0) => Val = Val0.
+
+qspace_val(Val) :-
+    m_qspace(engine, _QspaceId, _Qspace, Values),
+    (   memberchk(point(Val), Values)
+    ->  true
+    ;   memberchk(Val, Values)
+    ).
+
 
 %!  save_garp_results(+Model)
 %
@@ -143,26 +154,22 @@ save_garp_relations(Out) :-
 saved_model_file(Model, File) :-
     format(atom(File), 'garp/~w.db', [Model]).
 
-%!  id_mapping(+Model, -Mapping) is det.
-%
-%   Extract the identifier mapping from a   saved Garp simulation. If no
-%   model is saved, we use the current model.
+%!  m_qspace(+Model, ?QspaceId, ?Qspace, ?Values) is nondet.
 
-id_mapping(Model, Mapping) :-
+m_qspace(Model, QspaceId, Qspace, Values) :-
     Model \== engine,
     current_predicate(Model:qspace/4),
     !,
-    id_mapping_(Model, Mapping).
-id_mapping(Model, Mapping) :-
+    Model:qspace(QspaceId, Qspace, Values, fail).
+m_qspace(Model, QspaceId, Qspace, Values) :-
     Model \== engine,
     saved_model_file(Model, File),
     exists_file(File),
-    $,
     use_module(File, []),
     current_predicate(Model:qspace/4),
-    id_mapping_(Model, Mapping).
-id_mapping(_Model, Mapping) :-
-    id_mapping(Mapping).
+    Model:qspace(QspaceId, Qspace, Values, fail).
+m_qspace(_Model, QspaceId, Qspace, Values) :-
+    engine:qspace(QspaceId, Qspace, Values, fail).
 
 %!  qstate(+Model, ?Id, -Values, +Options)
 %
