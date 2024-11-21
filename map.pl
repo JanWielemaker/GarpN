@@ -112,11 +112,33 @@ save_garp_results(Model) :-
 
 save_garp_to_stream(Out, Module) :-
     format(Out, ':- module(~q, []).~n~n', [Module]),
+
+    format(Out, '%!  qspace(?ParameterInstance, ?ParameterDef, \c
+                            ?ValueList, ?Fail).~n~n', []),
     forall(engine:qspace(Id, Term4, Values, Fail),
            format(Out, '~q.~n',  [qspace(Id, Term4, Values, Fail)])),
-    nl(Out),
+
+    save_garp_relations(Out),
+
+    format(Out, '~n~n%!   qstate(?State, ?Values).~n~n', []),
     forall(qstate(State, Values, []),
-           format(Out, '~q.~n',  [qstate(State, Values)])).
+           format(Out, '~q.~n',  [qstate(State, Values)])),
+
+    format(Out, '~n~n%!   qstate_from(?State, ?From:list).~n~n', []),
+    forall(engine:state_from(S, S0),
+           format(Out, '~q.~n', [qstate_from(S,S0)])),
+
+    format(Out, '~n~n%!   qstate_to(?State, ?Cause).~n~n', []),
+    forall(engine:state_to(S, Cause),
+           format(Out, '~q.~n', [qstate_to(S,Cause)])).
+
+save_garp_relations(Out) :-
+    engine:state(1, SMD),
+    arg(_, SMD, par_relations(Relations)),
+    !,
+    format(Out, '~n~n%!   qrel(?Rel).~n~n', []),
+    forall(member(Rel, Relations),
+           format(Out, '~q.~n', [qrel(Rel)])).
 
 saved_model_file(Model, File) :-
     format(atom(File), 'garp/~w.db', [Model]).

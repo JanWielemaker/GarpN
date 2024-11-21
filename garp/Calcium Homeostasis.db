@@ -1,5 +1,7 @@
 :- module('Calcium Homeostasis', []).
 
+%!  qspace(?ParameterInstance, ?ParameterDef, ?ValueList, ?Fail).
+
 qspace(ca_ions1,ca_ions(blood,ca_ions1,continuous,plus),[interval],fail).
 qspace(ca_ions2,ca_ions(bones,ca_ions2,continuous,plus),[interval],fail).
 qspace(resorption_ca_ions1,resorption_ca_ions(kidneys,resorption_ca_ions1,continuous,plus),[interval],fail).
@@ -8,5 +10,34 @@ qspace(difference1,difference(thyroid,difference1,continuous,mzp),[min,point(zer
 qspace(calcitonin1,calcitonin(thyroid,calcitonin1,continuous,plus),[interval],fail).
 qspace(norm1,norm(thyroid,norm1,continuous,norm),[interval],fail).
 
-qstate(1,_17004{ca_ions1:d(_16856,plus,_16860,_16862),ca_ions2:d(_16878,min,_16882,_16884),calcitonin1:d(_16966,min,_16970,_16972),difference1:d(min,plus,_16948,_16950),norm1:d(_16988,zero,zero,_16994),pth1:d(_16922,plus,_16926,_16928),resorption_ca_ions1:d(_16900,plus,_16904,_16906)}).
-qstate(2,_15678{ca_ions1:d(_15662,zero,_15666,_15668),ca_ions2:d(_15640,zero,_15644,_15646),calcitonin1:d(_15552,zero,_15556,_15558),difference1:d(zero,zero,_15578,_15580),norm1:d(_15530,zero,zero,_15536),pth1:d(_15596,zero,_15600,_15602),resorption_ca_ions1:d(_15618,zero,_15622,_15624)}).
+
+%!   qrel(?Rel).
+
+qrel(smaller(ca_ions1,norm1)).
+qrel(equal(min(ca_ions1,norm1),difference1)).
+qrel(prop_pos(difference1,ca_ions1)).
+qrel(prop_pos(ca_ions1,resorption_ca_ions1)).
+qrel(prop_neg(ca_ions2,pth1)).
+qrel(prop_pos(ca_ions2,calcitonin1)).
+qrel(inf_pos_by(calcitonin1,difference1)).
+qrel(inf_neg_by(pth1,difference1)).
+qrel(prop_pos(resorption_ca_ions1,pth1)).
+qrel(prop_neg(ca_ions1,ca_ions2)).
+
+
+%!   qstate(?State, ?Values).
+
+qstate(1,_360{ca_ions1:d(_212,plus,_216,_218),ca_ions2:d(_234,min,_238,_240),calcitonin1:d(_322,min,_326,_328),difference1:d(min,plus,_304,_306),norm1:d(_344,zero,zero,_350),pth1:d(_278,plus,_282,_284),resorption_ca_ions1:d(_256,plus,_260,_262)}).
+qstate(2,_2622{ca_ions1:d(_2606,zero,_2610,_2612),ca_ions2:d(_2584,zero,_2588,_2590),calcitonin1:d(_2496,zero,_2500,_2502),difference1:d(zero,zero,_2522,_2524),norm1:d(_2474,zero,zero,_2480),pth1:d(_2540,zero,_2544,_2546),resorption_ca_ions1:d(_2562,zero,_2566,_2568)}).
+
+
+%!   qstate_from(?State, ?From:list).
+
+qstate_from(2,[1]).
+qstate_from(1,[input]).
+
+
+%!   qstate_to(?State, ?Cause).
+
+qstate_to(2,[]).
+qstate_to(1,[to(cause([to_point_above(difference1),from_smaller_to_equal(ca_ions1,norm1)]),conditions([par_values([value(difference1,unk,min,plus)]),par_relations([smaller(ca_ions1,norm1)])]),results([par_relations([d_greater_or_equal(difference1,zero),equal(ca_ions1,norm1),d_greater_or_equal(ca_ions1,norm1)]),par_values([value(difference1,unk,zero,_394)])]),to_state([2]),closed)]).

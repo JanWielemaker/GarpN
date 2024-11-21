@@ -1,5 +1,7 @@
 :- module('force-and-motion', []).
 
+%!  qspace(?ParameterInstance, ?ParameterDef, ?ValueList, ?Fail).
+
 qspace(gravity1,gravity(object,gravity1,continuous,zp),[point(zero),plus],fail).
 qspace(air_resistance1,air_resistance(object,air_resistance1,continuous,zp),[point(zero),plus],fail).
 qspace(velocity1,velocity(object,velocity1,continuous,zp),[point(zero),plus],fail).
@@ -7,7 +9,38 @@ qspace(distance1,distance(object,distance1,continuous,zp),[point(zero),plus],fai
 qspace(net_force1,net_force(object,net_force1,continuous,zp),[point(zero),plus],fail).
 qspace(acceleration1,acceleration(object,acceleration1,continuous,zp),[point(zero),plus],fail).
 
-qstate(1,_338{acceleration1:d(plus,min,_326,_328),air_resistance1:d(zero,plus,_238,_240),distance1:d(zero,zero,_282,_284),gravity1:d(plus,zero,zero,_218),net_force1:d(plus,min,_304,_306),velocity1:d(zero,plus,_260,_262)}).
+
+%!   qrel(?Rel).
+
+qrel(equal(min(gravity1,air_resistance1),net_force1)).
+qrel(prop_pos(net_force1,gravity1)).
+qrel(prop_neg(net_force1,air_resistance1)).
+qrel(prop_pos(acceleration1,net_force1)).
+qrel(dir_q_correspondence(acceleration1,net_force1)).
+qrel(inf_pos_by(velocity1,acceleration1)).
+qrel(inf_pos_by(distance1,velocity1)).
+qrel(prop_pos(air_resistance1,velocity1)).
+
+
+%!   qstate(?State, ?Values).
+
+qstate(1,_3728{acceleration1:d(plus,min,_3716,_3718),air_resistance1:d(zero,plus,_3628,_3630),distance1:d(zero,zero,_3672,_3674),gravity1:d(plus,zero,zero,_3608),net_force1:d(plus,min,_3694,_3696),velocity1:d(zero,plus,_3650,_3652)}).
 qstate(2,_3766{acceleration1:d(plus,min,_3644,_3646),air_resistance1:d(plus,plus,_3732,_3734),distance1:d(zero,plus,_3688,_3690),gravity1:d(plus,zero,zero,_3756),net_force1:d(plus,min,_3666,_3668),velocity1:d(plus,plus,_3710,_3712)}).
 qstate(3,_3894{acceleration1:d(plus,min,_3882,_3884),air_resistance1:d(plus,plus,_3794,_3796),distance1:d(plus,plus,_3838,_3840),gravity1:d(plus,zero,zero,_3774),net_force1:d(plus,min,_3860,_3862),velocity1:d(plus,plus,_3816,_3818)}).
 qstate(4,_2808{acceleration1:d(zero,zero,_2686,_2688),air_resistance1:d(plus,zero,_2774,_2776),distance1:d(plus,plus,_2730,_2732),gravity1:d(plus,zero,zero,_2798),net_force1:d(zero,zero,_2708,_2710),velocity1:d(plus,zero,_2752,_2754)}).
+
+
+%!   qstate_from(?State, ?From:list).
+
+qstate_from(4,[3]).
+qstate_from(3,[2]).
+qstate_from(2,[1]).
+qstate_from(1,[input]).
+
+
+%!   qstate_to(?State, ?Cause).
+
+qstate_to(4,[]).
+qstate_to(3,[to(cause([to_point_below(acceleration1),to_point_below(net_force1)]),conditions([par_values([value(acceleration1,unk,plus,min),value(net_force1,unk,plus,min)])]),results([par_relations([d_smaller_or_equal(acceleration1,zero),d_smaller_or_equal(net_force1,zero)]),par_values([value(acceleration1,unk,zero,_374),value(net_force1,unk,zero,_390)])]),to_state([4]),closed)]).
+qstate_to(2,[to(cause([to_interval_above(distance1)]),conditions([par_values([value(distance1,unk,zero,plus)])]),results([par_relations([d_greater(distance1,zero)]),par_values([value(distance1,unk,plus,_336)])]),to_state([3]),closed)]).
+qstate_to(1,[to(cause([to_interval_above(velocity1),to_interval_above(air_resistance1)]),conditions([par_values([value(velocity1,unk,zero,plus),value(air_resistance1,unk,zero,plus)])]),results([par_relations([d_greater(velocity1,zero),d_greater(air_resistance1,zero)]),par_values([value(velocity1,unk,plus,_374),value(air_resistance1,unk,plus,_390)])]),to_state([2]),closed)]).
