@@ -89,11 +89,12 @@ home -->
     html([ h1("Garp numerical simulator"),
            div(class([narrow,content]),
                [ \model_menus(Model),
-                 div('hx-ext'('response-targets'),
+                 div([ 'hx-ext'('response-targets'),
+                       'hx-target-error'('#errors')
+                     ],
                      [ form(['hx-post'('/garp/htmx/run'),
                              'hx-vals'('js:{"ml_source": ml_value_string()}'),
                              'hx-target'('#results'),
-                             'hx-target-500'('#errors'),
                              'hx-on-htmx-before-request'('clear_output()')
                             ],
                             [ div([id('ml-model')],

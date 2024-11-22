@@ -31,6 +31,8 @@ rel_equation(prop_neg(A,B), Eq) =>
     Eq = (B := -c*A).
 rel_equation(inf_pos_by(I,D), Eq) =>
     Eq = (I := I + D*'Δt').
+rel_equation(dir_q_correspondence(A,B), Eq) =>
+    Eq = (A := B/c).
 rel_equation(Rel, _Eq) =>
     rel_unknown(Rel).
 

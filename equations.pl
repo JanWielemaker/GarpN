@@ -222,7 +222,14 @@ latex_number(Value) -->
     latex_whites, [Value], { number(Value) }, !, latex_whites.
 latex_number(Value) -->
     [placeholder(_Id,Arg)],
-    { phrase(latex_number(Value), Arg) }.
+    { phrase(placeholder_value(Value), Arg) }.
+
+placeholder_value(Value) -->
+    latex_number(Value),
+    !.
+placeholder_value(_) -->
+    latex_symbol(?),
+    !.
 
 latex_whites --> latex_white, !, latex_whites.
 latex_whites --> [].
