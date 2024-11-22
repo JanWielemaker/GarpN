@@ -87,46 +87,48 @@ home -->
       )
     },
     html([ h1("Garp numerical simulator"),
-           div(class([narrow,content]),
-               [ \model_menus(Model),
-                 div([ 'hx-ext'('response-targets'),
-                       'hx-target-error'('#errors')
+           div([ 'hx-ext'('response-targets'),
+                 'hx-target-error'('#errors')
+               ],
+               [ div([class([narrow,content])
                      ],
-                     [ form(['hx-post'('/garp/htmx/run'),
-                             'hx-vals'('js:{"ml_source": ml_value_string()}'),
-                             'hx-target'('#results'),
-                             'hx-on-htmx-before-request'('clear_output()')
-                            ],
-                            [ div([id('ml-model')],
-                                  \mathlive_model(Source)),
-                              div([id(quantity_controls)],
-                                  \q_menu(Model, Source)),
-                              div(class([controls]),
-                                  [ label(for(iterations),
-                                          '# Iterations'),
-                                    input([ type(number),
-                                            name(iterations),
-                                            min(10),
-                                            value(1000),
-                                            max(100_000)
-                                          ]),
-                                    ' ',
-                                    \methods,
-                                    input([ type(hidden), name(track), value(all)]),
-                                    input([ type(hidden), name(model), id(model),
-                                            value(Model)
-                                          ]),
-                                    ' ',
-                                    input([ type(submit),
-                                            value("Run!")
-                                          ])
-                                  ])
-                            ]),
-                       div([id(errors)], [])
-                     ])
+                     [ \model_menus(Model),
+                       div([ form(['hx-post'('/garp/htmx/run'),
+                                   'hx-vals'('js:{"ml_source": ml_value_string()}'),
+                                   'hx-target'('#results'),
+                                   'hx-on-htmx-before-request'('clear_output()')
+                                  ],
+                                  [ div([id('ml-model')],
+                                        \mathlive_model(Source)),
+                                    div([id(quantity_controls)],
+                                        \q_menu(Model, Source)),
+                                    div(class([controls]),
+                                        [ label(for(iterations),
+                                                '# Iterations'),
+                                          input([ type(number),
+                                                  name(iterations),
+                                                  min(10),
+                                                  value(1000),
+                                                  max(100_000)
+                                                ]),
+                                          ' ',
+                                          \methods,
+                                          input([ type(hidden), name(track), value(all)]),
+                                          input([ type(hidden), name(model), id(model),
+                                                  value(Model)
+                                                ]),
+                                          ' ',
+                                          input([ type(submit),
+                                                  value("Run!")
+                                                ])
+                                        ])
+                                  ]),
+                             div([id(errors)], [])
+                           ])
+                     ]),
+                 div(id(results), []),
+                 div(id(script), [])
                ]),
-           div(id(results), []),
-           div(id(script), []),
            \js_script({|javascript||
                        let data;
                        let layout;
