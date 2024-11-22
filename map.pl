@@ -1,15 +1,16 @@
 :- module(map,
           [ id_mapping/1,               % -Mapping:dict
+            id_mapping/2,               % +Model, -Mapping
             q_series/3,                 % +Model, -QSeries, +Options
             qstate/3,                   % +State, -Values, +Options
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
             q_series_table/3,           % +QSeries, -Table, +IdMapping
             nq_series/3,                % +Series, -QSeries, +Options
             save_garp_results/1,        % +File
-            id_mapping/2,               % +Model, -Mapping
             qstate/4,                   % +Model, ?Id, -Values, +Options
             zero_asymptote/2,           % +Values, +Options
-            saved_model_file/2
+            saved_model_file/2,
+            q_rel/2                     % +Model, -Rel
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -144,57 +145,65 @@ save_garp_to_stream(Out, Module) :-
            format(Out, '~q.~n', [qstate_to(S,Cause)])).
 
 save_garp_relations(Out) :-
-    engine:state(1, SMD),
-    arg(_, SMD, par_relations(Relations)),
-    !,
+    engine_relations(Relations),
     format(Out, '~n~n%!   qrel(?Rel).~n~n', []),
     forall(member(Rel, Relations),
            format(Out, '~q.~n', [qrel(Rel)])).
+
+engine_relations(Relations) :-
+    engine:state(1, SMD),
+    arg(_, SMD, par_relations(Relations)),
+    !.
 
 saved_model_file(Model, File) :-
     format(atom(File), 'garp/~w.db', [Model]).
 
 %!  m_qspace(+Model, ?QspaceId, ?Qspace, ?Values) is nondet.
 
-m_qspace(Model, QspaceId, Qspace, Values) :-
-    Model \== engine,
-    current_predicate(Model:qspace/4),
+m_qspace(engine, QspaceId, Qspace, Values) :-
     !,
-    Model:qspace(QspaceId, Qspace, Values, fail).
+    engine:qspace(QspaceId, Qspace, Values, fail).
 m_qspace(Model, QspaceId, Qspace, Values) :-
-    Model \== engine,
+    ensure_loaded_model(Model, qspace/4),
+    Model:qspace(QspaceId, Qspace, Values, fail).
+
+%!  q_rel(+Model, -Rel) is nondet.
+%
+%   True when Rel is a relation in Model.
+
+q_rel(engine, Rel) :-
+    !,
+    engine_relations(Relations),
+    member(Rel, Relations).
+q_rel(Model, Rel) :-
+    ensure_loaded_model(Model, qrel/1),
+    Model:qrel(Rel).
+
+ensure_loaded_model(Model, PI) :-
+    current_predicate(Model:PI),
+    !.
+ensure_loaded_model(Model, PI) :-
     saved_model_file(Model, File),
     exists_file(File),
     use_module(File, []),
-    current_predicate(Model:qspace/4),
-    Model:qspace(QspaceId, Qspace, Values, fail).
-m_qspace(_Model, QspaceId, Qspace, Values) :-
-    engine:qspace(QspaceId, Qspace, Values, fail).
+    assertion(current_predicate(Model:PI)).
 
 %!  qstate(+Model, ?Id, -Values, +Options)
 %
 %   Extract qualitative states from a saved Garp simulation If no model
 %   is saved, we use the current model.
 
-qstate(Model, State, Values, Options) :-
-    Model \== engine,
-    current_predicate(Model:qstate/2),
+qstate(engine, State, Values, Options) :-
     !,
+    qstate(State, Values, Options).
+qstate(Model, State, Values, Options) :-
+    ensure_loaded_model(Model, qstate/2),
     option(d(N), Options, 3),
     option(match(Match), Options, #{}),
     Model:qstate(State, Values0),
     dict_pairs(Values0, Tag, Pairs0),
     convlist(keep_derivatives_(Match, N), Pairs0, Pairs),
     dict_pairs(Values, Tag, Pairs).
-qstate(Model, State, Values, Options) :-
-    Model \== engine,
-    saved_model_file(Model, File),
-    exists_file(File),
-    $current_predicate(Model:qstate/2),
-    !,
-    qstate(Model, State, Values, Options).
-qstate(_Model, State, Values, Options) :-
-    qstate(State, Values, Options).
 
 keep_derivatives_(Match, N, K-V0, K-V) :-
     (   N2 = Match.get(K)

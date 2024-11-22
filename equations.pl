@@ -61,6 +61,10 @@ eq_to_mathjax(Left := Right) ==>
     "=",
     expression(Right).
 
+quantity(placeholder(Name, Init)), number(Init) ==>
+    format('\\placeholder[~w]{~W}', [Name, Init, [float_format('~999h')]]).
+quantity(placeholder(Name, Init)), var(Init) ==>
+    format('\\placeholder[~w]{?}', [Name]).
 quantity(Q), compound(Q), Q =.. [A,E] ==>
     format('\\prop{~w}{~w}', [A,E]).
 quantity(Q), atom(Q) ==>
@@ -74,6 +78,8 @@ expression(A - B) ==> expression(A), " - ", expression(B).
 expression(A * B) ==> expression(A), " \\cdot ", expression(B).
 expression(A / B) ==> "\\frac{", expression(A), "}{", expression(B), "}".
 expression(A ^ B) ==> expression(A), "^{", const_expression(B), "}".
+expression(placeholder(Name, Init)), var(Init) ==>
+    format('\\placeholder[~w]{?}', [Name]).
 expression(Q), ground(Q) ==> quantity(Q).
 
 const_expression(C), number(C) ==>

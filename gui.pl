@@ -21,6 +21,7 @@
 :- use_module(map).
 :- use_module(csv_util).
 :- use_module(equations).
+:- use_module(model).
 
 http:location(garp, root(garp), []).
 http:location(htmx, garp(htmx), []).
@@ -257,6 +258,11 @@ set_model(Model, Source) :-
 numeric_model_file(Model, File) :-
     format(atom(File), 'numeric/~w.pl', [Model]).
 
+%!  start_model_handler(+Request)
+%
+%   HTTP handler to start a new numeric  model based on the current Garp
+%   model.
+
 start_model_handler(Request) :-
     http_parameters(Request,
                     [ model(Model, []),
@@ -268,10 +274,11 @@ start_model(Model, load) =>
     set_model(Model).
 start_model(Model, clear) =>
     set_model(Model, "").
-start_model(Model, Mode) =>
-    format(string(String), '~p ~p', [Model, Mode]),
-    reply_htmx(pre(String)).
-
+start_model(Model, start) =>
+    init_model(Model, Terms),
+    with_output_to(string(Source),
+                   maplist(portray_clause, Terms)),
+    set_model(Model, Source).
 
 %!  analyze(+Request)
 %
