@@ -177,16 +177,21 @@ is_valid_model_term_(Term), var(Term) =>
 is_valid_model_term_(Term) =>
     type_error(function, Term).
 
-%!  model_expression(+TermAndBindings, +Model0, -Model1)
+%!  model_expression(+TermAndBindings, +Model0, -Model1) is det.
+%
+%   Split the input into formulas and constants.
 
 model_expression(Term, m(FormulasIn, InitIn),  m(Formulas, Init)) :-
     model_expression(Term, FormulasIn, Formulas, InitIn, Init).
 
 model_expression((Left := Right)-Bindings,
                  FormulasIn, Formulas, InitIn, Init),
-    dict_pairs(Bindings, _, [Id-Left]) =>         % Left only binding: Right is ground
+    dict_pairs(Bindings, _, [Id-Left]) =>         % Left only binding
     Formulas = FormulasIn,
-    Value is Right,
+    (   ground(Right)
+    ->  Value is Right
+    ;   Value = Right                             % only for incomplete formulas
+    ),
     Init = InitIn.put(Id, Value).
 model_expression((Left := Right)-Bindings,
                  FormulasIn, Formulas, InitIn, Init) =>
@@ -277,7 +282,7 @@ derived_initials([], [], _, _, _, State, State) :-
     !.
 derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
     select(Key, Missing, Missing1),
-    copy_term(Formulas.Key, formula(Right,Bindings)),
+    copy_term(Formulas.get(Key), formula(Right,Bindings)),
     Constants >:< Bindings,
     State0 >:< Bindings,
     DTExpr >:< Bindings,
