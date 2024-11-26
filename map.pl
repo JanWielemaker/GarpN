@@ -21,6 +21,7 @@
 :- use_module(library(dicts)).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(lists)).
+:- use_module(library(debug)).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */

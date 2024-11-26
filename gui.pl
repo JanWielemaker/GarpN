@@ -183,8 +183,10 @@ model_option(Default, File) -->
 init_model_menu -->
     html(select([ 'hx-get'('/garp/htmx/start-model'),
                   'hx-vals'('js:{model: currentModel()}'),
-                  'hx-trigger'(change),
+                  'hx-trigger'(click),
                   'hx-target'('#quantity_controls'),
+                  'hx-target-304'('#errors'),
+                  id(init_model),
                   name(init_model),
                   class('init-model')
                 ],
@@ -273,6 +275,8 @@ start_model_handler(Request) :-
                     ]),
     start_model(Model, Mode).
 
+start_model(_Model, nil) =>
+    throw(http_reply(not_modified)).
 start_model(Model, load) =>
     set_model(Model).
 start_model(Model, clear) =>
