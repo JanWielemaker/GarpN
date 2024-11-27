@@ -7,6 +7,11 @@ qspace(y1,y(an_e,y1,continuous,mzp),[min,point(zero),plus],fail).
 qspace(z1,z(an_e,z1,continuous,qzp),[point(zero),plus],fail).
 
 
+%!   input_state(-Dict).
+
+input_state(_672{x1:plus,z1:plus}).
+
+
 %!   qrel(?Rel).
 
 qrel(greater(x1,z1)).
@@ -17,10 +22,10 @@ qrel(equal(min(x1,z1),y1)).
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_6448{x1:d(plus,min,_6392,_6394),y1:d(plus,min,_6414,_6416),z1:d(plus,zero,zero,_6438)}).
-qstate(2,_5538{x1:d(plus,min,_5526,_5528),y1:d(zero,min,_5504,_5506),z1:d(plus,zero,zero,_5484)}).
-qstate(3,_5780{x1:d(plus,min,_5724,_5726),y1:d(min,min,_5746,_5748),z1:d(plus,zero,zero,_5770)}).
-qstate(4,_5492{x1:d(zero,zero,zero,_5482),y1:d(min,zero,_5458,_5460),z1:d(plus,zero,zero,_5438)}).
+qstate(1,_6736{x1:d(plus,min,_6680,_6682),y1:d(plus,min,_6702,_6704),z1:d(plus,zero,zero,_6726)}).
+qstate(2,_5826{x1:d(plus,min,_5814,_5816),y1:d(zero,min,_5792,_5794),z1:d(plus,zero,zero,_5772)}).
+qstate(3,_6068{x1:d(plus,min,_6012,_6014),y1:d(min,min,_6034,_6036),z1:d(plus,zero,zero,_6058)}).
+qstate(4,_5780{x1:d(zero,zero,zero,_5770),y1:d(min,zero,_5746,_5748),z1:d(plus,zero,zero,_5726)}).
 
 
 %!   qstate_from(?State, ?From:list).
@@ -34,6 +39,6 @@ qstate_from(1,[input]).
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(4,[]).
-qstate_to(3,[to(cause([to_point_below(x1)]),conditions([par_values([value(x1,unk,plus,min)])]),results([par_relations([d_smaller_or_equal(x1,zero)]),par_values([value(x1,unk,zero,_3582)])]),to_state([4]),closed)]).
-qstate_to(2,[to(cause([to_interval_below(y1),from_equal_to_smaller(x1,z1)]),conditions([par_values([value(y1,unk,zero,min)]),par_relations([equal(x1,z1)])]),results([par_relations([d_smaller(y1,zero),smaller(x1,z1),d_smaller_or_equal(x1,z1)]),par_values([value(y1,unk,min,_3640)])]),to_state([3]),closed)]).
-qstate_to(1,[to(cause([to_point_below(y1),from_greater_to_equal(x1,z1)]),conditions([par_values([value(y1,unk,plus,min)]),par_relations([greater(x1,z1)])]),results([par_relations([d_smaller_or_equal(y1,zero),equal(x1,z1),d_smaller_or_equal(x1,z1)]),par_values([value(y1,unk,zero,_3640)])]),to_state([2]),closed)]).
+qstate_to(3,[to(cause([to_point_below(x1)]),conditions([par_values([value(x1,unk,plus,min)])]),results([par_relations([d_smaller_or_equal(x1,zero)]),par_values([value(x1,unk,zero,_3870)])]),to_state([4]),closed)]).
+qstate_to(2,[to(cause([to_interval_below(y1),from_equal_to_smaller(x1,z1)]),conditions([par_values([value(y1,unk,zero,min)]),par_relations([equal(x1,z1)])]),results([par_relations([d_smaller(y1,zero),smaller(x1,z1),d_smaller_or_equal(x1,z1)]),par_values([value(y1,unk,min,_3928)])]),to_state([3]),closed)]).
+qstate_to(1,[to(cause([to_point_below(y1),from_greater_to_equal(x1,z1)]),conditions([par_values([value(y1,unk,plus,min)]),par_relations([greater(x1,z1)])]),results([par_relations([d_smaller_or_equal(y1,zero),equal(x1,z1),d_smaller_or_equal(x1,z1)]),par_values([value(y1,unk,zero,_3928)])]),to_state([2]),closed)]).

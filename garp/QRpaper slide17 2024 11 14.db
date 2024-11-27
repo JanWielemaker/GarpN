@@ -6,6 +6,11 @@ qspace(x1,x(an_e,x1,continuous,mzp),[min,point(zero),plus],fail).
 qspace(y1,y(an_e,y1,continuous,mzp),[min,point(zero),plus],fail).
 
 
+%!   input_state(-Dict).
+
+input_state(_590{x1:min}).
+
+
 %!   qrel(?Rel).
 
 qrel(prop_pos(y1,x1)).
@@ -14,9 +19,9 @@ qrel(q_correspondence(y1,x1)).
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_4562{x1:d(min,plus,_4528,_4530),y1:d(min,plus,_4550,_4552)}).
-qstate(2,_3952{x1:d(zero,plus,_3940,_3942),y1:d(zero,plus,_3918,_3920)}).
-qstate(3,_4288{x1:d(plus,plus,_4254,_4256),y1:d(plus,plus,_4276,_4278)}).
+qstate(1,_4764{x1:d(min,plus,_4730,_4732),y1:d(min,plus,_4752,_4754)}).
+qstate(2,_4154{x1:d(zero,plus,_4142,_4144),y1:d(zero,plus,_4120,_4122)}).
+qstate(3,_4490{x1:d(plus,plus,_4456,_4458),y1:d(plus,plus,_4478,_4480)}).
 
 
 %!   qstate_from(?State, ?From:list).
@@ -29,5 +34,5 @@ qstate_from(1,[input]).
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(3,[]).
-qstate_to(2,[to(cause([to_interval_above(x1),to_interval_above(y1)]),conditions([par_values([value(x1,unk,zero,plus),value(y1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero),d_greater(y1,zero)]),par_values([value(x1,unk,plus,_2688),value(y1,unk,plus,_2704)])]),to_state([3]),closed)]).
-qstate_to(1,[to(cause([to_point_above(y1),to_point_above(x1)]),conditions([par_values([value(y1,unk,min,plus),value(x1,unk,min,plus)])]),results([par_relations([d_greater_or_equal(y1,zero),d_greater_or_equal(x1,zero)]),par_values([value(y1,unk,zero,_2688),value(x1,unk,zero,_2704)])]),to_state([2]),closed)]).
+qstate_to(2,[to(cause([to_interval_above(x1),to_interval_above(y1)]),conditions([par_values([value(x1,unk,zero,plus),value(y1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero),d_greater(y1,zero)]),par_values([value(x1,unk,plus,_2890),value(y1,unk,plus,_2906)])]),to_state([3]),closed)]).
+qstate_to(1,[to(cause([to_point_above(y1),to_point_above(x1)]),conditions([par_values([value(y1,unk,min,plus),value(x1,unk,min,plus)])]),results([par_relations([d_greater_or_equal(y1,zero),d_greater_or_equal(x1,zero)]),par_values([value(y1,unk,zero,_2890),value(x1,unk,zero,_2906)])]),to_state([2]),closed)]).

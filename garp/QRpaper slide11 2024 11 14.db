@@ -7,6 +7,11 @@ qspace(y1,y(an_e,y1,continuous,qp),[p],fail).
 qspace(z1,z(an_e,z1,continuous,qp),[p],fail).
 
 
+%!   input_state(-Dict).
+
+input_state(_550{}).
+
+
 %!   qrel(?Rel).
 
 qrel(prop_pos(y1,x1)).
@@ -15,9 +20,9 @@ qrel(prop_neg(y1,z1)).
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_5224{x1:d(p,plus,_5168,_5170),y1:d(p,min,_5190,_5192),z1:d(p,plus,_5212,_5214)}).
-qstate(2,_5140{x1:d(p,plus,_5084,_5086),y1:d(p,zero,_5106,_5108),z1:d(p,plus,_5128,_5130)}).
-qstate(3,_5224{x1:d(p,plus,_5168,_5170),y1:d(p,plus,_5190,_5192),z1:d(p,plus,_5212,_5214)}).
+qstate(1,_5382{x1:d(p,plus,_5326,_5328),y1:d(p,min,_5348,_5350),z1:d(p,plus,_5370,_5372)}).
+qstate(2,_5298{x1:d(p,plus,_5242,_5244),y1:d(p,zero,_5264,_5266),z1:d(p,plus,_5286,_5288)}).
+qstate(3,_5382{x1:d(p,plus,_5326,_5328),y1:d(p,plus,_5348,_5350),z1:d(p,plus,_5370,_5372)}).
 
 
 %!   qstate_from(?State, ?From:list).

@@ -6,6 +6,11 @@ qspace(x1,x(an_e,x1,continuous,qzp),[point(zero),plus],fail).
 qspace(y1,y(an_e,y1,continuous,qzp),[point(zero),plus],fail).
 
 
+%!   input_state(-Dict).
+
+input_state(_618{x1:zero,y1:plus}).
+
+
 %!   qrel(?Rel).
 
 qrel(prop_pos(y1,x1)).
@@ -13,8 +18,8 @@ qrel(prop_pos(y1,x1)).
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_4098{x1:d(zero,plus,_4064,_4066),y1:d(plus,plus,_4086,_4088)}).
-qstate(2,_3852{x1:d(plus,plus,_3840,_3842),y1:d(plus,plus,_3818,_3820)}).
+qstate(1,_4332{x1:d(zero,plus,_4298,_4300),y1:d(plus,plus,_4320,_4322)}).
+qstate(2,_4086{x1:d(plus,plus,_4074,_4076),y1:d(plus,plus,_4052,_4054)}).
 
 
 %!   qstate_from(?State, ?From:list).
@@ -26,4 +31,4 @@ qstate_from(1,[input]).
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(2,[]).
-qstate_to(1,[to(cause([to_interval_above(x1)]),conditions([par_values([value(x1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero)]),par_values([value(x1,unk,plus,_2418)])]),to_state([2]),closed)]).
+qstate_to(1,[to(cause([to_interval_above(x1)]),conditions([par_values([value(x1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero)]),par_values([value(x1,unk,plus,_2652)])]),to_state([2]),closed)]).
