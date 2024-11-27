@@ -315,7 +315,7 @@ derived_initial_state(Formulas, Constants, State0, State, Options) :-
     (   Unresolved == []
     ->  true
     ;   maplist(q_term_id(Options), Terms, Unresolved),
-        existence_error(initial_values, Terms)
+        throw(model_error(no_initial_values(Terms)))
     ).
 
 derived_initials([], [], _, _, _, State, State) :-
