@@ -26,7 +26,7 @@ init_model(Model, Equations) :-
     id_mapping(Model, Mapping),
     foldsubterms(id_to_term(Mapping), Eql0, Eql1, [], ConstEql),
     append(Eql1, ConstEql, Equations1),
-    add_model_init(Equations1, Equations).
+    add_model_init(Model, Equations1, Equations).
 
 qrel2nrel(QRels, NRels) :-
     findall(t(NRels,Left,NLeft),
@@ -113,29 +113,45 @@ id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
 :- exception_type(model_error,
                   model_error(_)).
 
-% add_model_init(Eq, Eq) :- !.
-add_model_init(Eq0, Eq) :-
+add_model_init(Model, Eq0, Eq) :-
     catch(read_model(terms(Eq0), _Formulas, _Constants, _State,
                      [ allow_placeholders(true)
                      ]),
           model_error, Ball, true),
     (   var(Ball)
     ->  Eq = Eq0
-    ;   init_from_error(Ball, Init),
+    ;   init_from_error(Ball, Model, Init),
         append(Eq0, Init, Eq1),
         (   Init == []
         ->  Eq = Eq1
-        ;   add_model_init(Eq1, Eq)
+        ;   add_model_init(Model, Eq1, Eq)
         )
     ).
 
-init_from_error(error(validation_error(Invalid), _), Init) =>
-    convlist(init_quantity, Invalid, Init).
-init_from_error(error(existence_error(initial_values, UnResolved), _), Init) =>
-    convlist(init_quantity, UnResolved, Init).
+init_from_error(error(validation_error(Invalid), _),
+                Model, Init) =>
+    convlist(init_quantity(Model), Invalid, Init).
+init_from_error(error(existence_error(initial_values, UnResolved), _),
+                Model, Init) =>
+    convlist(init_quantity(Model), UnResolved, Init).
 
-init_quantity(Q, Init) :-
-    Init = (Q := placeholder(init,_)).
+init_quantity(Model, Q, Init) :-
+    initial_value(Q, Model, Value),
+    Init = (Q := Value).
+
+%!  initial_value(+Q, +Model, -Value)
+%
+%   True when Value is the initial (input) value for Q in Model. This is
+%   a placeholder, unless the qualitative value is `zero`.
+
+initial_value(Q, Model, Value) :-
+    id_mapping(Model, Mapping),
+    once(get_dict(Id, Mapping, Q)),
+    q_input_state(Model, Input),
+    zero = Input.get(Id),
+    !,
+    Value = 0.
+initial_value(_Q, _Model, placeholder(init,_)).
 
 select_graph([], Set, Set).
 select_graph([H|T], Set0, Set) :-
