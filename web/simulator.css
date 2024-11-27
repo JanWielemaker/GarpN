@@ -34,6 +34,14 @@ div.stats {
     color: red;
 }
 
+.error {
+    color: red;
+}
+
+.warning {
+    color: orange;
+}
+
 div.controls {
     margin-top: 1.5ex;
 }

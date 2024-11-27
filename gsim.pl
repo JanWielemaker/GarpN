@@ -18,6 +18,8 @@
 :- use_module(library(prolog_code), [comma_list/2]).
 :- use_module(library(dcg/high_order), [sequence/4]).
 
+:- use_module(model).
+
 :- set_prolog_flag(optimise, true).
 
 /** <module> Numerical simulation
@@ -186,9 +188,6 @@ strip_placeholders(Invalid0, Invalid, Options),
     exclude(is_placeholder, Invalid0, Invalid).
 strip_placeholders(Invalid0, Invalid, _Options) =>
     Invalid = Invalid0.
-
-is_placeholder(placeholder(_Id, _Value)) => true.
-is_placeholder(_) => false.
 
 %!  invalid_model_term(+TermAndBindings, -Invalid:list) is det.
 %
@@ -390,14 +389,17 @@ instantiated_binding(_-I) => nonvar(I).
 %   _Euler_.
 %
 %   @arg DTExpr is a dict _{DTName: DTVar}.
+%   @throws model_error(no_time_formulas)
 
 :- det(dt_expression/2).
 dt_expression(Formulas, DTExpr) :-
-    formula(T+DTVar, Dict) = Formulas.t,
-    assertion(T == Dict.t),
+    formula(T+DTVar, Dict) = Formulas.get(t),
+    T == Dict.t,
     DTVar == Dict.DTName,
     !,
     dict_pairs(DTExpr, _, [DTName-DTVar]).
+dt_expression(_, _) :-
+    throw(model_error(no_time_formulas)).
 
 %!  method_params(+Method, +DTExpr, +Constants,
 %!                +FormulasIn, -FormulasOut, -MethodOut)

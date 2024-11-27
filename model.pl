@@ -1,5 +1,7 @@
 :- module(model,
-          [ init_model/2                % +Model, -Equations
+          [ init_model/2,               % +Model, -Equations
+            is_placeholder/1,           % @Term
+            is_placeholder/2            % @Term, -Type
           ]).
 :- use_module(library(terms)).
 :- use_module(library(lists)).
@@ -108,6 +110,8 @@ id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
                   error(existence_error(initial_values, _Unresolved), _)).
 :- exception_type(model_error,
                   error(validation_error(_Invalid), _)).
+:- exception_type(model_error,
+                  model_error(_)).
 
 % add_model_init(Eq, Eq) :- !.
 add_model_init(Eq0, Eq) :-
@@ -138,6 +142,17 @@ select_graph([H|T], Set0, Set) :-
     select(H, Set0, Set1),
     select_graph(T, Set1, Set).
 
+
+%!  is_placeholder(@Term) is semidet.
+%!  is_placeholder(@Term, -Type) is semidet.
+%
+%   True when Term is a placeholder (of Type).
+
+is_placeholder(Term) :-
+    is_placeholder(Term, _).
+
+is_placeholder(placeholder(Id, _Value), Type) => Type = Id.
+is_placeholder(_, _) => false.
 
 		 /*******************************
 		 *           MESSAGES		*

@@ -16,6 +16,8 @@
 :- use_module(library(statistics)).
 :- use_module(library(http/http_client)).
 :- use_module(library(dcg/high_order)).
+:- use_module(library(exceptions)).
+:- use_module(library(filesex)).
 
 :- use_module(gsim).
 :- use_module(map).
@@ -311,15 +313,19 @@ q_menu(Model, Source) -->
       id_mapping(Model, IdMapping),
       catch(read_model(Source, Formulas, _Constants, _State0,
                        [ id_mapping(IdMapping) ]),
-            error(_,_), fail),
-      dict_keys(Formulas, Keys),
-      delete(Keys, t, Quantities0),
-      order_keys(IdMapping, Quantities0, Quantities)
+            model:model_error, Ball, true)
     },
-    html(table(class(quantities),
-               [ tr([th(class(quantity), 'Quantity'), th('Link to Garp')]),
-                 \sequence(q_control(IdMapping), Quantities)
-               ])).
+    (   {var(Ball)}
+    ->  { dict_keys(Formulas, Keys),
+          delete(Keys, t, Quantities0),
+          order_keys(IdMapping, Quantities0, Quantities)
+        },
+        html(table(class(quantities),
+                   [ tr([th(class(quantity), 'Quantity'), th('Link to Garp')]),
+                     \sequence(q_control(IdMapping), Quantities)
+                   ]))
+    ;   model_issues(Ball)
+    ).
 q_menu(_, _) -->
     [].
 
@@ -339,10 +345,24 @@ derivatives_select(Name) -->
                   option(value(2),  'Value, 1st and 2nd derivative')
                 ])).
 
+model_issues(model_error(no_time_formulas)) ==>
+    html(div(class(warning),
+             'No time formulas')).
+model_issues(error(validation_error(Invalid), _)),
+    partition(is_placeholder, Invalid, PlaceHolders, []) ==>
+    { length(PlaceHolders, Count) },
+    html(div(class(warning),
+             'Warning: ~D constants or initial values are not specified'-[Count])).
+
+model_issues(Error) ==>
+    { message_to_string(Error, Msg)
+    },
+    html(pre(class(error), Msg)).
+
 
 %!  mapping_table(+Request)
 %
-%   Print a table with the mapping to Garp  aftet the user clicks in the
+%   Print a table with the mapping to Garp  after the user clicks in the
 %   chart at a certain time point.
 
 mapping_table(Request) :-
