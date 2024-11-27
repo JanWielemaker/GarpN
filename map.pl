@@ -10,7 +10,8 @@
             qstate/4,                   % +Model, ?Id, -Values, +Options
             zero_asymptote/2,           % +Values, +Options
             saved_model_file/2,
-            q_rel/2                     % +Model, -Rel
+            q_rel/2,                    % +Model, -Rel
+            q_input_state/2             % +Model, -Dict
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -131,6 +132,8 @@ save_garp_to_stream(Out, Module) :-
     forall(engine:qspace(Id, Term4, Values, Fail),
            format(Out, '~q.~n',  [qspace(Id, Term4, Values, Fail)])),
 
+    save_scenario(Out),
+
     save_garp_relations(Out),
 
     format(Out, '~n~n%!   qstate(?State, ?Values).~n~n', []),
@@ -144,6 +147,13 @@ save_garp_to_stream(Out, Module) :-
     format(Out, '~n~n%!   qstate_to(?State, ?Cause).~n~n', []),
     forall(engine:state_to(S, Cause),
            format(Out, '~q.~n', [qstate_to(S,Cause)])).
+
+save_scenario(Out) :-
+    q_input_state(engine, Dict),
+    format(Out, '~n~n%!   input_state(-Dict).~n~n', []),
+    format(Out, '~q.~n', [input_state(Dict)]).
+
+input_value(value(Q, _, Value, _), Q-Value).
 
 save_garp_relations(Out) :-
     engine_relations(Relations),
@@ -212,6 +222,21 @@ keep_derivatives_(Match, N, K-V0, K-V) :-
         keep_derivatives(N2, V0, V)
     ;   keep_derivatives(N, V0, V)
     ).
+
+%!  q_input_state(+Model, -Dict)
+%
+%   True when Dict is a dict holding   the  (quantity space) start value
+%   for each quantity.
+
+q_input_state(engine, Dict) =>
+    engine:scenario_state(SMD),
+    once(arg(_, SMD, par_values(Values))),
+    maplist(input_value, Values, Pairs),
+    dict_pairs(Dict, _, Pairs).
+q_input_state(Model, Dict) =>
+    ensure_loaded_model(Model, input_state/1),
+    Model:input_state(Dict).
+
 
 %!  asymptotes(+Series, -Asymptotes, +Options) is det.
 %
