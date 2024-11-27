@@ -127,10 +127,13 @@ add_model_init(Model, Eq0, Eq) :-
 
 init_from_error(model_error(invalid(Invalid)),
                 Model, Init) =>
-    convlist(init_quantity(Model), Invalid, Init).
+    convlist(constant_quantity(Model), Invalid, Init).
 init_from_error(model_error(no_initial_values(UnResolved)),
                 Model, Init) =>
     convlist(init_quantity(Model), UnResolved, Init).
+
+constant_quantity(_Model, Q, Init) :-
+    Init = (Q := placeholder(constant, _)).
 
 init_quantity(Model, Q, Init) :-
     initial_value(Q, Model, Value),
