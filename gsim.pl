@@ -16,6 +16,7 @@
 :- use_module(library(apply_macros), []).
 :- use_module(library(listing), [portray_clause/2]).
 :- use_module(library(prolog_code), [comma_list/2]).
+:- use_module(library(dcg/high_order), [sequence/4]).
 
 :- set_prolog_flag(optimise, true).
 
@@ -93,7 +94,7 @@ read_model(From, Formulas, Constants, State, Options) :-
     sort(Quantities0, Sorted),                     % right side of equations
     maplist(q_term(Options), Sorted, Quantities1), % q(Term,Id,Var)
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
-    maplist(is_valid_model_term, Terms1),
+    validate_model(Terms1),
     foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas0, Init)),
     split_init(Init, Formulas0, Constants0, State0),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
@@ -160,26 +161,44 @@ intern(Quantities, Q, V, B0, B), ground(Q), memberchk(q(Q,Id,Var),Quantities) =>
 intern(_, _, _, _, _) =>
     fail.
 
-%!  is_valid_model_term(+TermAndBindings) is det.
+%!  validate_model(+Equations) is det.
 %
-%   Validate the model term, raising an exception on errors.
+%   Validate that all equations have an evaluable right side.
+%
+%   @error validation_error(Invalid) if there are   invalid parts in the
+%   equations. Invalid is a list of invalid terms.
 
-is_valid_model_term((Left:=Right)-_Bindings), var(Left) =>
-    is_valid_model_term_(Right).
+validate_model(Terms) :-
+    maplist(invalid_model_term, Terms, InvalidL),
+    append(InvalidL, Invalid),
+    (   Invalid == []
+    ->  true
+    ;   throw(error(validation_error(Invalid), _))
+    ).
 
-is_valid_model_term_(Term), compound(Term), current_arithmetic_function(Term) =>
-    compound_name_arguments(Term, _, Args),
-    maplist(is_valid_model_term_, Args).
-is_valid_model_term_(Term), atom(Term), current_arithmetic_function(Term) =>
-    true.                                         % i.e., `pi`, `e`
-is_valid_model_term_(Term), number(Term) =>
-    true.
-is_valid_model_term_(Term), var(Term) =>          % interned
-    true.
-is_valid_model_term_(placeholder(_Name,_Value)) =>
-    true.
-is_valid_model_term_(Term) =>
-    type_error(function, Term).
+%!  invalid_model_term(+TermAndBindings, -Invalid:list) is det.
+%
+%   True when Invalid are the  invalid  parts   of  the  model. That is,
+%   Prolog terms that are not evaluable.
+
+invalid_model_term((Left:=Right)-_Bindings, Missing), var(Left) =>
+    phrase(invalid_model_term_(Right), Missing).
+
+invalid_model_term_(Term),
+    compound(Term), current_arithmetic_function(Term) ==>
+    { compound_name_arguments(Term, _, Args) },
+    sequence(invalid_model_term_, Args).
+invalid_model_term_(Term),
+    atom(Term), current_arithmetic_function(Term) ==>
+    [].                                         % i.e., `pi`, `e`
+invalid_model_term_(Term),
+    number(Term) ==>
+    [].
+invalid_model_term_(Term),
+    var(Term) ==>                               % interned
+    [].
+invalid_model_term_(Term) ==>
+    [Term].
 
 %!  model_expression(+TermAndBindings, +Model0, -Model1) is det.
 %
