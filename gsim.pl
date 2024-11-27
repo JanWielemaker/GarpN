@@ -89,9 +89,9 @@ simulate(From, Series, Options) :-
 
 read_model(From, Formulas, Constants, State, Options) :-
     read_model_to_terms(From, Terms0),
-    maplist(quantity, Terms0, Quantities0),
-    sort(Quantities0, Sorted),
-    maplist(q_term(Options), Sorted, Quantities1),
+    maplist(quantity, Terms0, Quantities0),        % Quantities are the
+    sort(Quantities0, Sorted),                     % right side of equations
+    maplist(q_term(Options), Sorted, Quantities1), % q(Term,Id,Var)
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
     maplist(is_valid_model_term, Terms1),
     foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas0, Init)),
@@ -103,6 +103,8 @@ read_model(From, Formulas, Constants, State, Options) :-
 %
 %   Read the input into a list of Prolog terms.
 
+read_model_to_terms(terms(Terms0), Terms) =>
+    Terms = Terms0.
 read_model_to_terms(file(File), Terms) =>
     read_file_to_terms(File, Terms, [module(gsim)]).
 read_model_to_terms(string(String), Terms) =>
@@ -172,7 +174,9 @@ is_valid_model_term_(Term), atom(Term), current_arithmetic_function(Term) =>
     true.                                         % i.e., `pi`, `e`
 is_valid_model_term_(Term), number(Term) =>
     true.
-is_valid_model_term_(Term), var(Term) =>
+is_valid_model_term_(Term), var(Term) =>          % interned
+    true.
+is_valid_model_term_(placeholder(_Name,_Value)) =>
     true.
 is_valid_model_term_(Term) =>
     type_error(function, Term).
