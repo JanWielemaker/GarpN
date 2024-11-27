@@ -399,39 +399,6 @@ dt_expression(Formulas, DTExpr) :-
     !,
     dict_pairs(DTExpr, _, [DTName-DTVar]).
 
-%!  differential_formulas(+DTName, +Formulas, -DFormulas) is det.
-%
-%   Translate formulas of  the  for  ``X  :=   X  +  Y*δt``  into  their
-%   differential form, i.e., simply ``Y``. Also  removes the formula for
-%   the time step. This is a more   suitable form for advanced numerical
-%   approximation methods like RK4.
-%
-%   @tbd Deal with ``X := X + Y*δt - Z*δt````
-
-:- det(differential_formulas/3).
-differential_formulas(DTName, Formulas, DFormulas) :-
-    dict_pairs(Formulas, _, Pairs),
-    selectchk(t-_, Pairs, Pairs1),
-    maplist(differential_formula(DTName), Pairs1, DPairs),
-    dict_pairs(DFormulas, d, DPairs).
-
-differential_formula(DTName, Id-formula(Expr, Bindings),
-                             Id-d_formula(DExpr,DBindings)) :-
-    del_dict(Id, Bindings, IdV, Bindings1),
-    del_dict(DTName, Bindings1, DTV, DBindings),
-    $,
-    diff_formula(IdV, DTV, Expr, DExpr).
-differential_formula(_, Pair, Pair).
-
-diff_formula(IdV, DTV, IdV + D*DTV, DExpr) => DExpr = D.
-diff_formula(IdV, DTV, IdV + DTV*D, DExpr) => DExpr = D.
-diff_formula(IdV, DTV, D*DTV + IdV, DExpr) => DExpr = D.
-diff_formula(IdV, DTV, DTV*D + IdV, DExpr) => DExpr = D.
-diff_formula(IdV, DTV, IdV - D*DTV, DExpr) => DExpr = -D.
-diff_formula(IdV, DTV, IdV - DTV*D, DExpr) => DExpr = -D.
-diff_formula(IdV, DTV, D*DTV - IdV, DExpr) => DExpr = -D.
-diff_formula(IdV, DTV, DTV*D - IdV, DExpr) => DExpr = -D.
-
 %!  method_params(+Method, +DTExpr, +Constants,
 %!                +FormulasIn, -FormulasOut, -MethodOut)
 
@@ -440,7 +407,6 @@ method_params(euler, DTExpr, Constants, Formulas, Formulas, euler) :-
 method_params(rk4, DTExpr, Constants, Formulas, DFormulas,
               rk4(DTName, DT)) :-
     $dict_keys(DTExpr, [DTName]),
-%   differential_formulas(DTName, Formulas, DFormulas),
     del_dict(t, Formulas, _, DFormulas),
     dict_pairs(DTExpr, _, [DTName-_DTVar]),
     DT = Constants.DTName.
