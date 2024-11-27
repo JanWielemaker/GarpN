@@ -12,12 +12,14 @@ input_state(_520{x1:zero}).
 
 %!   qrel(?Rel).
 
+qrel(norel) :-
+    fail.
 
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_2668{x1:d(zero,plus,_2656,_2658)}).
-qstate(2,_2616{x1:d(plus,plus,_2604,_2606)}).
+qstate(1,_2662{x1:d(zero,plus,_2650,_2652)}).
+qstate(2,_2610{x1:d(plus,plus,_2598,_2600)}).
 
 
 %!   qstate_from(?State, ?From:list).
@@ -29,4 +31,4 @@ qstate_from(1,[input]).
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(2,[]).
-qstate_to(1,[to(cause([to_interval_above(x1)]),conditions([par_values([value(x1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero)]),par_values([value(x1,unk,plus,_1780)])]),to_state([2]),closed)]).
+qstate_to(1,[to(cause([to_interval_above(x1)]),conditions([par_values([value(x1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero)]),par_values([value(x1,unk,plus,_1774)])]),to_state([2]),closed)]).

@@ -12,7 +12,7 @@ qspace(acceleration1,acceleration(object,acceleration1,continuous,zp),[point(zer
 
 %!   input_state(-Dict).
 
-input_state(_706{air_resistance1:zero,distance1:zero,gravity1:plus,velocity1:zero}).
+input_state(_15330{air_resistance1:zero,distance1:zero,gravity1:plus,velocity1:zero}).
 
 
 %!   qrel(?Rel).
@@ -29,9 +29,9 @@ qrel(prop_pos(air_resistance1,velocity1)).
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_402{acceleration1:d(plus,min,_390,_392),air_resistance1:d(zero,plus,_302,_304),distance1:d(zero,zero,_346,_348),gravity1:d(plus,zero,zero,_282),net_force1:d(plus,min,_368,_370),velocity1:d(zero,plus,_324,_326)}).
-qstate(2,_3830{acceleration1:d(plus,min,_3708,_3710),air_resistance1:d(plus,plus,_3796,_3798),distance1:d(zero,plus,_3752,_3754),gravity1:d(plus,zero,zero,_3820),net_force1:d(plus,min,_3730,_3732),velocity1:d(plus,plus,_3774,_3776)}).
-qstate(3,_3958{acceleration1:d(plus,min,_3946,_3948),air_resistance1:d(plus,plus,_3858,_3860),distance1:d(plus,plus,_3902,_3904),gravity1:d(plus,zero,zero,_3838),net_force1:d(plus,min,_3924,_3926),velocity1:d(plus,plus,_3880,_3882)}).
+qstate(1,_22388{acceleration1:d(plus,min,_22376,_22378),air_resistance1:d(zero,plus,_22288,_22290),distance1:d(zero,zero,_22332,_22334),gravity1:d(plus,zero,zero,_22268),net_force1:d(plus,min,_22354,_22356),velocity1:d(zero,plus,_22310,_22312)}).
+qstate(2,_22426{acceleration1:d(plus,min,_22304,_22306),air_resistance1:d(plus,plus,_22392,_22394),distance1:d(zero,plus,_22348,_22350),gravity1:d(plus,zero,zero,_22416),net_force1:d(plus,min,_22326,_22328),velocity1:d(plus,plus,_22370,_22372)}).
+qstate(3,_402{acceleration1:d(plus,min,_390,_392),air_resistance1:d(plus,plus,_302,_304),distance1:d(plus,plus,_346,_348),gravity1:d(plus,zero,zero,_282),net_force1:d(plus,min,_368,_370),velocity1:d(plus,plus,_324,_326)}).
 qstate(4,_2872{acceleration1:d(zero,zero,_2750,_2752),air_resistance1:d(plus,zero,_2838,_2840),distance1:d(plus,plus,_2794,_2796),gravity1:d(plus,zero,zero,_2862),net_force1:d(zero,zero,_2772,_2774),velocity1:d(plus,zero,_2816,_2818)}).
 
 

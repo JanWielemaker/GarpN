@@ -9,7 +9,7 @@ qspace(z1,z(an_e,z1,continuous,qzlmh),[point(zero),low,point(mid(z1)),high],fail
 
 %!   input_state(-Dict).
 
-input_state(_688{x1:plusplus,y1:zero,z1:low}).
+input_state(_15312{x1:plusplus,y1:zero,z1:low}).
 
 
 %!   qrel(?Rel).
@@ -21,8 +21,8 @@ qrel(equal(transition(x1),mid(z1))).
 
 %!   qstate(?State, ?Values).
 
-qstate(1,_6908{x1:d(plusplus,zero,zero,_6854),y1:d(zero,plus,_6874,_6876),z1:d(low,zero,zero,_6898)}).
-qstate(2,_6374{x1:d(plusplus,zero,zero,_6364),y1:d(plus,plus,_6340,_6342),z1:d(low,zero,zero,_6320)}).
+qstate(1,_21532{x1:d(plusplus,zero,zero,_21478),y1:d(zero,plus,_21498,_21500),z1:d(low,zero,zero,_21522)}).
+qstate(2,_20998{x1:d(plusplus,zero,zero,_20988),y1:d(plus,plus,_20964,_20966),z1:d(low,zero,zero,_20944)}).
 
 
 %!   qstate_from(?State, ?From:list).
@@ -34,4 +34,4 @@ qstate_from(1,[input]).
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(2,[]).
-qstate_to(1,[to(cause([to_interval_above(y1)]),conditions([par_values([value(y1,unk,zero,plus)])]),results([par_relations([d_greater(y1,zero)]),par_values([value(y1,unk,plus,_3966)])]),to_state([2]),closed)]).
+qstate_to(1,[to(cause([to_interval_above(y1)]),conditions([par_values([value(y1,unk,zero,plus)])]),results([par_relations([d_greater(y1,zero)]),par_values([value(y1,unk,plus,_18590)])]),to_state([2]),closed)]).
