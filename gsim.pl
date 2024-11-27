@@ -306,6 +306,11 @@ derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
 %   Extend the initial state
 
 derived_initial_state(Formulas, Constants, State0, State, Options) :-
+    select_option(allow_placeholders(true), Options, Options1),
+    !,
+    mapsubterms(bind_placeholder, Formulas+Constants, Formulas1+Constants1),
+    derived_initial_state(Formulas1, Constants1, State0, State, Options1).
+derived_initial_state(Formulas, Constants, State0, State, Options) :-
     findall(Key, missing_init(Formulas, Constants, State0, Key, Options), Missing),
     dt_expression(Formulas, DTExpr0),
     copy_term(DTExpr0, DTExpr),
@@ -316,6 +321,12 @@ derived_initial_state(Formulas, Constants, State0, State, Options) :-
     ->  true
     ;   maplist(q_term_id(Options), Terms, Unresolved),
         throw(model_error(no_initial_values(Terms)))
+    ).
+
+bind_placeholder(placeholder(_Id, PValue), Value) :-
+    (   nonvar(PValue)
+    ->  Value = PValue
+    ;   Value = 1
     ).
 
 derived_initials([], [], _, _, _, State, State) :-
@@ -335,8 +346,7 @@ derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
                      State1, State).
 derived_initials(Missing, Missing, _, _, _, State, State).
 
-missing_init(Formulas, Constants, State, Key, Options) :-
-    bind_placeholders(Formulas+Constants, Options),
+missing_init(Formulas, Constants, State, Key, _Options) :-
     get_dict(_Left, Formulas, formula(Right, Bindings)),
     Bindings >:< Constants,
     Bindings >:< State,

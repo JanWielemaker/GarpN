@@ -21,8 +21,9 @@
 init_model(Model, Equations) :-
     findall(QRel, q_rel(Model, QRel), QRels),
     qrel2nrel(QRels, NRels),
+    init_nrels(Model, Init),
     default_nrels(DefNRels),
-    append(NRels, DefNRels, Eql0),
+    append([NRels,DefNRels,Init], Eql0),
     id_mapping(Model, Mapping),
     foldsubterms(id_to_term(Mapping), Eql0, Eql1, [], ConstEql),
     append(Eql1, ConstEql, Equations1),
@@ -101,6 +102,20 @@ id_to_term(Mapping, Id, Term, S0, S), atom(Id) =>
     Term = Mapping.get(Id,Id).
 id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
     fail.
+
+%!  init_nrels(+Model, -Init) is det.
+%
+%   Use the input state (scenario) to create initialization equations.
+
+init_nrels(Model, Init) :-
+    q_input_state(Model, Input),
+    dict_pairs(Input, _, Pairs),
+    maplist(init_nrel, Pairs, Init).
+
+init_nrel(Id-zero, Init) =>
+    Init = (Id := 0).
+init_nrel(Id-_QVal, Init) =>
+    Init = (Id := placeholder(init, _)).
 
 %!  add_model_init(+EquationsIn, -EquationsOut) is det.
 %
