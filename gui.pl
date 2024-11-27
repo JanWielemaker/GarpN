@@ -99,7 +99,7 @@ home -->
                                    'hx-on-htmx-before-request'('clear_output()')
                                   ],
                                   [ div([id('ml-model')],
-                                        \mathlive_model(Source)),
+                                        \mathlive_model(Source, [])),
                                     div([id(quantity_controls)],
                                         \q_menu(Model, Source)),
                                     div(class([controls]),
@@ -209,16 +209,16 @@ methods -->
                   ])
          ]).
 
-%!  mathlive_model(+Source:string)// is det.
+%!  mathlive_model(+Source:string, +Options)// is det.
 %
 %   Emit the model area as a set of mathlife equations.
 
-mathlive_model(Source), var(Source) ==>
+mathlive_model(Source, _), var(Source) ==>
     [].
-mathlive_model(Source) ==>
+mathlive_model(Source, Options) ==>
     { read_model_to_terms(string(Source), Terms)
     },
-    html(div(\equations(Terms))).
+    html(div(\equations(Terms, Options))).
 
 default_model(Model, Source) :-
     model_file(File),
@@ -250,13 +250,13 @@ set_model(Model) :-
     ->  read_file_to_string(File, Source, [])
     ;   Source = ""
     ),
-    set_model(Model, Source).
+    set_model(Model, Source, []).
 
-set_model(Model, Source) :-
+set_model(Model, Source, Options) :-
     reply_htmx(
         [ \q_menu(Model, Source),
           div([id('ml-model'), 'hx-swap-oob'(true)],
-              \mathlive_model(Source)),
+              \mathlive_model(Source, Options)),
           \js_script({|javascript(Model)||setModel(Model)|})
         ]).
 
@@ -280,12 +280,12 @@ start_model(_Model, nil) =>
 start_model(Model, load) =>
     set_model(Model).
 start_model(Model, clear) =>
-    set_model(Model, "").
+    set_model(Model, "", []).
 start_model(Model, start) =>
     init_model(Model, Terms),
     with_output_to(string(Source),
                    maplist(portray_clause, Terms)),
-    set_model(Model, Source).
+    set_model(Model, Source, [grouped(true)]).
 
 %!  analyze(+Request)
 %

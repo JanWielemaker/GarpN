@@ -8,6 +8,7 @@
 :- use_module(map).
 :- use_module(gsim).
 :- use_module(library(apply)).
+:- use_module(library(pairs)).
 
 /** <module> Propose a (partial) numeric model from Garp
  *
@@ -137,6 +138,12 @@ select_graph([H|T], Set0, Set) :-
     select(H, Set0, Set1),
     select_graph(T, Set1, Set).
 
+
+		 /*******************************
+		 *           MESSAGES		*
+		 *******************************/
+
 rel_unknown(Rel) :-
     print_message(warning, unknown_relation(Rel)),
     fail.
+

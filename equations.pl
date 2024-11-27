@@ -1,5 +1,5 @@
 :- module(equations,
-          [ equations//1,
+          [ equations//2,               % +Term, +Options
             latex_to_prolog_source/2    % +LaTeX:list(string), -Source:string
           ]).
 :- use_module(library(dcg/high_order)).
@@ -27,11 +27,13 @@
                  [ mime_type(text/javascript)
                  ]).
 
-%!  equations(+Equations:list)//
+%!  equations(+Equations:list, +Options)//
 %
 %   Render a list of equations as a div holding mathlive expressions.
 
-equations(Eqs) -->
+equations(Eqs, Options) -->
+    { order_equations(Eqs, Eqs1, Options)
+    },
     html_requires(mathlive),
     html(div([ id(equations),
                'hx-post'('/garp/htmx/analyze'),
@@ -41,11 +43,18 @@ equations(Eqs) -->
                'hx-ext'('json-enc'),
                class(equations)
              ],
-             \sequence(equation, Eqs))),
+             \sequence(equation, Eqs1))),
     js_script({|javascript||
                ml_init();
               |}).
 
+order_equations(Equations0, Equations, Options),
+    option(grouped(true), Options) =>
+    group_equations(Equations0, Groups), % list(Type-Equations)
+    pairs_values(Groups, Eql),
+    append(Eql, Equations).
+order_equations(Equations0, Equations, _Options) =>
+    Equations = Equations0.
 
 equation(Eq) -->
     { phrase(eq_to_mathjax(Eq), Codes),
@@ -329,3 +338,39 @@ alpha(C) -->
     { nonvar(C),
       code_type(C, alpha)
     }.
+
+		 /*******************************
+		 *       LOGICAL GROUPING	*
+		 *******************************/
+
+%!  group_equations(+List, -Groups) is det.
+%
+%   Group the equations by type.
+
+:- det(group_equations/2).
+group_equations(Eql, Groups) :-
+    map_list_to_pairs(classify_equation, Eql, Pairs),
+    keysort(Pairs, Sorted),
+    group_pairs_by_key(Sorted, Groups0),
+    maplist(label_group, Groups0, Groups).
+
+classify_equation(t := _, Order) =>
+    eq_type_order(time, Order).
+classify_equation('Δt' := _, Order) =>
+    eq_type_order(time, Order).
+classify_equation(_Left := Number, Order), number(Number) =>
+    eq_type_order(init_value, Order).
+classify_equation(_Left := placeholder(Type,_), Order) =>
+    eq_type_order(Type, Order).
+classify_equation(_, Order) =>
+    eq_type_order(formula, Order).
+
+label_group(Order-Eql, Type-Eql) :-
+    eq_type_order(Type, Order),
+    !.
+
+eq_type_order(formula,    1).
+eq_type_order(time,       2).
+eq_type_order(constant,   3).
+eq_type_order(init,       4).
+eq_type_order(init_value, 5).
