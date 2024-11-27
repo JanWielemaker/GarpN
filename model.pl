@@ -106,10 +106,9 @@ id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
 %
 %   Add missing initializations to the equations.
 
-:- exception_type(model_error,
-                  error(validation_error(_Invalid), _)).
-:- exception_type(model_error,
-                  model_error(_)).
+:- exception_type(model_error, model_error(invalid(_))).
+:- exception_type(model_error, model_error(no_initial_values(_))).
+:- exception_type(model_error, model_error(no_time_formulas)).
 
 add_model_init(Model, Eq0, Eq) :-
     catch(read_model(terms(Eq0), _Formulas, _Constants, _State,
@@ -126,7 +125,7 @@ add_model_init(Model, Eq0, Eq) :-
         )
     ).
 
-init_from_error(error(validation_error(Invalid), _),
+init_from_error(model_error(invalid(Invalid)),
                 Model, Init) =>
     convlist(init_quantity(Model), Invalid, Init).
 init_from_error(model_error(no_initial_values(UnResolved)),

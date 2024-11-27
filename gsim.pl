@@ -171,8 +171,8 @@ intern(_, _, _, _, _) =>
 %
 %   Validate that all equations have an evaluable right side.
 %
-%   @error validation_error(Invalid) if there are   invalid parts in the
-%   equations. Invalid is a list of invalid terms.
+%   @throws model_error(invalid(Invalid)) if there are invalid
+%   parts in the equations. Invalid is a list of invalid terms.
 
 validate_model(Terms, Options) :-
     maplist(invalid_model_term, Terms, InvalidL),
@@ -180,7 +180,7 @@ validate_model(Terms, Options) :-
     strip_placeholders(Invalid0, Invalid, Options),
     (   Invalid == []
     ->  true
-    ;   throw(error(validation_error(Invalid), _))
+    ;   throw(model_error(invalid(Invalid)))
     ).
 
 strip_placeholders(Invalid0, Invalid, Options),

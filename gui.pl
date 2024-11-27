@@ -348,7 +348,7 @@ derivatives_select(Name) -->
 model_issues(model_error(no_time_formulas)) ==>
     html(div(class(warning),
              'No time formulas')).
-model_issues(error(validation_error(Invalid), _)),
+model_issues(model_error(invalid(Invalid))),
     partition(is_placeholder, Invalid, PlaceHolders, []) ==>
     { length(PlaceHolders, Count) },
     html(div(class(warning),
