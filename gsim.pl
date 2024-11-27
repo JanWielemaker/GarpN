@@ -94,11 +94,11 @@ read_model(From, Formulas, Constants, State, Options) :-
     sort(Quantities0, Sorted),                     % right side of equations
     maplist(q_term(Options), Sorted, Quantities1), % q(Term,Id,Var)
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
-    validate_model(Terms1),
+    validate_model(Terms1, Options),
     foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas0, Init)),
     split_init(Init, Formulas0, Constants0, State0),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
-    derived_initial_state(Formulas, Constants, State0, State).
+    derived_initial_state(Formulas, Constants, State0, State, Options).
 
 %!  read_model_to_terms(++Input, -Terms) is det.
 %
@@ -131,6 +131,8 @@ quantity(Q := _Expr, Out), ground(Q) =>
 quantity(Invalid, _) =>
     type_error(model_term, Invalid).
 
+%!  q_term(+Options, ?QTerm, ?QData) is det.
+
 q_term(Options, Q, q(Q,Id,_)) :-
     option(id_mapping(Mapping), Options),
     get_dict(Id, Mapping, Q),
@@ -138,8 +140,8 @@ q_term(Options, Q, q(Q,Id,_)) :-
 q_term(_Options, Q, q(Q,Id,_)) :-
     to_id(Q, Id).
 
-to_id(Term, Id) :-
-    format(atom(Id), '~q', Term).
+to_id(Term, Id), nonvar(Term) => format(atom(Id), '~q', Term).
+to_id(Term, Id), nonvar(Id)   => term_string(Term, Id).
 
 %!  intern_model_term(+Quantities, +TermIn, -TermOutBindings)
 %
@@ -161,20 +163,30 @@ intern(Quantities, Q, V, B0, B), ground(Q), memberchk(q(Q,Id,Var),Quantities) =>
 intern(_, _, _, _, _) =>
     fail.
 
-%!  validate_model(+Equations) is det.
+%!  validate_model(+Equations, +Options) is det.
 %
 %   Validate that all equations have an evaluable right side.
 %
 %   @error validation_error(Invalid) if there are   invalid parts in the
 %   equations. Invalid is a list of invalid terms.
 
-validate_model(Terms) :-
+validate_model(Terms, Options) :-
     maplist(invalid_model_term, Terms, InvalidL),
-    append(InvalidL, Invalid),
+    append(InvalidL, Invalid0),
+    strip_placeholders(Invalid0, Invalid, Options),
     (   Invalid == []
     ->  true
     ;   throw(error(validation_error(Invalid), _))
     ).
+
+strip_placeholders(Invalid0, Invalid, Options),
+    option(allow_placeholders(true), Options) =>
+    exclude(is_placeholder, Invalid0, Invalid).
+strip_placeholders(Invalid0, Invalid, _Options) =>
+    Invalid = Invalid0.
+
+is_placeholder(placeholder(_Id, _Value)) => true.
+is_placeholder(_) => false.
 
 %!  invalid_model_term(+TermAndBindings, -Invalid:list) is det.
 %
@@ -211,7 +223,9 @@ model_expression((Left := Right)-Bindings,
                  FormulasIn, Formulas, InitIn, Init),
     dict_pairs(Bindings, _, [Id-Left]) =>         % Left only binding
     Formulas = FormulasIn,
-    (   ground(Right)
+    (   is_placeholder(Right)
+    ->  Value = Right
+    ;   ground(Right)
     ->  Value is Right
     ;   Value = Right                             % only for incomplete formulas
     ),
@@ -285,12 +299,13 @@ derived_constants__([Left-formula(Right, Bindings)|FT], Constants0,
 derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
     derived_constants__(FT, Constants0, FPairs, Constants).
 
-%!  derived_initial_state(+Formulas, +Constants, +State0, -State) is det.
+%!  derived_initial_state(+Formulas, +Constants, +State0, -State,
+%!                        +Options) is det.
 %
 %   Extend the initial state
 
-derived_initial_state(Formulas, Constants, State0, State) :-
-    findall(Key, missing_init(Formulas, Constants, State0, Key), Missing),
+derived_initial_state(Formulas, Constants, State0, State, Options) :-
+    findall(Key, missing_init(Formulas, Constants, State0, Key, Options), Missing),
     dt_expression(Formulas, DTExpr0),
     copy_term(DTExpr0, DTExpr),
     0 = DTExpr._DTKey,
@@ -298,7 +313,8 @@ derived_initial_state(Formulas, Constants, State0, State) :-
                      State0, State),
     (   Unresolved == []
     ->  true
-    ;   existence_error(initial_values, Unresolved)
+    ;   maplist(q_term_id(Options), Terms, Unresolved),
+        existence_error(initial_values, Terms)
     ).
 
 derived_initials([], [], _, _, _, State, State) :-
@@ -310,6 +326,7 @@ derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
     State0 >:< Bindings,
     DTExpr >:< Bindings,
     ground(Right),
+    \+ is_placeholder(Right),
     !,
     Value is Right,
     State1 = State0.put(Key,Value),
@@ -317,7 +334,8 @@ derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
                      State1, State).
 derived_initials(Missing, Missing, _, _, _, State, State).
 
-missing_init(Formulas, Constants, State, Key) :-
+missing_init(Formulas, Constants, State, Key, Options) :-
+    bind_placeholders(Formulas+Constants, Options),
     get_dict(_Left, Formulas, formula(Right, Bindings)),
     Bindings >:< Constants,
     Bindings >:< State,
@@ -326,6 +344,19 @@ missing_init(Formulas, Constants, State, Key) :-
     get_dict(Key, Bindings, Var),
     member(Var2, Vars),
     Var2 == Var.
+
+bind_placeholders(Term, Options),
+    option(allow_placeholders(true), Options) =>
+    foldsubterms(bind_placeholder, Term, _, _).
+bind_placeholders(_, _) =>
+    true.
+
+bind_placeholder(placeholder(_Id, Value), _, _), var(Value) =>
+    Value = 1.
+bind_placeholder(_, _, _) => fail.
+
+q_term_id(Options, Term, Id) :-
+    q_term(Options, Term, q(Term,Id,_)).
 
 %!  intern_constants(+Constants, -DTExpr, +FormualsIn, -Formuals) is det.
 %

@@ -3,9 +3,11 @@
           ]).
 :- use_module(library(terms)).
 :- use_module(library(lists)).
+:- use_module(library(exceptions)).
 
 :- use_module(map).
 :- use_module(gsim).
+:- use_module(library(apply)).
 
 /** <module> Propose a (partial) numeric model from Garp
  *
@@ -97,18 +99,38 @@ id_to_term(Mapping, Id, Term, S0, S), atom(Id) =>
 id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
     fail.
 
+%!  add_model_init(+EquationsIn, -EquationsOut) is det.
+%
+%   Add missing initializations to the equations.
+
+:- exception_type(model_error,
+                  error(existence_error(initial_values, _Unresolved), _)).
+:- exception_type(model_error,
+                  error(validation_error(_Invalid), _)).
+
 % add_model_init(Eq, Eq) :- !.
 add_model_init(Eq0, Eq) :-
-    catch(read_model(terms(Eq0), _Formulas, _Constants, _State, []),
-          error(existence_error(initial_values, Unresolved)),
-          true),
-    (   var(Unresolved)
+    catch(read_model(terms(Eq0), _Formulas, _Constants, _State,
+                     [ allow_placeholders(true)
+                     ]),
+          model_error, Ball, true),
+    (   var(Ball)
     ->  Eq = Eq0
-    ;   maplist(init_quantity, Unresolved, Init),
-        append(Eq0, Init, Eq)
+    ;   init_from_error(Ball, Init),
+        append(Eq0, Init, Eq1),
+        (   Init == []
+        ->  Eq = Eq1
+        ;   add_model_init(Eq1, Eq)
+        )
     ).
 
-init_quantity(Q, (Q := placeholder(init,_))).
+init_from_error(error(validation_error(Invalid), _), Init) =>
+    convlist(init_quantity, Invalid, Init).
+init_from_error(error(existence_error(initial_values, UnResolved), _), Init) =>
+    convlist(init_quantity, UnResolved, Init).
+
+init_quantity(Q, Init) :-
+    Init = (Q := placeholder(init,_)).
 
 select_graph([], Set, Set).
 select_graph([H|T], Set0, Set) :-
