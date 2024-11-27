@@ -16,13 +16,14 @@
 :- use_module(library(apply)).
 :- use_module(library(option)).
 :- use_module(library(pairs)).
-
-:- use_module(gsim).
-:- use_module(csv_util).
 :- use_module(library(dicts)).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(lists)).
 :- use_module(library(debug)).
+:- use_module(library(listing)).
+
+:- use_module(gsim).
+:- use_module(csv_util).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -158,8 +159,11 @@ input_value(value(Q, _, Value, _), Q-Value).
 save_garp_relations(Out) :-
     engine_relations(Relations),
     format(Out, '~n~n%!   qrel(?Rel).~n~n', []),
-    forall(member(Rel, Relations),
-           format(Out, '~q.~n', [qrel(Rel)])).
+    (   Relations \== []
+    ->  forall(member(Rel, Relations),
+               format(Out, '~q.~n', [qrel(Rel)]))
+    ;   portray_clause(Out, (qrel(norel) :- fail))
+    ).
 
 engine_relations(Relations) :-
     engine:state(1, SMD),
