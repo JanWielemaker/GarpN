@@ -113,6 +113,8 @@ read_model_to_terms(string(String), Terms) =>
         open_string(String, In),
         read_stream_to_terms(In, Terms, [module(gsim)]),
         close(In)).
+read_model_to_terms(String, Terms), string(String) =>
+    read_model_to_terms(string(String), Terms).
 
 read_stream_to_terms(In, Terms, Options) :-
     read_term(In, T0, Options),

@@ -209,14 +209,14 @@ methods -->
                   ])
          ]).
 
-%!  mathlive_model(+Source:string, +Options)// is det.
+%!  mathlive_model(+Source, +Options)// is det.
 %
 %   Emit the model area as a set of mathlife equations.
 
 mathlive_model(Source, _), var(Source) ==>
     [].
 mathlive_model(Source, Options) ==>
-    { read_model_to_terms(string(Source), Terms)
+    { read_model_to_terms(Source, Terms)
     },
     html(div(\equations(Terms, Options))).
 
@@ -252,6 +252,8 @@ set_model(Model) :-
     ),
     set_model(Model, Source, []).
 
+%!  set_model(+Model:atom, +Source, +Options) is det.
+
 set_model(Model, Source, Options) :-
     reply_htmx(
         [ \q_menu(Model, Source),
@@ -283,9 +285,7 @@ start_model(Model, clear) =>
     set_model(Model, "", []).
 start_model(Model, start) =>
     init_model(Model, Terms),
-    with_output_to(string(Source),
-                   maplist(portray_clause, Terms)),
-    set_model(Model, Source, [grouped(true)]).
+    set_model(Model, terms(Terms), [grouped(true)]).
 
 %!  analyze(+Request)
 %
@@ -309,7 +309,7 @@ analyze(Request) :-
 q_menu(Model, Source) -->
     { nonvar(Source),                            % there is no model
       id_mapping(Model, IdMapping),
-      catch(read_model(string(Source), Formulas, _Constants, _State0,
+      catch(read_model(Source, Formulas, _Constants, _State0,
                        [ id_mapping(IdMapping) ]),
             error(_,_), fail),
       dict_keys(Formulas, Keys),
