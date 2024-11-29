@@ -11,7 +11,8 @@
             zero_asymptote/2,           % +Values, +Options
             saved_model_file/2,
             q_rel/2,                    % +Model, -Rel
-            q_input_state/2             % +Model, -Dict
+            q_input_state/2,            % +Model, -Dict
+            q_exogenous/3               % +Model, ?Quantity, ?Exegenous
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -134,27 +135,40 @@ save_garp_to_stream(Out, Module) :-
            format(Out, '~q.~n',  [qspace(Id, Term4, Values, Fail)])),
 
     save_scenario(Out),
-
     save_garp_relations(Out),
+    save_exogenous(Out),
 
     format(Out, '~n~n%!   qstate(?State, ?Values).~n~n', []),
     forall(qstate(State, Values, []),
-           format(Out, '~q.~n',  [qstate(State, Values)])),
+           portray_clause(Out, qstate(State, Values))),
 
     format(Out, '~n~n%!   qstate_from(?State, ?From:list).~n~n', []),
     forall(engine:state_from(S, S0),
-           format(Out, '~q.~n', [qstate_from(S,S0)])),
+           portray_clause(Out, qstate_from(S,S0))),
 
     format(Out, '~n~n%!   qstate_to(?State, ?Cause).~n~n', []),
     forall(engine:state_to(S, Cause),
-           format(Out, '~q.~n', [qstate_to(S,Cause)])).
+           print_term(qstate_to(S,Cause),
+                      [ output(Out),
+                        fullstop(true),
+                        nl(true)
+                      ])).
 
 save_scenario(Out) :-
     q_input_state(engine, Dict),
     format(Out, '~n~n%!   input_state(-Dict).~n~n', []),
-    format(Out, '~q.~n', [input_state(Dict)]).
+    portray_clause(Out, input_state(Dict)).
 
 input_value(value(Q, _, Value, _), Q-Value).
+
+save_exogenous(Out) :-
+    format(Out, '~n~n%!   exogenous(?Quantity, ?Function).~n~n', []),
+    findall(exogenous(Q,F), q_exogenous(engine, Q, F), Terms),
+    (   Terms == []
+    ->  format(Out, ':- discontiguous exogenous/2.~n', [])
+    ;   forall(member(Clause, Terms),
+               portray_clause(Out, Clause))
+    ).
 
 save_garp_relations(Out) :-
     engine_relations(Relations),
@@ -241,6 +255,39 @@ q_input_state(Model, Dict) =>
     ensure_loaded_model(Model, input_state/1),
     Model:input_state(Dict).
 
+
+%!  q_exogenous(+Model, ?Quantity, ?Exegenous) is nondet.
+%
+%   True when Quantity is  determined   exogenously.  Possible exogenous
+%   functions are pre-wired and specified by exegenous/1.
+
+q_exogenous(engine, Quantity, Exegenous) =>
+    engine:state(1, SMD),
+    arg(2, SMD, system_elements(SEList)),
+    arg(3, SMD, parameters(Params)),
+    member(Param, Params),
+    arg(1, Param, Entity),
+    arg(2, Param, Quantity),
+    (   member(has_attribute(Entity, has_assumption, Instance), SEList),
+        se_isa(Instance, Exegenous, SEList),
+        exegenous(Exegenous)
+    ->  true
+    ).
+q_exogenous(Model, Quantity, Exegenous) =>
+    ensure_loaded_model(Model, exegenous/2),
+    Model:exegenous(Quantity, Exegenous).
+
+se_isa(Instance, Instance, _).
+se_isa(Instance, Super, SEList) :-
+    member(instance(Instance, Parent), SEList),
+    se_isa(Parent, Super, SEList).
+
+exegenous(exogenous_free).      % Random
+exegenous(exogenous_increasing).
+exegenous(exogenous_steady).
+exegenous(exogenous_decreasing).
+exegenous(exogenous_pos_parabola).
+exegenous(exogenous_neg_parabola).
 
 %!  asymptotes(+Series, -Asymptotes, +Options) is det.
 %
