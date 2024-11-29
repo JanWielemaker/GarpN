@@ -804,7 +804,14 @@ range(Series, Key, Min-Max) :-
     min_list(Ys, Min),
     max_list(Ys, Max).
 
-rescale(GMin-GMax, Min-Max, Scale) :-
+rescale(_, Min-Max, Scale), Min =:= 0, Max =:= 0 =>
+    Scale = 1.
+rescale(GMin-GMax, Min-Max, Scale), Min =:= Max =>
+    Mid is (GMax-GMin)/2,
+    scale(Scale),
+    Val is Min*Scale,
+    fair(Mid, Val).
+rescale(GMin-GMax, Min-Max, Scale) =>
     GDiff is GMax-GMin,
     scale(Scale),
     SMin is Min*Scale,
