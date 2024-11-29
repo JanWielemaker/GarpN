@@ -7,7 +7,7 @@ qspace(x1,x(an_e,x1,continuous,qzp),[point(zero),plus],fail).
 
 %!   input_state(-Dict).
 
-input_state(_520{x1:zero}).
+input_state(_{x1:zero}).
 
 
 %!   qrel(?Rel).
@@ -16,19 +16,33 @@ qrel(norel) :-
     fail.
 
 
+%!   exogenous(?Quantity, ?Function).
+
+exogenous(x1, exogenous_increasing).
+
+
 %!   qstate(?State, ?Values).
 
-qstate(1,_2662{x1:d(zero,plus,_2650,_2652)}).
-qstate(2,_2610{x1:d(plus,plus,_2598,_2600)}).
+qstate(1, _{x1:d(zero, plus, _, _)}).
+qstate(2, _{x1:d(plus, plus, _, _)}).
 
 
 %!   qstate_from(?State, ?From:list).
 
-qstate_from(2,[1]).
-qstate_from(1,[input]).
+qstate_from(2, [1]).
+qstate_from(1, [input]).
 
 
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(2,[]).
-qstate_to(1,[to(cause([to_interval_above(x1)]),conditions([par_values([value(x1,unk,zero,plus)])]),results([par_relations([d_greater(x1,zero)]),par_values([value(x1,unk,plus,_1774)])]),to_state([2]),closed)]).
+qstate_to(
+    1,
+    [ to(cause([to_interval_above(x1)]),
+	 conditions([par_values([value(x1,unk,zero,plus)])]),
+	 results([ par_relations([d_greater(x1,zero)]),
+		   par_values([value(x1,unk,plus,_)])
+		 ]),
+	 to_state([2]),
+	 closed)
+    ]).

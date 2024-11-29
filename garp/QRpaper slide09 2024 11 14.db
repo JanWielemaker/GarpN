@@ -9,7 +9,7 @@ qspace(z1,z(an_e,z1,continuous,qp),[p],fail).
 
 %!   input_state(-Dict).
 
-input_state(_15228{}).
+input_state(_{}).
 
 
 %!   qrel(?Rel).
@@ -18,18 +18,25 @@ qrel(prop_pos(y1,x1)).
 qrel(prop_neg(y1,z1)).
 
 
+%!   exogenous(?Quantity, ?Function).
+
+exogenous(z1, exogenous_increasing).
+exogenous(y1, exogenous_increasing).
+exogenous(x1, exogenous_increasing).
+
+
 %!   qstate(?State, ?Values).
 
-qstate(1,_20060{x1:d(p,plus,_20004,_20006),y1:d(p,min,_20026,_20028),z1:d(p,plus,_20048,_20050)}).
-qstate(2,_19976{x1:d(p,plus,_19920,_19922),y1:d(p,zero,_19942,_19944),z1:d(p,plus,_19964,_19966)}).
-qstate(3,_20060{x1:d(p,plus,_20004,_20006),y1:d(p,plus,_20026,_20028),z1:d(p,plus,_20048,_20050)}).
+qstate(1, _{x1:d(p, plus, _, _), y1:d(p, min, _, _), z1:d(p, plus, _, _)}).
+qstate(2, _{x1:d(p, plus, _, _), y1:d(p, zero, _, _), z1:d(p, plus, _, _)}).
+qstate(3, _{x1:d(p, plus, _, _), y1:d(p, plus, _, _), z1:d(p, plus, _, _)}).
 
 
 %!   qstate_from(?State, ?From:list).
 
-qstate_from(3,[input]).
-qstate_from(2,[input]).
-qstate_from(1,[input]).
+qstate_from(3, [input]).
+qstate_from(2, [input]).
+qstate_from(1, [input]).
 
 
 %!   qstate_to(?State, ?Cause).

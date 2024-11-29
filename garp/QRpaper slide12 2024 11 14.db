@@ -8,7 +8,7 @@ qspace(y1,y(an_e,y1,continuous,qp),[p],fail).
 
 %!   input_state(-Dict).
 
-input_state(_15214{x1:plus}).
+input_state(_{x1:plus}).
 
 
 %!   qrel(?Rel).
@@ -16,14 +16,20 @@ input_state(_15214{x1:plus}).
 qrel(inf_pos_by(y1,x1)).
 
 
+%!   exogenous(?Quantity, ?Function).
+
+exogenous(y1, exogenous_steady).
+exogenous(x1, exogenous_steady).
+
+
 %!   qstate(?State, ?Values).
 
-qstate(1,_18760{x1:d(plus,zero,zero,_18728),y1:d(p,plus,_18748,_18750)}).
+qstate(1, _{x1:d(plus, zero, zero, _), y1:d(p, plus, _, _)}).
 
 
 %!   qstate_from(?State, ?From:list).
 
-qstate_from(1,[input]).
+qstate_from(1, [input]).
 
 
 %!   qstate_to(?State, ?Cause).

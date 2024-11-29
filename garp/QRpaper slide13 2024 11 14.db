@@ -9,7 +9,7 @@ qspace(z1,z(an_e,z1,continuous,qzp),[point(zero),plus],fail).
 
 %!   input_state(-Dict).
 
-input_state(_15312{x1:plus,y1:zero,z1:plus}).
+input_state(_{x1:plus, y1:zero, z1:plus}).
 
 
 %!   qrel(?Rel).
@@ -18,28 +18,53 @@ qrel(inf_neg_by(y1,z1)).
 qrel(inf_pos_by(y1,x1)).
 
 
+%!   exogenous(?Quantity, ?Function).
+
+exogenous(z1, exogenous_steady).
+exogenous(y1, exogenous_steady).
+exogenous(x1, exogenous_steady).
+
+
 %!   qstate(?State, ?Values).
 
-qstate(1,_20748{x1:d(plus,zero,zero,_20694),y1:d(zero,min,_20714,_20716),z1:d(plus,zero,zero,_20738)}).
-qstate(2,_20664{x1:d(plus,zero,zero,_20610),y1:d(zero,zero,_20630,_20632),z1:d(plus,zero,zero,_20654)}).
-qstate(3,_20748{x1:d(plus,zero,zero,_20694),y1:d(zero,plus,_20714,_20716),z1:d(plus,zero,zero,_20738)}).
-qstate(4,_20214{x1:d(plus,zero,zero,_20204),y1:d(plus,plus,_20180,_20182),z1:d(plus,zero,zero,_20160)}).
-qstate(5,_20214{x1:d(plus,zero,zero,_20204),y1:d(min,min,_20180,_20182),z1:d(plus,zero,zero,_20160)}).
+qstate(1, _{x1:d(plus, zero, zero, _), y1:d(zero, min, _, _), z1:d(plus, zero, zero, _)}).
+qstate(2, _{x1:d(plus, zero, zero, _), y1:d(zero, zero, _, _), z1:d(plus, zero, zero, _)}).
+qstate(3, _{x1:d(plus, zero, zero, _), y1:d(zero, plus, _, _), z1:d(plus, zero, zero, _)}).
+qstate(4, _{x1:d(plus, zero, zero, _), y1:d(plus, plus, _, _), z1:d(plus, zero, zero, _)}).
+qstate(5, _{x1:d(plus, zero, zero, _), y1:d(min, min, _, _), z1:d(plus, zero, zero, _)}).
 
 
 %!   qstate_from(?State, ?From:list).
 
-qstate_from(5,[1]).
-qstate_from(4,[3]).
-qstate_from(3,[input]).
-qstate_from(2,[input]).
-qstate_from(1,[input]).
+qstate_from(5, [1]).
+qstate_from(4, [3]).
+qstate_from(3, [input]).
+qstate_from(2, [input]).
+qstate_from(1, [input]).
 
 
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(5,[]).
 qstate_to(4,[]).
-qstate_to(1,[to(cause([to_interval_below(y1)]),conditions([par_values([value(y1,unk,zero,min)])]),results([par_relations([d_smaller(y1,zero)]),par_values([value(y1,unk,min,_18198)])]),to_state([5]),closed)]).
-qstate_to(3,[to(cause([to_interval_above(y1)]),conditions([par_values([value(y1,unk,zero,plus)])]),results([par_relations([d_greater(y1,zero)]),par_values([value(y1,unk,plus,_18198)])]),to_state([4]),closed)]).
+qstate_to(
+    1,
+    [ to(cause([to_interval_below(y1)]),
+	 conditions([par_values([value(y1,unk,zero,min)])]),
+	 results([ par_relations([d_smaller(y1,zero)]),
+		   par_values([value(y1,unk,min,_)])
+		 ]),
+	 to_state([5]),
+	 closed)
+    ]).
+qstate_to(
+    3,
+    [ to(cause([to_interval_above(y1)]),
+	 conditions([par_values([value(y1,unk,zero,plus)])]),
+	 results([ par_relations([d_greater(y1,zero)]),
+		   par_values([value(y1,unk,plus,_)])
+		 ]),
+	 to_state([4]),
+	 closed)
+    ]).
 qstate_to(2,[]).

@@ -13,7 +13,7 @@ qspace(norm1,norm(thyroid,norm1,continuous,norm),[interval],fail).
 
 %!   input_state(-Dict).
 
-input_state(_704{ca_ions1:interval,norm1:interval}).
+input_state(_{ca_ions1:interval, norm1:interval}).
 
 
 %!   qrel(?Rel).
@@ -30,19 +30,44 @@ qrel(prop_pos(resorption_ca_ions1,pth1)).
 qrel(prop_neg(ca_ions1,ca_ions2)).
 
 
+%!   exogenous(?Quantity, ?Function).
+
+exogenous(norm1, exogenous_steady).
+exogenous(calcitonin1, exogenous_steady).
+exogenous(difference1, exogenous_steady).
+
+
 %!   qstate(?State, ?Values).
 
-qstate(1,_8172{ca_ions1:d(_8024,plus,_8028,_8030),ca_ions2:d(_8046,min,_8050,_8052),calcitonin1:d(_8134,min,_8138,_8140),difference1:d(min,plus,_8116,_8118),norm1:d(_8156,zero,zero,_8162),pth1:d(_8090,plus,_8094,_8096),resorption_ca_ions1:d(_8068,plus,_8072,_8074)}).
-qstate(2,_6846{ca_ions1:d(_6830,zero,_6834,_6836),ca_ions2:d(_6808,zero,_6812,_6814),calcitonin1:d(_6720,zero,_6724,_6726),difference1:d(zero,zero,_6746,_6748),norm1:d(_6698,zero,zero,_6704),pth1:d(_6764,zero,_6768,_6770),resorption_ca_ions1:d(_6786,zero,_6790,_6792)}).
+qstate(1, _{ca_ions1:d(_, plus, _, _), ca_ions2:d(_, min, _, _), calcitonin1:d(_, min, _, _), difference1:d(min, plus, _, _), norm1:d(_, zero, zero, _), pth1:d(_, plus, _, _), resorption_ca_ions1:d(_, plus, _, _)}).
+qstate(2, _{ca_ions1:d(_, zero, _, _), ca_ions2:d(_, zero, _, _), calcitonin1:d(_, zero, _, _), difference1:d(zero, zero, _, _), norm1:d(_, zero, zero, _), pth1:d(_, zero, _, _), resorption_ca_ions1:d(_, zero, _, _)}).
 
 
 %!   qstate_from(?State, ?From:list).
 
-qstate_from(2,[1]).
-qstate_from(1,[input]).
+qstate_from(2, [1]).
+qstate_from(1, [input]).
 
 
 %!   qstate_to(?State, ?Cause).
 
 qstate_to(2,[]).
-qstate_to(1,[to(cause([to_point_above(difference1),from_smaller_to_equal(ca_ions1,norm1)]),conditions([par_values([value(difference1,unk,min,plus)]),par_relations([smaller(ca_ions1,norm1)])]),results([par_relations([d_greater_or_equal(difference1,zero),equal(ca_ions1,norm1),d_greater_or_equal(ca_ions1,norm1)]),par_values([value(difference1,unk,zero,_4618)])]),to_state([2]),closed)]).
+qstate_to(
+    1,
+    [ to(cause([ to_point_above(difference1),
+		 from_smaller_to_equal(ca_ions1,norm1)
+	       ]),
+	 conditions(
+	     [ par_values([value(difference1,unk,min,plus)]),
+	       par_relations([smaller(ca_ions1,norm1)])
+	     ]),
+	 results([ par_relations(
+		       [ d_greater_or_equal(difference1,zero),
+			 equal(ca_ions1,norm1),
+			 d_greater_or_equal(ca_ions1,norm1)
+		       ]),
+		   par_values([value(difference1,unk,zero,_)])
+		 ]),
+	 to_state([2]),
+	 closed)
+    ]).

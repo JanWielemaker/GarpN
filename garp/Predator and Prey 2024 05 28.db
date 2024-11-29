@@ -10,7 +10,7 @@ qspace(growth2,growth(prey,growth2,continuous,mzp),[min,point(zero),plus],fail).
 
 %!   input_state(-Dict).
 
-input_state(_638{growth1:zero,growth2:plus,number_of1:plus,number_of2:plus}).
+input_state(_{growth1:zero, growth2:plus, number_of1:plus, number_of2:plus}).
 
 
 %!   qrel(?Rel).
@@ -23,61 +23,194 @@ qrel(prop_pos(growth1,number_of2)).
 qrel(prop_neg(growth2,number_of1)).
 
 
+%!   exogenous(?Quantity, ?Function).
+
+:- discontiguous exogenous/2.
+
+
 %!   qstate(?State, ?Values).
 
-qstate(1,_6012{growth1:d(zero,plus,plus,_5958),growth2:d(plus,plus,_6000,_6002),number_of1:d(plus,zero,plus,_5936),number_of2:d(plus,plus,plus,_5980)}).
-qstate(2,_5898{growth1:d(plus,plus,plus,_5866),growth2:d(plus,plus,_5820,_5822),number_of1:d(plus,plus,plus,_5888),number_of2:d(plus,plus,plus,_5844)}).
-qstate(3,_5814{growth1:d(plus,plus,plus,_5760),growth2:d(plus,zero,min,_5804),number_of1:d(plus,plus,plus,_5738),number_of2:d(plus,plus,zero,_5782)}).
-qstate(4,_5898{growth1:d(plus,plus,_5864,_5866),growth2:d(plus,min,min,_5822),number_of1:d(plus,plus,plus,_5888),number_of2:d(plus,plus,min,_5844)}).
-qstate(5,_5720{growth1:d(plus,plus,_5664,_5666),growth2:d(zero,min,min,_5710),number_of1:d(plus,plus,plus,_5644),number_of2:d(plus,zero,min,_5688)}).
-qstate(6,_5898{growth1:d(plus,plus,_5864,_5866),growth2:d(min,min,min,_5822),number_of1:d(plus,plus,plus,_5888),number_of2:d(plus,min,min,_5844)}).
-qstate(7,_5814{growth1:d(plus,zero,min,_5760),growth2:d(min,min,min,_5804),number_of1:d(plus,plus,zero,_5738),number_of2:d(plus,min,min,_5782)}).
-qstate(8,_5898{growth1:d(plus,min,min,_5866),growth2:d(min,min,_5820,_5822),number_of1:d(plus,plus,min,_5888),number_of2:d(plus,min,min,_5844)}).
-qstate(9,_5720{growth1:d(zero,min,min,_5666),growth2:d(min,min,_5708,_5710),number_of1:d(plus,zero,min,_5644),number_of2:d(plus,min,min,_5688)}).
-qstate(10,_5898{growth1:d(min,min,min,_5866),growth2:d(min,min,_5820,_5822),number_of1:d(plus,min,min,_5888),number_of2:d(plus,min,min,_5844)}).
-qstate(11,_5814{growth1:d(min,min,min,_5760),growth2:d(min,zero,plus,_5804),number_of1:d(plus,min,min,_5738),number_of2:d(plus,min,zero,_5782)}).
-qstate(12,_5898{growth1:d(min,min,_5864,_5866),growth2:d(min,plus,plus,_5822),number_of1:d(plus,min,min,_5888),number_of2:d(plus,min,plus,_5844)}).
-qstate(13,_5720{growth1:d(min,min,_5664,_5666),growth2:d(zero,plus,plus,_5710),number_of1:d(plus,min,min,_5644),number_of2:d(plus,zero,plus,_5688)}).
-qstate(14,_5898{growth1:d(min,min,_5864,_5866),growth2:d(plus,plus,plus,_5822),number_of1:d(plus,min,min,_5888),number_of2:d(plus,plus,plus,_5844)}).
-qstate(15,_5814{growth1:d(min,zero,plus,_5760),growth2:d(plus,plus,plus,_5804),number_of1:d(plus,min,zero,_5738),number_of2:d(plus,plus,plus,_5782)}).
-qstate(16,_5898{growth1:d(min,plus,plus,_5866),growth2:d(plus,plus,_5820,_5822),number_of1:d(plus,min,plus,_5888),number_of2:d(plus,plus,plus,_5844)}).
+qstate(1, _{growth1:d(zero, plus, plus, _), growth2:d(plus, plus, _, _), number_of1:d(plus, zero, plus, _), number_of2:d(plus, plus, plus, _)}).
+qstate(2, _{growth1:d(plus, plus, plus, _), growth2:d(plus, plus, _, _), number_of1:d(plus, plus, plus, _), number_of2:d(plus, plus, plus, _)}).
+qstate(3, _{growth1:d(plus, plus, plus, _), growth2:d(plus, zero, min, _), number_of1:d(plus, plus, plus, _), number_of2:d(plus, plus, zero, _)}).
+qstate(4, _{growth1:d(plus, plus, _, _), growth2:d(plus, min, min, _), number_of1:d(plus, plus, plus, _), number_of2:d(plus, plus, min, _)}).
+qstate(5, _{growth1:d(plus, plus, _, _), growth2:d(zero, min, min, _), number_of1:d(plus, plus, plus, _), number_of2:d(plus, zero, min, _)}).
+qstate(6, _{growth1:d(plus, plus, _, _), growth2:d(min, min, min, _), number_of1:d(plus, plus, plus, _), number_of2:d(plus, min, min, _)}).
+qstate(7, _{growth1:d(plus, zero, min, _), growth2:d(min, min, min, _), number_of1:d(plus, plus, zero, _), number_of2:d(plus, min, min, _)}).
+qstate(8, _{growth1:d(plus, min, min, _), growth2:d(min, min, _, _), number_of1:d(plus, plus, min, _), number_of2:d(plus, min, min, _)}).
+qstate(9, _{growth1:d(zero, min, min, _), growth2:d(min, min, _, _), number_of1:d(plus, zero, min, _), number_of2:d(plus, min, min, _)}).
+qstate(10, _{growth1:d(min, min, min, _), growth2:d(min, min, _, _), number_of1:d(plus, min, min, _), number_of2:d(plus, min, min, _)}).
+qstate(11, _{growth1:d(min, min, min, _), growth2:d(min, zero, plus, _), number_of1:d(plus, min, min, _), number_of2:d(plus, min, zero, _)}).
+qstate(12, _{growth1:d(min, min, _, _), growth2:d(min, plus, plus, _), number_of1:d(plus, min, min, _), number_of2:d(plus, min, plus, _)}).
+qstate(13, _{growth1:d(min, min, _, _), growth2:d(zero, plus, plus, _), number_of1:d(plus, min, min, _), number_of2:d(plus, zero, plus, _)}).
+qstate(14, _{growth1:d(min, min, _, _), growth2:d(plus, plus, plus, _), number_of1:d(plus, min, min, _), number_of2:d(plus, plus, plus, _)}).
+qstate(15, _{growth1:d(min, zero, plus, _), growth2:d(plus, plus, plus, _), number_of1:d(plus, min, zero, _), number_of2:d(plus, plus, plus, _)}).
+qstate(16, _{growth1:d(min, plus, plus, _), growth2:d(plus, plus, _, _), number_of1:d(plus, min, plus, _), number_of2:d(plus, plus, plus, _)}).
 
 
 %!   qstate_from(?State, ?From:list).
 
-qstate_from(1,[16,input]).
-qstate_from(16,[15]).
-qstate_from(15,[14]).
-qstate_from(14,[13]).
-qstate_from(13,[12]).
-qstate_from(12,[11]).
-qstate_from(11,[10]).
-qstate_from(10,[9]).
-qstate_from(9,[8]).
-qstate_from(8,[7]).
-qstate_from(7,[6]).
-qstate_from(6,[5]).
-qstate_from(5,[4]).
-qstate_from(4,[3]).
-qstate_from(3,[2]).
-qstate_from(2,[1]).
+qstate_from(1, [16, input]).
+qstate_from(16, [15]).
+qstate_from(15, [14]).
+qstate_from(14, [13]).
+qstate_from(13, [12]).
+qstate_from(12, [11]).
+qstate_from(11, [10]).
+qstate_from(10, [9]).
+qstate_from(9, [8]).
+qstate_from(8, [7]).
+qstate_from(7, [6]).
+qstate_from(6, [5]).
+qstate_from(5, [4]).
+qstate_from(4, [3]).
+qstate_from(3, [2]).
+qstate_from(2, [1]).
 
 
 %!   qstate_to(?State, ?Cause).
 
-qstate_to(16,[to(cause([to_point_above(growth1)]),conditions([par_values([value(growth1,unk,min,plus)])]),results([par_relations([d_greater_or_equal(growth1,zero)]),par_values([value(growth1,unk,zero,_3484)])]),to_state([1]),closed)]).
-qstate_to(15,[to(cause([derivative_stable_to_up(growth1)]),conditions([]),results([par_relations([d_greater(growth1,zero)])]),to_state([16]),closed)]).
-qstate_to(14,[to(cause([assumed_derivative_down_to_stable(growth1)]),conditions([]),results([par_relations([d_equal(growth1,zero)])]),to_state([15]),closed)]).
-qstate_to(13,[to(cause([to_interval_above(growth2)]),conditions([par_values([value(growth2,unk,zero,plus)])]),results([par_relations([d_greater(growth2,zero)]),par_values([value(growth2,unk,plus,_3484)])]),to_state([14]),closed)]).
-qstate_to(12,[to(cause([to_point_above(growth2)]),conditions([par_values([value(growth2,unk,min,plus)])]),results([par_relations([d_greater_or_equal(growth2,zero)]),par_values([value(growth2,unk,zero,_3484)])]),to_state([13]),closed)]).
-qstate_to(11,[to(cause([derivative_stable_to_up(growth2)]),conditions([]),results([par_relations([d_greater(growth2,zero)])]),to_state([12]),closed)]).
-qstate_to(10,[to(cause([assumed_derivative_down_to_stable(growth2)]),conditions([]),results([par_relations([d_equal(growth2,zero)])]),to_state([11]),closed)]).
-qstate_to(9,[to(cause([to_interval_below(growth1)]),conditions([par_values([value(growth1,unk,zero,min)])]),results([par_relations([d_smaller(growth1,zero)]),par_values([value(growth1,unk,min,_3484)])]),to_state([10]),closed)]).
-qstate_to(8,[to(cause([to_point_below(growth1)]),conditions([par_values([value(growth1,unk,plus,min)])]),results([par_relations([d_smaller_or_equal(growth1,zero)]),par_values([value(growth1,unk,zero,_3484)])]),to_state([9]),closed)]).
-qstate_to(7,[to(cause([derivative_stable_to_down(growth1)]),conditions([]),results([par_relations([d_smaller(growth1,zero)])]),to_state([8]),closed)]).
-qstate_to(6,[to(cause([assumed_derivative_up_to_stable(growth1)]),conditions([]),results([par_relations([d_equal(growth1,zero)])]),to_state([7]),closed)]).
-qstate_to(5,[to(cause([to_interval_below(growth2)]),conditions([par_values([value(growth2,unk,zero,min)])]),results([par_relations([d_smaller(growth2,zero)]),par_values([value(growth2,unk,min,_3484)])]),to_state([6]),closed)]).
-qstate_to(4,[to(cause([to_point_below(growth2)]),conditions([par_values([value(growth2,unk,plus,min)])]),results([par_relations([d_smaller_or_equal(growth2,zero)]),par_values([value(growth2,unk,zero,_3484)])]),to_state([5]),closed)]).
-qstate_to(3,[to(cause([derivative_stable_to_down(growth2)]),conditions([]),results([par_relations([d_smaller(growth2,zero)])]),to_state([4]),closed)]).
-qstate_to(2,[to(cause([assumed_derivative_up_to_stable(growth2)]),conditions([]),results([par_relations([d_equal(growth2,zero)])]),to_state([3]),closed)]).
-qstate_to(1,[to(cause([to_interval_above(growth1)]),conditions([par_values([value(growth1,unk,zero,plus)])]),results([par_relations([d_greater(growth1,zero)]),par_values([value(growth1,unk,plus,_3484)])]),to_state([2]),closed)]).
+qstate_to(
+    16,
+    [ to(cause([to_point_above(growth1)]),
+	 conditions([par_values([value(growth1,unk,min,plus)])]),
+	 results([ par_relations([d_greater_or_equal(growth1,zero)]),
+		   par_values([value(growth1,unk,zero,_)])
+		 ]),
+	 to_state([1]),
+	 closed)
+    ]).
+qstate_to(
+    15,
+    [ to(cause([derivative_stable_to_up(growth1)]),
+	 conditions([]),
+	 results([par_relations([d_greater(growth1,zero)])]),
+	 to_state([16]),
+	 closed)
+    ]).
+qstate_to(
+    14,
+    [ to(cause([assumed_derivative_down_to_stable(growth1)]),
+	 conditions([]),
+	 results([par_relations([d_equal(growth1,zero)])]),
+	 to_state([15]),
+	 closed)
+    ]).
+qstate_to(
+    13,
+    [ to(cause([to_interval_above(growth2)]),
+	 conditions([par_values([value(growth2,unk,zero,plus)])]),
+	 results([ par_relations([d_greater(growth2,zero)]),
+		   par_values([value(growth2,unk,plus,_)])
+		 ]),
+	 to_state([14]),
+	 closed)
+    ]).
+qstate_to(
+    12,
+    [ to(cause([to_point_above(growth2)]),
+	 conditions([par_values([value(growth2,unk,min,plus)])]),
+	 results([ par_relations([d_greater_or_equal(growth2,zero)]),
+		   par_values([value(growth2,unk,zero,_)])
+		 ]),
+	 to_state([13]),
+	 closed)
+    ]).
+qstate_to(
+    11,
+    [ to(cause([derivative_stable_to_up(growth2)]),
+	 conditions([]),
+	 results([par_relations([d_greater(growth2,zero)])]),
+	 to_state([12]),
+	 closed)
+    ]).
+qstate_to(
+    10,
+    [ to(cause([assumed_derivative_down_to_stable(growth2)]),
+	 conditions([]),
+	 results([par_relations([d_equal(growth2,zero)])]),
+	 to_state([11]),
+	 closed)
+    ]).
+qstate_to(
+    9,
+    [ to(cause([to_interval_below(growth1)]),
+	 conditions([par_values([value(growth1,unk,zero,min)])]),
+	 results([ par_relations([d_smaller(growth1,zero)]),
+		   par_values([value(growth1,unk,min,_)])
+		 ]),
+	 to_state([10]),
+	 closed)
+    ]).
+qstate_to(
+    8,
+    [ to(cause([to_point_below(growth1)]),
+	 conditions([par_values([value(growth1,unk,plus,min)])]),
+	 results([ par_relations([d_smaller_or_equal(growth1,zero)]),
+		   par_values([value(growth1,unk,zero,_)])
+		 ]),
+	 to_state([9]),
+	 closed)
+    ]).
+qstate_to(
+    7,
+    [ to(cause([derivative_stable_to_down(growth1)]),
+	 conditions([]),
+	 results([par_relations([d_smaller(growth1,zero)])]),
+	 to_state([8]),
+	 closed)
+    ]).
+qstate_to(
+    6,
+    [ to(cause([assumed_derivative_up_to_stable(growth1)]),
+	 conditions([]),
+	 results([par_relations([d_equal(growth1,zero)])]),
+	 to_state([7]),
+	 closed)
+    ]).
+qstate_to(
+    5,
+    [ to(cause([to_interval_below(growth2)]),
+	 conditions([par_values([value(growth2,unk,zero,min)])]),
+	 results([ par_relations([d_smaller(growth2,zero)]),
+		   par_values([value(growth2,unk,min,_)])
+		 ]),
+	 to_state([6]),
+	 closed)
+    ]).
+qstate_to(
+    4,
+    [ to(cause([to_point_below(growth2)]),
+	 conditions([par_values([value(growth2,unk,plus,min)])]),
+	 results([ par_relations([d_smaller_or_equal(growth2,zero)]),
+		   par_values([value(growth2,unk,zero,_)])
+		 ]),
+	 to_state([5]),
+	 closed)
+    ]).
+qstate_to(
+    3,
+    [ to(cause([derivative_stable_to_down(growth2)]),
+	 conditions([]),
+	 results([par_relations([d_smaller(growth2,zero)])]),
+	 to_state([4]),
+	 closed)
+    ]).
+qstate_to(
+    2,
+    [ to(cause([assumed_derivative_up_to_stable(growth2)]),
+	 conditions([]),
+	 results([par_relations([d_equal(growth2,zero)])]),
+	 to_state([3]),
+	 closed)
+    ]).
+qstate_to(
+    1,
+    [ to(cause([to_interval_above(growth1)]),
+	 conditions([par_values([value(growth1,unk,zero,plus)])]),
+	 results([ par_relations([d_greater(growth1,zero)]),
+		   par_values([value(growth1,unk,plus,_)])
+		 ]),
+	 to_state([2]),
+	 closed)
+    ]).
