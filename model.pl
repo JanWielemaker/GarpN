@@ -79,11 +79,6 @@ qrel_nrel([ equal(min(InflA,InflB), Dep),
           ],
           [ Dep := InflB-InflA
           ]).
-qrel_nrel([ prop_pos(Dep,Infl),
-            dir_q_correspondence(Dep,Infl)
-          ],
-          [ Dep := Infl/c
-          ]).
 qrel_nrel([inf_pos_by(I,D)], [I := I + D*'Δt']).
 qrel_nrel([prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel([prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
