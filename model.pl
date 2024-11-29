@@ -11,6 +11,7 @@
 :- use_module(gsim).
 :- use_module(library(apply)).
 :- use_module(library(pairs)).
+:- use_module(library(dcg/basics)).
 
 /** <module> Propose a (partial) numeric model from Garp
  *
@@ -53,6 +54,13 @@ qrel2nrel(QRels, Left, NRels, NLeft) :-
     ;   true
     ).
 
+qrel2nrel(QRels, Left, [NRel|NRels]) :-
+    select(Prob, QRels, QRels1),
+    is_prop(Dep, Prob),
+    partition(is_prop(Dep), QRels1, Props, QRels2),
+    Props \== [],
+    prop_nrel([Prob|Props], NRel),
+    qrel2nrel(QRels2, Left, NRels).
 qrel2nrel(QRels, Left, NRels) :-
     qrel_nrel(Q, N),
     select_graph(Q, QRels, QRels1),
@@ -82,6 +90,33 @@ qrel_nrel([ equal(min(InflA,InflB), Dep),
 qrel_nrel([inf_pos_by(I,D)], [I := I + D*'Δt']).
 qrel_nrel([prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel([prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
+
+is_prop(Dep, prop_pos(Dep,_)).
+is_prop(Dep, prop_neg(Dep,_)).
+
+prop_nrel(Props, Dep := Sum) :-
+    Props = [H|_],
+    is_prop(Dep, H),
+    maplist(one_prop, Props, Parts),
+    msort(Parts, PlusFirst),
+    reverse(PlusFirst, MinFirst),
+    seq_to_sum(MinFirst, Sum).
+
+seq_to_sum([+One], Sum) =>
+    Sum = One.
+seq_to_sum([One], Sum) =>
+    Sum = One.
+seq_to_sum([H|T], Sum) =>
+    seq_to_sum(T, Sum0),
+    join_sum(H, Sum0, Sum).
+
+one_prop(prop_pos(_, Infl), Expr) => Expr = +(c*Infl).
+one_prop(prop_neg(_, Infl), Expr) => Expr = -(c*Infl).
+
+join_sum(-(Expr), Sum0, Sum) => Sum = Sum0-Expr.
+join_sum(+(Expr), Sum0, Sum) => Sum = Sum0+Expr.
+
+%!  default_nrels(-NRels:list) is det.
 
 default_nrels([ t := t + 'Δt',
                 t := 0,
