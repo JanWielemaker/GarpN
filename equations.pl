@@ -191,6 +191,10 @@ cmd_expresion(L/R) -->
     { phrase(latex_expression(L), EL),
       phrase(latex_expression(R), ER)
     }.
+cmd_expresion(Expr) -->
+    [placeholder(_Id, Content)],
+    { phrase(latex_expression(Expr), Content)
+    }.
 
 latex_quantity(Q) -->
     [prop(LtxAtt,LtxEnt)],
