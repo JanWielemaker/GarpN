@@ -165,7 +165,7 @@ save_exogenous(Out) :-
     format(Out, '~n~n%!   exogenous(?Quantity, ?Function).~n~n', []),
     findall(exogenous(Q,F), q_exogenous(engine, Q, F), Terms),
     (   Terms == []
-    ->  format(Out, ':- discontiguous exogenous/2.~n', [])
+    ->  format(Out, ':- multifile exogenous/2.~n', [])
     ;   forall(member(Clause, Terms),
                portray_clause(Out, Clause))
     ).
