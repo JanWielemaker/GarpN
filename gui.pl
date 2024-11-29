@@ -829,6 +829,8 @@ scale(X) :-                             % 1, 5, 10, 50, ...
     ;   X is 5*10^S
     ).
 
+%!  serie(+Axis, +Series, +IdMapping, +Key, +Scale, -Trace)
+
 serie(Axis, Series, IdMapping, Key, Scale, Trace) :-
     Trace0 = trace{x:Times, y:Values, mode:lines, name:Label},
     serie_label(IdMapping, Key, Scale, Label),
