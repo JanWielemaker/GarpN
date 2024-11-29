@@ -90,6 +90,10 @@ qrel_nrel([ equal(min(InflA,InflB), Dep),
 qrel_nrel([inf_pos_by(I,D)], [I := I + D*'Δt']).
 qrel_nrel([prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel([prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
+% Correspondences typically cannot be used to create
+% equations.  They should be used during the simulation
+% to verify all constraints are satisfied.
+qrel_nrel([dir_q_correspondence(_,_)], []).
 
 is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).

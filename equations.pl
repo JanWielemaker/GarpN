@@ -124,7 +124,10 @@ latex_to_prolog_source(LaTeX, Source) =>
 latex_prolog(LaTeX, Prolog) :-
     parse_latex(LaTeX, LaTexCmd),
     phrase(latex_prolog(Prolog), LaTexCmd),
+    !,
     debug(eq(from_prolog), '~p --> ~p', [LaTeX, Prolog]).
+latex_prolog(LaTeX, _) :-
+    throw(error(latex_syntax(LaTeX), _)).
 
 latex_prolog(Q:=Expr) -->               % TBD: decide on := vs =
     latex_var(Q), latex_symbol(=), latex_expression(Expr).
@@ -378,3 +381,12 @@ eq_type_order(time,       2).
 eq_type_order(constant,   3).
 eq_type_order(init,       4).
 eq_type_order(init_value, 5).
+
+		 /*******************************
+		 *            MESSAGES		*
+		 *******************************/
+
+:- multifile prolog:error_message//1.
+
+prolog:error_message(latex_syntax(String)) -->
+    [ 'Invalid equation: ~s'-[String] ].
