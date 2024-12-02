@@ -259,7 +259,7 @@ q_input_state(Model, Dict) =>
 %!  q_exogenous(+Model, ?Quantity, ?Exegenous) is nondet.
 %
 %   True when Quantity is  determined   exogenously.  Possible exogenous
-%   functions are pre-wired and specified by exegenous/1.
+%   functions are pre-wired and specified by exogenous/1.
 
 q_exogenous(engine, Quantity, Exegenous) =>
     engine:state(1, SMD),
@@ -270,24 +270,25 @@ q_exogenous(engine, Quantity, Exegenous) =>
     arg(2, Param, Quantity),
     (   member(has_attribute(Entity, has_assumption, Instance), SEList),
         se_isa(Instance, Exegenous, SEList),
-        exegenous(Exegenous)
+        exogenous(Exegenous)
     ->  true
     ).
 q_exogenous(Model, Quantity, Exegenous) =>
-    ensure_loaded_model(Model, exegenous/2),
-    Model:exegenous(Quantity, Exegenous).
+    ensure_loaded_model(Model, exogenous/2),
+    Model:exogenous(Quantity, Exegenous).
 
 se_isa(Instance, Instance, _).
 se_isa(Instance, Super, SEList) :-
     member(instance(Instance, Parent), SEList),
     se_isa(Parent, Super, SEList).
 
-exegenous(exogenous_free).      % Random
-exegenous(exogenous_increasing).
-exegenous(exogenous_steady).
-exegenous(exogenous_decreasing).
-exegenous(exogenous_pos_parabola).
-exegenous(exogenous_neg_parabola).
+exogenous(exogenous_free).      % Random
+exogenous(exogenous_steady).
+exogenous(exogenous_increasing).
+exogenous(exogenous_decreasing).
+exogenous(exogenous_sinus).
+exogenous(exogenous_pos_parabola).
+exogenous(exogenous_neg_parabola).
 
 %!  asymptotes(+Series, -Asymptotes, +Options) is det.
 %
