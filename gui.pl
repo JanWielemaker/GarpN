@@ -152,7 +152,8 @@ model_menus(Default) -->
 
 model_menu(Default) -->
     { findall(File, directory_member(garp, File,
-                                     [ extensions([db]) ]), Files)
+                                     [ extensions([db]) ]), Files0),
+      sort(Files0, Files)
     },
     html(select([ 'hx-get'('/garp/htmx/set-model'),
                   'hx-trigger'(change),
