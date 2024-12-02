@@ -25,9 +25,10 @@ init_model(Model, Equations) :-
     init_nrels(Model, Init),                  % Use input scenario
     default_nrels(DefNRels),                  % Defaults (time)
     append([NRels,DefNRels,Init], Eql0),
+    simplify_model(Eql0, Eql1),
     id_mapping(Model, Mapping),
-    foldsubterms(id_to_term(Mapping), Eql0, Eql1, [], ConstEql),
-    append(Eql1, ConstEql, Equations1),
+    foldsubterms(id_to_term(Mapping), Eql1, Eql2, [], ConstEql),
+    append(Eql2, ConstEql, Equations1),
     add_model_init(Model, Equations1, Equations).
 
 qrel2nrel(QRels, NRels) :-
@@ -240,6 +241,35 @@ select_graph([], Set, Set).
 select_graph([H|T], Set0, Set) :-
     select(H, Set0, Set1),
     select_graph(T, Set1, Set).
+
+
+%!  simplify_model(+Eql0, -Eql) is det.
+%
+%   The task of this is to simplify the  model, in particular try to get
+%   rid of constants that are zero.  Note   that  any  `c` is a _unique_
+%   constant.
+
+simplify_model(Eql0, Eql) :-
+    simplify_graph(In, Out),
+    select_graph(In, Eql0, Eql1),
+    !,
+    append(Out, Eql1, Eql2),
+    simplify_model(Eql2, Eql).
+simplify_model(Eql, Eql).
+
+simplify_graph([ Q := c + X*t,
+                 Q := 0
+               ],
+               [ Q := X*t,
+                 Q := 0
+               ]).
+simplify_graph([ Q := c - X*t,
+                 Q := 0
+               ],
+               [ Q := X*t,
+                 Q := 0
+               ]).
+
 
 
 %!  is_placeholder(@Term) is semidet.
