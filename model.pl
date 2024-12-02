@@ -64,6 +64,7 @@ qrel2nrel(QRels, Left, [NRel|NRels]) :-
 qrel2nrel(QRels, Left, NRels) :-
     qrel_nrel(Q, N),
     select_graph(Q, QRels, QRels1),
+    !,
     append(N, NRels1, NRels),
     qrel2nrel(QRels1, Left, NRels1).
 qrel2nrel(Left, Left, []).
@@ -87,13 +88,24 @@ qrel_nrel([ equal(min(InflA,InflB), Dep),
           ],
           [ Dep := InflB-InflA
           ]).
+qrel_nrel([ equal(min(InflA,InflB), Dep),
+            prop_pos(Dep,InflA)
+          ],
+          [ Dep := InflA-InflB
+          ]).
+qrel_nrel([ equal(min(InflA,InflB), Dep)
+          ],
+          [ Dep := InflB-InflA
+          ]).
 qrel_nrel([inf_pos_by(I,D)], [I := I + D*'Δt']).
+qrel_nrel([inf_neg_by(I,D)], [I := I - D*'Δt']).
 qrel_nrel([prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel([prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
 % Correspondences typically cannot be used to create
 % equations.  They should be used during the simulation
 % to verify all constraints are satisfied.
 qrel_nrel([dir_q_correspondence(_,_)], []).
+qrel_nrel([smaller(_,_)], []).
 
 is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
