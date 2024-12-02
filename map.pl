@@ -263,8 +263,12 @@ q_input_state(Model, Dict) =>
 
 q_exogenous(engine, Quantity, Exegenous) =>
     engine:state(1, SMD),
-    arg(2, SMD, system_elements(SEList)),
-    arg(3, SMD, parameters(Params)),
+    arg(6, SMD, system_structures(Structures)),
+    member(Structure, Structures),
+    arg(3, Structure, conditions(Conditions)),
+    memberchk(system_elements(SEList), Conditions),
+    arg(4, Structure, givens(Givens)),
+    member(parameters(Params), Givens),
     member(Param, Params),
     arg(1, Param, Entity),
     arg(2, Param, Quantity),
