@@ -10,22 +10,21 @@
 :- use_module(map).
 :- use_module(gsim).
 :- use_module(library(apply)).
-:- use_module(library(pairs)).
-:- use_module(library(dcg/basics)).
 
 /** <module> Propose a (partial) numeric model from Garp
- *
+
 */
 
 %!  init_model(+Model, -Equations)
 
 init_model(Model, Equations) :-
     findall(QRel, q_rel(Model, QRel), QRels), % Use relations
-    qrel2nrel(QRels, NRels),
+    findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
+    append(QRels, Exos, Rels),
+    qrel2nrel(Rels, NRels),
     init_nrels(Model, Init),                  % Use input scenario
-    exogenous_equations(Model, Exo),
     default_nrels(DefNRels),                  % Defaults (time)
-    append([NRels,Exo,DefNRels,Init], Eql0),
+    append([NRels,DefNRels,Init], Eql0),
     id_mapping(Model, Mapping),
     foldsubterms(id_to_term(Mapping), Eql0, Eql1, [], ConstEql),
     append(Eql1, ConstEql, Equations1),
@@ -102,6 +101,8 @@ qrel_nrel([inf_pos_by(I,D)], [I := I + D*'Δt']).
 qrel_nrel([inf_neg_by(I,D)], [I := I - D*'Δt']).
 qrel_nrel([prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel([prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
+qrel_nrel([exogenous(Dep,Class)], [Dep := Expr]) :-
+    freeze(Class, exogenous_equation(Class, Expr)).
 % Correspondences typically cannot be used to create
 % equations.  They should be used during the simulation
 % to verify all constraints are satisfied.
@@ -110,28 +111,30 @@ qrel_nrel([smaller(_,_)], []).
 
 is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
+is_prop(Dep, exogenous(Dep,_)).
 
 prop_nrel(Props, Dep := Sum) :-
     Props = [H|_],
     is_prop(Dep, H),
     maplist(one_prop, Props, Parts),
-    msort(Parts, PlusFirst),
-    reverse(PlusFirst, MinFirst),
-    seq_to_sum(MinFirst, Sum).
+    partition(is_neg, Parts, NegParts, PosParts),
+    append(NegParts, PosParts, NegFirst),
+    seq_to_sum(NegFirst, Sum).
 
-seq_to_sum([+One], Sum) =>
-    Sum = One.
+is_neg(-(_)).
+
 seq_to_sum([One], Sum) =>
     Sum = One.
 seq_to_sum([H|T], Sum) =>
     seq_to_sum(T, Sum0),
     join_sum(H, Sum0, Sum).
 
-one_prop(prop_pos(_, Infl), Expr) => Expr = +(c*Infl).
-one_prop(prop_neg(_, Infl), Expr) => Expr = -(c*Infl).
+one_prop(prop_pos(_, Infl),   Expr) => Expr = c*Infl.
+one_prop(prop_neg(_, Infl),   Expr) => Expr = -(c*Infl).
+one_prop(exogenous(_, Class), Expr) => exogenous_equation(Class, Expr).
 
 join_sum(-(Expr), Sum0, Sum) => Sum = Sum0-Expr.
-join_sum(+(Expr), Sum0, Sum) => Sum = Sum0+Expr.
+join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
 
 %!  default_nrels(-NRels:list) is det.
 
@@ -165,33 +168,22 @@ init_nrel(Id-zero, Init) =>
 init_nrel(Id-_QVal, Init) =>
     Init = (Id := placeholder(init, _)).
 
-%!  exogenous_equations(+Model, -Equations) is det.
+%!  exogenous_equation(+Class, -Equation) is det.
 
-exogenous_equations(Model, Exo) :-
-    q_input_state(Model, Input),
-    findall(Q-Class, q_exogenous(Model, Q, Class), Pairs),
-    maplist(exogenous_equation(Input), Pairs, Exo).
-
-exogenous_equation(_Input, Q-exogenous_steady, Eq) =>
-    Eq = (Q := c).
-exogenous_equation(Input, Q-exogenous_increasing, Eq),
-    zero = Input.get(Q) =>
-    Eq = (Q := c*t).
-exogenous_equation(_Input, Q-exogenous_increasing, Eq) =>
-    Eq = (Q := c+c*t).
-exogenous_equation(Input, Q-exogenous_decreasing, Eq),
-    zero = Input.get(Q) =>
-    Eq = (Q := -(c*t)).
-exogenous_equation(_Input, Q-exogenous_decreasing, Eq) =>
-    Eq = (Q := c-c*t).
-exogenous_equation(_Input, Q-exogenous_sinus, Eq) =>
-    Eq = (Q := c*sin(c+c*t)).
-exogenous_equation(_Input, Q-exogenous_pos_parabola, Eq) =>
-    Eq = (Q := c-c*t^2).
-exogenous_equation(_Input, Q-exogenous_pos_parabola, Eq) =>
-    Eq = (Q := c+c*t^2).
-exogenous_equation(_Input, Q-exogenous_free, Eq) =>
-    Eq = (Q := Q+'Δt'*c*random).
+exogenous_equation(exogenous_steady, Eq) =>
+    Eq = (c).
+exogenous_equation(exogenous_increasing, Eq) =>
+    Eq = (c*t).
+exogenous_equation(exogenous_decreasing, Eq) =>
+    Eq = -(c*t).
+exogenous_equation(exogenous_sinus, Eq) =>
+    Eq = (c*sin(c+c*t)).
+exogenous_equation(exogenous_pos_parabola, Eq) =>
+    Eq = (c-c*t^2).
+exogenous_equation(exogenous_pos_parabola, Eq) =>
+    Eq = (c+c*t^2).
+exogenous_equation(exogenous_free, Eq) =>
+    Eq = (c*random).
 
 %!  add_model_init(+EquationsIn, -EquationsOut) is det.
 %
@@ -266,6 +258,5 @@ is_placeholder(_, _) => false.
 		 *******************************/
 
 rel_unknown(Rel) :-
-    print_message(warning, unknown_relation(Rel)),
-    fail.
+    print_message(warning, unknown_relation(Rel)).
 
