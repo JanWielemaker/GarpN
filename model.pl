@@ -20,11 +20,12 @@
 %!  init_model(+Model, -Equations)
 
 init_model(Model, Equations) :-
-    findall(QRel, q_rel(Model, QRel), QRels),
+    findall(QRel, q_rel(Model, QRel), QRels), % Use relations
     qrel2nrel(QRels, NRels),
-    init_nrels(Model, Init),
-    default_nrels(DefNRels),
-    append([NRels,DefNRels,Init], Eql0),
+    init_nrels(Model, Init),                  % Use input scenario
+    exogenous_equations(Model, Exo),
+    default_nrels(DefNRels),                  % Defaults (time)
+    append([NRels,Exo,DefNRels,Init], Eql0),
     id_mapping(Model, Mapping),
     foldsubterms(id_to_term(Mapping), Eql0, Eql1, [], ConstEql),
     append(Eql1, ConstEql, Equations1),
@@ -163,6 +164,34 @@ init_nrel(Id-zero, Init) =>
     Init = (Id := 0).
 init_nrel(Id-_QVal, Init) =>
     Init = (Id := placeholder(init, _)).
+
+%!  exogenous_equations(+Model, -Equations) is det.
+
+exogenous_equations(Model, Exo) :-
+    q_input_state(Model, Input),
+    findall(Q-Class, q_exogenous(Model, Q, Class), Pairs),
+    maplist(exogenous_equation(Input), Pairs, Exo).
+
+exogenous_equation(_Input, Q-exogenous_steady, Eq) =>
+    Eq = (Q := c).
+exogenous_equation(Input, Q-exogenous_increasing, Eq),
+    zero = Input.get(Q) =>
+    Eq = (Q := c*t).
+exogenous_equation(_Input, Q-exogenous_increasing, Eq) =>
+    Eq = (Q := c+c*t).
+exogenous_equation(Input, Q-exogenous_decreasing, Eq),
+    zero = Input.get(Q) =>
+    Eq = (Q := -(c*t)).
+exogenous_equation(_Input, Q-exogenous_decreasing, Eq) =>
+    Eq = (Q := c-c*t).
+exogenous_equation(_Input, Q-exogenous_sinus, Eq) =>
+    Eq = (Q := c*sin(c+c*t)).
+exogenous_equation(_Input, Q-exogenous_pos_parabola, Eq) =>
+    Eq = (Q := c-c*t^2).
+exogenous_equation(_Input, Q-exogenous_pos_parabola, Eq) =>
+    Eq = (Q := c+c*t^2).
+exogenous_equation(_Input, Q-exogenous_free, Eq) =>
+    Eq = (Q := Q+'Δt'*c*random).
 
 %!  add_model_init(+EquationsIn, -EquationsOut) is det.
 %
