@@ -21,9 +21,8 @@ qrel(equal(transition(x1),mid(z1))).
 
 %!   exogenous(?Quantity, ?Function).
 
-exogenous(z1, exogenous_steady).
-exogenous(y1, exogenous_steady).
 exogenous(x1, exogenous_steady).
+exogenous(z1, exogenous_steady).
 
 
 %!   qstate(?State, ?Values).

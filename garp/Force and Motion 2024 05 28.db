@@ -29,11 +29,6 @@ qrel(prop_pos(air_resistance1,velocity1)).
 
 %!   exogenous(?Quantity, ?Function).
 
-exogenous(acceleration1, exogenous_steady).
-exogenous(net_force1, exogenous_steady).
-exogenous(distance1, exogenous_steady).
-exogenous(velocity1, exogenous_steady).
-exogenous(air_resistance1, exogenous_steady).
 exogenous(gravity1, exogenous_steady).
 
 

@@ -22,9 +22,8 @@ qrel(equal(min(x1,z1),y1)).
 
 %!   exogenous(?Quantity, ?Function).
 
-exogenous(z1, exogenous_decreasing).
-exogenous(y1, exogenous_decreasing).
 exogenous(x1, exogenous_decreasing).
+exogenous(z1, exogenous_steady).
 
 
 %!   qstate(?State, ?Values).

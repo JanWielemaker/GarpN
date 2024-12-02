@@ -20,9 +20,8 @@ qrel(prop_neg(y1,z1)).
 
 %!   exogenous(?Quantity, ?Function).
 
-exogenous(z1, exogenous_increasing).
-exogenous(y1, exogenous_increasing).
 exogenous(x1, exogenous_increasing).
+exogenous(z1, exogenous_increasing).
 
 
 %!   qstate(?State, ?Values).

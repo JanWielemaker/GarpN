@@ -18,7 +18,6 @@ qrel(inf_pos_by(y1,x1)).
 
 %!   exogenous(?Quantity, ?Function).
 
-exogenous(y1, exogenous_steady).
 exogenous(x1, exogenous_steady).
 
 

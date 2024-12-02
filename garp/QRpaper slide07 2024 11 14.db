@@ -18,7 +18,6 @@ qrel(prop_pos(y1,x1)).
 
 %!   exogenous(?Quantity, ?Function).
 
-exogenous(y1, exogenous_increasing).
 exogenous(x1, exogenous_increasing).
 
 

@@ -33,8 +33,6 @@ qrel(prop_neg(ca_ions1,ca_ions2)).
 %!   exogenous(?Quantity, ?Function).
 
 exogenous(norm1, exogenous_steady).
-exogenous(calcitonin1, exogenous_steady).
-exogenous(difference1, exogenous_steady).
 
 
 %!   qstate(?State, ?Values).
