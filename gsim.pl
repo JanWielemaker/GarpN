@@ -194,23 +194,28 @@ strip_placeholders(Invalid0, Invalid, _Options) =>
 %   True when Invalid are the  invalid  parts   of  the  model. That is,
 %   Prolog terms that are not evaluable.
 
-invalid_model_term((Left:=Right)-_Bindings, Missing), var(Left) =>
-    phrase(invalid_model_term_(Right), Missing).
+invalid_model_term((Left:=Right)-Bindings, Missing), var(Left) =>
+    phrase(invalid_model_term_(Bindings, Right), Missing).
 
-invalid_model_term_(Term),
+invalid_model_term_(Bindings, Term),
     compound(Term), current_arithmetic_function(Term) ==>
     { compound_name_arguments(Term, _, Args) },
-    sequence(invalid_model_term_, Args).
-invalid_model_term_(Term),
+    sequence(invalid_model_term_(Bindings), Args).
+invalid_model_term_(_Bindings, Term),
     atom(Term), current_arithmetic_function(Term) ==>
     [].                                         % i.e., `pi`, `e`
-invalid_model_term_(Term),
+invalid_model_term_(_Bindings, Term),
     number(Term) ==>
     [].
-invalid_model_term_(Term),
-    var(Term) ==>                               % interned
+invalid_model_term_(Bindings, Term),
+    var(Term),
+    get_dict(_Q, Bindings, Var),
+    Term == Var ==>                               % interned
     [].
-invalid_model_term_(Term) ==>
+invalid_model_term_(Bindings, placeholder(_Name, Value)),
+    phrase(invalid_model_term_(Bindings, Value), []) ==>
+    [].
+invalid_model_term_(_Bindings, Term) ==>
     [Term].
 
 %!  model_expression(+TermAndBindings, +Model0, -Model1) is det.
