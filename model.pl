@@ -62,6 +62,14 @@ qrel2nrel(QRels, Left, [NRel|NRels]) :-
     Props \== [],
     prop_nrel([Prob|Props], NRel),
     qrel2nrel(QRels2, Left, NRels).
+qrel2nrel(QRels, Left, [NRel|NRels]) :-
+    select(Integral, QRels, QRels1),
+    is_inf_by(Dep, Integral),
+    partition(is_inf_by(Dep), QRels1, Integrals, QRels2),
+    Integrals \== [],
+    inf_by_nrel([Integral|Integrals], NRel),
+    qrel2nrel(QRels2, Left, NRels).
+
 qrel2nrel(QRels, Left, NRels) :-
     qrel_nrel(Q, N),
     select_graph(Q, QRels, QRels1),
@@ -139,6 +147,22 @@ one_prop(exogenous(_, Class), Expr) => exogenous_equation(Class, Expr).
 
 join_sum(-(Expr), Sum0, Sum) => Sum = Sum0-Expr.
 join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
+
+%!  is_inf_by(?Dep, +Relation) is semidet.
+
+is_inf_by(Dep, inf_pos_by(Dep, _)).
+is_inf_by(Dep, inf_neg_by(Dep, _)).
+
+inf_by_nrel(Integrals, Dep := Expr) :-
+    Integrals = [H|_],
+    is_inf_by(Dep, H),
+    maplist(one_inf_by, Integrals, Parts),
+    sum_expressions(Parts, Sum),
+    sum_expressions([Sum*'Δt', Dep], Expr).
+
+one_inf_by(inf_pos_by(_, D), Expr) => Expr = c*D.
+one_inf_by(inf_neg_by(_, D), Expr) => Expr = -(c*D).
+
 
 %!  default_nrels(-NRels:list) is det.
 
