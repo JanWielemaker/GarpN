@@ -10,6 +10,7 @@
 :- use_module(map).
 :- use_module(gsim).
 :- use_module(library(apply)).
+:- use_module(library(aggregate)).
 
 /** <module> Propose a (partial) numeric model from Garp
 
@@ -32,10 +33,9 @@ init_model(Model, Equations) :-
     add_model_init(Model, Equations1, Equations).
 
 qrel2nrel(QRels, NRels) :-
-    findall(t(NRels,Left,NLeft),
-            qrel2nrel(QRels, Left, NRels, NLeft),
-            Tuples),
-    sort(3, =<, Tuples, [t(NRels,Left,NLeft)|_]),
+    aggregate_all(min(NLeft, NRels-Left),
+                  qrel2nrel(QRels, Left, NRels, NLeft),
+                  min(_, NRels-Left)),
     maplist(rel_unknown, Left).
 
 %!  qrel2nrel(+QRels, -Left, -NRels, -NLeft) is multi.
@@ -118,6 +118,9 @@ prop_nrel(Props, Dep := Sum) :-
     Props = [H|_],
     is_prop(Dep, H),
     maplist(one_prop, Props, Parts),
+    sum_expressions(Parts, Sum).
+
+sum_expressions(Parts, Sum) :-
     partition(is_neg, Parts, NegParts, PosParts),
     append(NegParts, PosParts, NegFirst),
     seq_to_sum(NegFirst, Sum).
