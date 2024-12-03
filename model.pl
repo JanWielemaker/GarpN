@@ -116,7 +116,10 @@ qrel_nrel([exogenous(Dep,Class)], [Dep := Expr]) :-
 % equations.  They should be used during the simulation
 % to verify all constraints are satisfied.
 qrel_nrel([dir_q_correspondence(_,_)], []).
+qrel_nrel([q_correspondence(_,_)], []).
+qrel_nrel([equal(_,_)], []).
 qrel_nrel([smaller(_,_)], []).
+qrel_nrel([greater(_,_)], []).
 
 is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
