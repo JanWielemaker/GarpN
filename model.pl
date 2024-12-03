@@ -23,7 +23,7 @@ init_model(Model, Equations) :-
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
     qrel2nrel(Rels, NRels),
-    init_nrels(Model, Init),                  % Use input scenario
+    init_nrels(Model, NRels, Init),           % Use input scenario
     default_nrels(DefNRels),                  % Defaults (time)
     append([NRels,DefNRels,Init], Eql0),
     simplify_model(Eql0, Eql1),
@@ -143,7 +143,7 @@ seq_to_sum([H|T], Sum) =>
 
 one_prop(prop_pos(_, Infl),   Expr) => Expr = c*Infl.
 one_prop(prop_neg(_, Infl),   Expr) => Expr = -(c*Infl).
-one_prop(exogenous(_, Class), Expr) => exogenous_equation(Class, Expr).
+%one_prop(exogenous(_, Class), Expr) => exogenous_equation(Class, Expr).
 
 join_sum(-(Expr), Sum0, Sum) => Sum = Sum0-Expr.
 join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
@@ -182,18 +182,22 @@ id_to_term(Mapping, Id, Term, S0, S), atom(Id) =>
 id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
     fail.
 
-%!  init_nrels(+Model, -Init) is det.
+%!  init_nrels(+Model, +NRels, -Init) is det.
 %
-%   Use the input state (scenario) to create initialization equations.
+%   Use the input state (scenario)   to create initialization equations.
+%   We create an initialization for each   quantity defined in the input
+%   state, unless the quantity is defined by an exogenous steady input.
 
-init_nrels(Model, Init) :-
+init_nrels(Model, NRels, Init) :-
     q_input_state(Model, Input),
     dict_pairs(Input, _, Pairs),
-    maplist(init_nrel, Pairs, Init).
+    convlist(init_nrel(NRels), Pairs, Init).
 
-init_nrel(Id-zero, Init) =>
+init_nrel(_NRels, Id-zero, Init) =>
     Init = (Id := 0).
-init_nrel(Id-_QVal, Init) =>
+init_nrel(NRels, Id-_, _), memberchk(Id:=c, NRels) =>
+    fail.
+init_nrel(_NRels, Id-_QVal, Init) =>
     Init = (Id := placeholder(init, _)).
 
 %!  exogenous_equation(+Class, -Equation) is det.
