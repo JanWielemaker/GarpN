@@ -68,7 +68,7 @@ eq_to_mathjax(Left := Right) ==>
     !,
     quantity(Left),
     "=",
-    expression(Right).
+    expression(Right, 699).
 
 quantity(placeholder(Name, Init)), number(Init) ==>
     format('\\placeholder[~w]{~W}', [Name, Init, [float_format('~999h')]]).
@@ -81,20 +81,33 @@ quantity(Q), atom(Q) ==>
 quantity(Q), number(Q) ==>
     format('\\placeholder[c]{~W}', [Q, [float_format('~999h')]]).
 
-expression(-(A))  ==> "-", expression(A).
-expression(A + B) ==> expression(A), " + ", expression(B).
-expression(A - B) ==> expression(A), " - ", expression(B).
-expression(A * B) ==> expression(A), " \\cdot ", expression(B).
+expression(Exp, Pri), pri(Exp, EPri), EPri > Pri ==>
+    "(", expression(Exp, 1200), ")".
+expression(Exp, _) ==>
+    expression(Exp).
+
+expression(-(A))  ==> "-", expression(A, 200).
+expression(A + B) ==> expression(A, 500), " + ", expression(B, 499).
+expression(A - B) ==> expression(A, 500), " - ", expression(B, 499).
+expression(A * B) ==> expression(A, 400), " \\cdot ", expression(B, 399).
 expression(A / B) ==> "\\frac{", expression(A), "}{", expression(B), "}".
-expression(A ^ B) ==> expression(A), "^{", const_expression(B), "}".
+expression(A ^ B) ==> expression(A, 199), "^{", const_expression(B, 200), "}".
 expression(placeholder(Name, Init)), var(Init) ==>
     format('\\placeholder[~w]{?}', [Name]).
 expression(Q), ground(Q) ==> quantity(Q).
 
-const_expression(C), number(C) ==>
+const_expression(C, _Pri), number(C) ==>
     format('~W', [C, [float_format('~999h')]]).
-const_expression(E) ==>
-    expression(E).
+const_expression(E, Pri) ==>
+    expression(E, Pri).
+
+%!  pri(+Exp, -Pri) is semidet.
+
+pri(-(_), 200).
+pri(_+_, 500).
+pri(_-_, 500).
+pri(_*_, 400).
+pri(_^_, 200).
 
 format(Fmt, Args, Head, Tail) :-
     format(codes(Head, Tail), Fmt, Args).
