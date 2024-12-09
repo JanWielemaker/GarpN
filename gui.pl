@@ -101,7 +101,7 @@ home -->
                                    'hx-on-htmx-before-request'('clear_output()')
                                   ],
                                   [ div([id('ml-model')],
-                                        \mathlive_model(Source, [])),
+                                        \mathlive_model(Model, Source, [])),
                                     div([id(quantity_controls)],
                                         \q_menu(Model, Source)),
                                     div(class([controls]),
@@ -212,16 +212,20 @@ methods -->
                   ])
          ]).
 
-%!  mathlive_model(+Source, +Options)// is det.
+%!  mathlive_model(+Model, +Source, +Options)// is det.
 %
 %   Emit the model area as a set of mathlife equations.
 
-mathlive_model(Source, _), var(Source) ==>
-    [].
-mathlive_model(Source, Options) ==>
-    { read_model_to_terms(Source, Terms)
+mathlive_model(Model, Source, Options), var(Source) ==>
+    { id_mapping(Model, IdMapping),
+      default_nrels(Terms)
     },
-    html(div(\equations(Terms, Options))).
+     html(div(\equations(Terms, [id_mapping(IdMapping)|Options]))).
+mathlive_model(Model, Source, Options) ==>
+    { read_model_to_terms(Source, Terms),
+      id_mapping(Model, IdMapping)
+    },
+    html(div(\equations(Terms, [id_mapping(IdMapping)|Options]))).
 
 default_model(Model, Source) :-
     model_file(File),
@@ -261,7 +265,7 @@ set_model(Model, Source, Options) :-
     reply_htmx(
         [ \q_menu(Model, Source),
           div([id('ml-model'), 'hx-swap-oob'(true)],
-              \mathlive_model(Source, Options)),
+              \mathlive_model(Model, Source, Options)),
           \js_script({|javascript(Model)||setModel(Model)|})
         ]).
 
@@ -285,7 +289,7 @@ start_model(_Model, nil) =>
 start_model(Model, load) =>
     set_model(Model).
 start_model(Model, clear) =>
-    set_model(Model, "", []).
+    set_model(Model, _, []).
 start_model(Model, start) =>
     init_model(Model, Terms),
     set_model(Model, terms(Terms), [grouped(true)]).

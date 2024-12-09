@@ -93,7 +93,7 @@ simulate(From, Series, Options) :-
 read_model(From, Formulas, Constants, State, Options) :-
     read_model_to_terms(From, Terms0),
     maplist(quantity, Terms0, Quantities0),        % Quantities are the
-    sort(Quantities0, Sorted),                     % right side of equations
+    sort(Quantities0, Sorted),                     % left side of equations
     maplist(q_term(Options), Sorted, Quantities1), % q(Term,Id,Var)
     maplist(intern_model_term(Quantities1), Terms0, Terms1),
     validate_model(Terms1, Options),

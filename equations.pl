@@ -35,7 +35,8 @@
 %   Render a list of equations as a div holding mathlive expressions.
 
 equations(Eqs, Options) -->
-    { order_equations(Eqs, Eqs1, Options)
+    { order_equations(Eqs, Eqs1, Options),
+      quantities(Quantities, Options)
     },
     html_requires(mathlive),
     html(div([ id(equations),
@@ -47,8 +48,8 @@ equations(Eqs, Options) -->
                class(equations)
              ],
              \eq_list(Eqs1, Options))),
-    js_script({|javascript||
-               ml_init();
+    js_script({|javascript(Quantities)||
+               ml_init(Quantities);
               |}).
 
 order_equations(Equations0, Equations, Options),
@@ -120,6 +121,20 @@ pri(_^_, 200).
 
 format(Fmt, Args, Head, Tail) :-
     format(codes(Head, Tail), Fmt, Args).
+
+%!  quantities(-Quantities:list(string), +Options) is det.
+%
+%   Produce LaTeX strings for all quantities.
+
+quantities(List, Options) :-
+    option(id_mapping(Mapping), Options, _{}),
+    dict_pairs(Mapping, _, Pairs),
+    pairs_values(Pairs, Values),
+    maplist(quantity_string, Values, List).
+
+quantity_string(Q, S) :-
+    phrase(quantity(Q), Codes),
+    string_codes(S, Codes).
 
 
 		 /*******************************

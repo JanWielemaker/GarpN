@@ -2,6 +2,8 @@
 		 *       MATHLIFE SUPPORT       *
 		 *******************************/
 
+const state = {};
+
 const keep_items = [
   //"insert",
   "cut", "copy", "paste"
@@ -76,27 +78,31 @@ function insertLabel(latex, key) {
   return str;
 }
 
-function ml_update_menu(mf)
+function ml_update_menu(mf, quantities)
 { const menu = mf.menuItems.filter((i) => keep_items.indexOf(i.id) >= 0);
+  quantities = quantities||state.quantities;
+
+  function insertItem(ltx) {
+    return { label: () => insertLabel(ltx),
+	     onMenuSelect: () => mf.insert(ltx)
+	   };
+  }
+
   menu.unshift(
     { type: "submenu",
       label: "Insert Quantity",
-      submenu: [
-	{ label: () => insertLabel("\\prop{x}{obj}"),
-	  onMenuSelect: () => mf.insert("\\prop{x}{obj}")
-	}
-      ]
+      submenu: quantities.map((q) => insertItem(q))
     },
     { type: "divider"
     });
   mf.menuItems = menu;
 }
 
-function ml_prep(mf)
+function ml_prep(mf, quantities)
 {
   mf.macros = { ... mf.macros, ... my_macros };
 
-  ml_update_menu(mf);
+  ml_update_menu(mf, quantities);
 
   mf.addEventListener("input", (ev) => {
     const eql = ev.target.closest(".equations");
@@ -105,12 +111,14 @@ function ml_prep(mf)
   });
 }
 
-function ml_init()
+function ml_init(quantities)
 { const eql = document.getElementById("equations");
+  state.quantities = quantities;
+
   for(eq of eql.children) {
     const mf = eq.querySelector("math-field");
     if ( mf )
-      ml_prep(mf);
+      ml_prep(mf, quantities);
   }
   eql.value = function() {
     return ml_value(eql);

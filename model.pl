@@ -1,7 +1,8 @@
 :- module(model,
           [ init_model/2,               % +Model, -Equations
             is_placeholder/1,           % @Term
-            is_placeholder/2            % @Term, -Type
+            is_placeholder/2,           % @Term, -Type
+            default_nrels/1             % -NRels:list
           ]).
 :- use_module(library(terms)).
 :- use_module(library(lists)).
