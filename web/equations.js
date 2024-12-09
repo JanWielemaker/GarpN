@@ -3,16 +3,23 @@
 		 *******************************/
 
 function ml_prep(mf)
-{ mf.macros = {
-    ... mf.macros,
-  prop: {
-    args: 2,
-    def: '\\,\\text{#1}^\\text{#2}\\,{}',
-    captureSelection: true,
-    expand: true
-  },
-    variable: '\\,\\text{#1}'
-  };
+{
+  mf.macros =
+    { ... mf.macros,
+      prop: {
+	args: 2,
+	def: '\\,\\text{#1}^\\text{#2}\\,{}',
+	captureSelection: true,	// not editable
+	expand: false		// keep as macro
+      },
+      variable: {
+	args: 1,
+	def: '\\,\\text{#1}',
+	captureSelection: true,
+	expand: false
+      }
+    };
+
   mf.addEventListener("input", (ev) => {
     const eql = ev.target.closest(".equations");
     if ( eql )
