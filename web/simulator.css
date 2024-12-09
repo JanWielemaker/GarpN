@@ -177,13 +177,15 @@ math-field::part(container) {
 }
 
 /* Hide the virtual keyboard toggle */
-math-field::part(virtual-keyboard-toggle) {
-    height: 20px;
-}
-
-/* Hide the menu toggle */
+math-field::part(virtual-keyboard-toggle),
 math-field::part(menu-toggle) {
     height: 20px;
+    display: none;
+}
+
+math-field:focus::part(virtual-keyboard-toggle),
+math-field:focus::part(menu-toggle) {
+    display: flex;
 }
 
 /* docs say this is the placeholder */
