@@ -10,6 +10,9 @@
 :- use_module(library(apply)).
 :- use_module(library(debug)).
 :- use_module(library(listing)).
+:- use_module(library(lists)).
+:- use_module(library(option)).
+:- use_module(library(pairs)).
 
 :- html_resource(mathlive,
                  [ virtual(true),
@@ -43,7 +46,7 @@ equations(Eqs, Options) -->
                'hx-ext'('json-enc'),
                class(equations)
              ],
-             \sequence(equation, Eqs1))),
+             \eq_list(Eqs1, Options))),
     js_script({|javascript||
                ml_init();
               |}).
@@ -55,6 +58,12 @@ order_equations(Equations0, Equations, Options),
     append(Eql, Equations).
 order_equations(Equations0, Equations, _Options) =>
     Equations = Equations0.
+
+eq_list(Eqs, _Options) -->
+    sequence(equation, Eqs),
+    html(div(class('add-equation'),
+             [ +
+             ])).
 
 equation(Eq) -->
     { phrase(eq_to_mathjax(Eq), Codes),

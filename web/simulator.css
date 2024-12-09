@@ -177,18 +177,26 @@ math-field::part(container) {
 }
 
 /* Hide the virtual keyboard toggle */
-math-field::part(virtual-keyboard-toggle),
-math-field::part(menu-toggle) {
+math-field::part(virtual-keyboard-toggle) /*,
+math-field::part(menu-toggle)*/ {
     height: 20px;
     display: none;
 }
 
-math-field:focus::part(virtual-keyboard-toggle),
-math-field:focus::part(menu-toggle) {
+math-field:focus::part(virtual-keyboard-toggle) /*,
+math-field:focus::part(menu-toggle)*/ {
     display: flex;
 }
 
 /* docs say this is the placeholder */
 math-field::part(prompt) {
     top: 10px;
+}
+
+div.add-equation {
+    cursor: default;
+    line-height: 50%;
+    font-size: 300%;
+    font-weight: bold;
+    color: darkgreen;
 }
