@@ -2,6 +2,37 @@
 		 *       MATHLIFE SUPPORT       *
 		 *******************************/
 
+const keep_items = [
+  //"insert",
+  "cut", "copy", "paste"
+];
+
+function insertLabel(latex, key) {
+  let str = `<span class='ML__insert-template'> `+
+               `${MathLive.convertLatexToMarkup(`${latex}`)}`+
+            `</span>`;
+  if ( key )
+    str += `<span class="ML__insert-label">${key}</span>`
+
+  return str;
+}
+
+function ml_update_menu(mf)
+{ const menu = mf.menuItems.filter((i) => keep_items.indexOf(i.id) >= 0);
+  menu.unshift(
+    { type: "submenu",
+      label: "Insert Quantity",
+      submenu: [
+	{ label: () => insertLabel("\\text{x}^\\text{obj}"),
+	  onMenuSelect: () => mf.insert("\\prop{x}{obj}")
+	}
+      ]
+    },
+    { type: "divider"
+    });
+  mf.menuItems = menu;
+}
+
 function ml_prep(mf)
 {
   mf.macros =
@@ -19,6 +50,8 @@ function ml_prep(mf)
 	expand: false
       }
     };
+
+  ml_update_menu(mf);
 
   mf.addEventListener("input", (ev) => {
     const eql = ev.target.closest(".equations");

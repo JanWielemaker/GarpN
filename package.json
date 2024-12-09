@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "htmx.org": "^1.9.12"
+    "htmx.org": "^1.9.12",
+    "mathlive": "^0.102.0"
   }
 }
