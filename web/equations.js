@@ -7,9 +7,68 @@ const keep_items = [
   "cut", "copy", "paste"
 ];
 
+const my_macros = {
+  prop: {
+    args: 2,
+    def: '\\,\\text{#1}^\\text{#2}\\,{}',
+    captureSelection: true,	// not editable
+    expand: false		// keep as macro
+  },
+  variable: {
+    args: 1,
+    def: '\\,\\text{#1}',
+    captureSelection: true,
+    expand: false
+  }
+};
+
+/** expand_macros() expands the string using `my_macros`.
+ * The must be a simpler solution.
+ */
+
+function expand_macros(s) {
+  let out = "";
+
+  for(i=0; i<s.length; i++) {
+    if ( s[i] == '\\' )
+    { let name = "";
+      let j;
+
+      for(j=i+1; j<s.length && s[j].match(/[a-zA-Z0-9_]/); j++) {
+	name += s[j];
+      }
+      const m = my_macros[name];
+      if ( m )
+      { let exp = m.def;
+	for(k=1; k<=m.args; k++) {
+	  if ( s[j] == "{" ) {
+	    const e = s.indexOf("}", j);
+	    if ( e > 0 ) {
+	      const arg = s.slice(j+1, e);
+	      exp = exp.replace("#"+k, arg);
+	      j = e+1;
+	    } else
+	      throw("Unmatched {");
+	  } else
+	    throw("Missing argument for "+name);
+	}
+	out += exp;
+	i = j;
+      } else
+      { out += s[i];
+      }
+    } else
+    { out += s[i];
+    }
+  }
+
+  return out;
+}
+
+
 function insertLabel(latex, key) {
   let str = `<span class='ML__insert-template'> `+
-               `${MathLive.convertLatexToMarkup(`${latex}`)}`+
+               `${MathLive.convertLatexToMarkup(`${expand_macros(latex)}`)}`+
             `</span>`;
   if ( key )
     str += `<span class="ML__insert-label">${key}</span>`
@@ -23,7 +82,7 @@ function ml_update_menu(mf)
     { type: "submenu",
       label: "Insert Quantity",
       submenu: [
-	{ label: () => insertLabel("\\text{x}^\\text{obj}"),
+	{ label: () => insertLabel("\\prop{x}{obj}"),
 	  onMenuSelect: () => mf.insert("\\prop{x}{obj}")
 	}
       ]
@@ -35,21 +94,7 @@ function ml_update_menu(mf)
 
 function ml_prep(mf)
 {
-  mf.macros =
-    { ... mf.macros,
-      prop: {
-	args: 2,
-	def: '\\,\\text{#1}^\\text{#2}\\,{}',
-	captureSelection: true,	// not editable
-	expand: false		// keep as macro
-      },
-      variable: {
-	args: 1,
-	def: '\\,\\text{#1}',
-	captureSelection: true,
-	expand: false
-      }
-    };
+  mf.macros = { ... mf.macros, ... my_macros };
 
   ml_update_menu(mf);
 
