@@ -262,7 +262,11 @@ latex_variable(V) -->
     [','(), text(LtxName)],
     !,
     { phrase(latex_name(V), LtxName) }.
-
+latex_variable(V) -->
+    [ Name ],
+    { string(Name),
+      atom_string(V, Name)
+    }.
 
 latex_symbol(Code) -->
     latex_whites,
@@ -332,6 +336,8 @@ latex_1(blanks(Blanks)) -->
     blanks(T),
     { string_codes(Blanks, [H|T]) }.
 latex_1(Number) -->
+    peek(D),
+    { char_type(D, digit) },
     number(Number),
     !.
 latex_1(Word) -->
