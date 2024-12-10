@@ -9,18 +9,26 @@ const keep_items = [
   "cut", "copy", "paste"
 ];
 
+// (*).  Actually, we want `expand: false` to keep the macro in place.
+// Unfortunately, editing (notably typing '*' to insert `\cdot`) causes
+// this to loose the macro arguments, so we are left with `\prop`.  As
+// a consequence, we must deal with the macro expansion in Prolog and
+// keep this in sync.  Eventually, if there is no better way, we shall
+// generate this macro from Prolog or generate the Prolog parsing from
+// this macro.
+
 const my_macros = {
   prop: {
     args: 2,
     def: '\\,\\text{#1}^\\text{#2}\\,{}',
     captureSelection: true,	// not editable
-    expand: false		// keep as macro
+    expand: true		// Expand (*)
   },
   variable: {
     args: 1,
     def: '\\,\\text{#1}',
     captureSelection: true,
-    expand: false
+    expand: true
   }
 };
 
@@ -133,7 +141,8 @@ function ml_value(eql)
   eql = eql||document.getElementById("equations");
   for(eq of eql.children) {
     const mf = eq.querySelector("math-field");
-    val.push(mf.getValue(/*'math-json'*/));
+    if ( mf )
+      val.push(mf.getValue('latex-expanded'));
   }
   return val;
 }

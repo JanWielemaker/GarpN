@@ -130,7 +130,11 @@ quantities(List, Options) :-
     option(id_mapping(Mapping), Options, _{}),
     dict_pairs(Mapping, _, Pairs),
     pairs_values(Pairs, Values),
-    maplist(quantity_string, Values, List).
+    maplist(quantity_string, Values, List0),
+    append(List0,
+           [ "\\variable{t}",
+             "\\variable{Δt}"
+           ], List).
 
 quantity_string(Q, S) :-
     phrase(quantity(Q), Codes),
@@ -238,6 +242,13 @@ cmd_expresion(Expr) -->
 
 latex_quantity(Q) -->
     [prop(LtxAtt,LtxEnt)],
+    !,
+    { phrase(latex_name(Att), LtxAtt),
+      phrase(latex_name(Ent), LtxEnt),
+      Q =.. [Att,Ent]
+    }.
+latex_quantity(Q) -->
+    [','(), text(LtxAtt), ^, group([text(LtxEnt)]), ','(), group([])],
     { phrase(latex_name(Att), LtxAtt),
       phrase(latex_name(Ent), LtxEnt),
       Q =.. [Att,Ent]
@@ -245,7 +256,13 @@ latex_quantity(Q) -->
 
 latex_variable(V) -->
     [variable(LtxName)],
+    !,
     { phrase(latex_name(V), LtxName) }.
+latex_variable(V) -->
+    [','(), text(LtxName)],
+    !,
+    { phrase(latex_name(V), LtxName) }.
+
 
 latex_symbol(Code) -->
     latex_whites,
@@ -269,6 +286,7 @@ prolog_name_followups([]) -->
 
 prolog_name_part(String) --> [String], {string(String)}, !.
 prolog_name_part('_') --> ['_'], !.
+prolog_name_part('_') --> ['_'()], !.
 prolog_name_part(Int) --> [Int], {integer(Int)}, !.
 
 latex_number(Value) -->
@@ -287,8 +305,7 @@ placeholder_value(_) -->
 latex_whites --> latex_white, !, latex_whites.
 latex_whites --> [].
 
-latex_white -->
-    [blanks(_)].
+latex_white --> [blanks(_)], !.
 
 %!  parse_latex(+LaTeX:string, -LaTexCmd:list) is det.
 
@@ -306,6 +323,10 @@ latex(End, [H|T]) -->
 
 latex_1(Token) -->
     latex_cmd(Token), !.
+latex_1(group(LaTeX)) -->
+    "{",
+    !,
+    latex("}", LaTeX), "}".
 latex_1(blanks(Blanks)) -->
     blank(H), !,
     blanks(T),
@@ -326,11 +347,28 @@ is_end(eos) --> eos, !.
 is_end(String), [C]--> [C], {string_code(_, String, C)}, !.
 
 latex_cmd(Command) -->
-    "\\", ltx_name(Name), ltx_args(Name, Args),
+    "\\", ltx_name(Name), !, ltx_args(Name, Args),
     { compound_name_arguments(Command, Name, Args) }.
+latex_cmd(Command) -->
+    "\\", [C],
+    { atom_codes(Name, [C]),
+      compound_name_arguments(Command, Name, [])
+    }.
 
 ltx_name(Name) -->
-    csym(Name).
+    ltx_name_char(H),
+    ltx_name_chars(T),
+    { atom_codes(Name, [H|T]) }.
+
+ltx_name_chars([H|T]) --> ltx_name_char(H), !, ltx_name_chars(T).
+ltx_name_chars([]) --> [].
+
+ltx_name_char(C) -->
+    [C],
+    { (   between(0'a, 0'z, C)
+      ;   between(0'Z, 0'Z, C)
+      )
+    }, !.
 
 ltx_args(prop,        Args) ==> ltx_nargs(2, Args).
 ltx_args(variable,    Args) ==> ltx_nargs(1, Args).
@@ -343,6 +381,7 @@ ltx_nargs(0, []) --> !.
 ltx_nargs(N, [H|T]) --> ltx_arg(H), {N1 is N-1}, ltx_nargs(N1, T).
 
 ltx_arg(Arg) --> curl_arg(Arg), !.
+ltx_arg(Arg) --> [C], { string_codes(Arg, [C]) }.
 
 curl_args([H|T]) -->
     peek('{'),
