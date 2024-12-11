@@ -106,6 +106,12 @@ function ml_update_menu(mf, quantities)
   mf.menuItems = menu;
 }
 
+function eql_changed(from)
+{ const eql = from.closest(".equations");
+  if ( eql )
+    eql.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function ml_prep(mf, quantities)
 {
   mf.macros = { ... mf.macros, ... my_macros };
@@ -113,10 +119,23 @@ function ml_prep(mf, quantities)
   ml_update_menu(mf, quantities);
 
   mf.addEventListener("input", (ev) => {
-    const eql = ev.target.closest(".equations");
-    if ( eql )
-      eql.dispatchEvent(new Event('input', { bubbles: true }));
+    eql_changed(ev.target);
   });
+}
+
+function eq_prep(eq, quantities)
+{ const mf  = eq.querySelector("math-field");
+  const del = eq.querySelector("span.delete-equation");
+  if ( mf )
+    ml_prep(mf, quantities);
+
+  if ( del )
+  { del.addEventListener("click", (ev) =>
+    { const eql = eq.parentNode;
+      eq.remove();
+      eql_changed(eql);
+    });
+  }
 }
 
 function ml_init(quantities)
@@ -124,9 +143,7 @@ function ml_init(quantities)
   state.quantities = quantities;
 
   for(eq of eql.children) {
-    const mf = eq.querySelector("math-field");
-    if ( mf )
-      ml_prep(mf, quantities);
+    eq_prep(eq, quantities);
   }
   eql.value = function() {
     return ml_value(eql);
@@ -158,10 +175,10 @@ activatePlusButton(eql)
     el.addEventListener("click", (ev) => {
       const div = document.createElement("div");
       div.classList.add("equation");
-      div.innerHTML = "<math-field></math-field>";
+      div.innerHTML = "<math-field></math-field>"+
+	'<span class="delete-equation">✖</span>';
       el.parentNode.insertBefore(div, el);
-      const mf = div.querySelector("math-field");
-      ml_prep(mf);
+      eq_prep(div);
     });
   }
 }

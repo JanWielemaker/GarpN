@@ -72,7 +72,9 @@ equation(Eq) -->
       debug(eq(to_latex), '~p --> ~p', [Eq, String])
     },
     html(div(class(equation),
-             'math-field'(String))).
+             [ 'math-field'(String),
+               span(class('delete-equation'), '\u2716')
+             ])).
 
 eq_to_mathjax(Left := Right) ==>
     !,
