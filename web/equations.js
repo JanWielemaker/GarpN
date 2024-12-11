@@ -9,6 +9,10 @@ const keep_items = [
   "cut", "copy", "paste"
 ];
 
+const del_shortcuts = [
+  "and"
+];
+
 // (*).  Actually, we want `expand: false` to keep the macro in place.
 // Unfortunately, editing (notably typing '*' to insert `\cdot`) causes
 // this to loose the macro arguments, so we are left with `\prop`.  As
@@ -115,6 +119,10 @@ function eql_changed(from)
 function ml_prep(mf, quantities)
 {
   mf.macros = { ... mf.macros, ... my_macros };
+  const shortcuts = { ... mf.inlineShortcuts };
+  for(sc of del_shortcuts)
+    delete shortcuts[sc];
+  mf.inlineShortcuts = shortcuts;
 
   ml_update_menu(mf, quantities);
 
