@@ -257,7 +257,7 @@ set_model(Model) :-
     ;   numeric_model_file(Model, File),
         exists_file(File)
     ->  read_file_to_string(File, Source, [])
-    ;   Source = ""
+    ;   Source = _
     ),
     set_model(Model, Source, []).
 
