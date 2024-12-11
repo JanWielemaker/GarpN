@@ -2,7 +2,8 @@
           [ read_model/5,         % +Source, -Formulas, -Constants, -State0, +Opts
             simulate/3,           % +ModelSrc, -Series, +Options
             add_derivative/2,     % +Series, -DSeries
-            read_model_to_terms/2 % ++Input, -Terms
+            read_model_to_terms/2, % ++Input, -Terms
+            normal_number/1        % @Term
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -520,7 +521,8 @@ compile_formulas(Formulas, Ref) :-
     (   debugging(euler_step_clause)
     ->  portray_clause(user_error, (euler_step(S0, S) :- Body))
     ;   true
-    ).
+    ),
+    ieee_floats.
 
 eval(S0, S, Key-formula(Expr, Bindings),
      ( S0 >:< Bindings,
@@ -528,7 +530,19 @@ eval(S0, S, Key-formula(Expr, Bindings),
     get_dict(Key, S, Value).
 
 clean_formulas(Ref) :-
+    iso_floats,
     erase(Ref).
+
+ieee_floats :-
+    set_prolog_flag(float_overflow, infinity),
+    set_prolog_flag(float_zero_div, infinity),
+    set_prolog_flag(float_undefined, nan).
+
+iso_floats :-
+    set_prolog_flag(float_overflow, error),
+    set_prolog_flag(float_zero_div, error),
+    set_prolog_flag(float_undefined, error).
+
 
 %!  eval_d(+Formulas, +T, +DT, +H, +Y0, -K) is det.
 %
@@ -604,7 +618,7 @@ nth_derivative(S, N), get_dict(K, S, T), K \== t =>
 
 nth_derivative_(d(_,_), D)  => D = 1.
 nth_derivative_(d(_,_,_), D) => D = 2.
-nth_derivative_(V, D), number(V) => D = 0.
+nth_derivative_(_V, D) => D = 0.
 
 derivative_1(D1, D2, N, D) :-
     mapdict(derivative_v(N, D2), D1, D).
@@ -624,5 +638,18 @@ derivative_v(0, Dict, K, V, R) =>
     get_dict(K, Dict, Vb),
     v_minus(Vb, V, D1).
 
-v_minus(V1, V2, D), nonvar(V1), nonvar(V2) => D is V1-V2.
+v_minus(V1, V2, D), normal_number(V1), normal_number(V2) => D is V1-V2.
 v_minus(_, _, _) => true.
+
+%!  normal_number(@Term) is semidet.
+%
+%   True when Term is a _normal_ number, i.e., a rational or normal
+%   float.
+
+normal_number(N), rational(N) => true.
+normal_number(N), float(N) => float_class(N, C), ok_float_class(C).
+normal_number(N), var(N) => fail.
+
+ok_float_class(zero).
+ok_float_class(subnormal).
+ok_float_class(normal).

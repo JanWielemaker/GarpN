@@ -799,15 +799,30 @@ plotly_traces(Series, Traces, [], IdMapping) :-
     order_keys(IdMapping, Keys1, Keys),
     maplist(range(Series), Keys, Ranges),
     pairs_keys_values(Ranges, Mins, Maxs),
-    min_list(Mins, Min),
-    max_list(Maxs, Max),
+    min_list_normal(Mins, Min),
+    max_list_normal(Maxs, Max),
     maplist(rescale(Min-Max), Ranges, Scales),
     maplist(serie(x-y, Series, IdMapping), Keys, Scales, Traces).
 
 range(Series, Key, Min-Max) :-
     maplist(get_dict(Key), Series, Ys),
-    min_list(Ys, Min),
-    max_list(Ys, Max).
+    min_list_normal(Ys, Min),
+    max_list_normal(Ys, Max).
+
+min_list_normal(Nums, Min) :-
+    include(normal_number, Nums, Normal),
+    (   min_list(Normal, Min0)
+    ->  Min = Min0
+    ;   Min = 0.0
+    ).
+
+max_list_normal(Nums, Max) :-
+    include(normal_number, Nums, Normal),
+    (   max_list(Normal, Max0)
+    ->  Max = Max0
+    ;   Max = 0.0
+    ).
+
 
 rescale(_, Min-Max, Scale), Min =:= 0, Max =:= 0 =>
     Scale = 1.
@@ -864,7 +879,7 @@ set_axis(X-Y, Trace0, Trace) :-
 tv(Key, Scale, State, T-V) :-
     get_dict(t, State, T),
     get_dict(Key, State, V0),
-    number(V0),
+    normal_number(V0),
     V is V0*Scale.
 
 		 /*******************************

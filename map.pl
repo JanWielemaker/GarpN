@@ -589,7 +589,7 @@ to_qualitative(Q, d(V,D1,D2,D3), R) =>
     to_qualitative(_, D2, QD2),
     to_qualitative(_, D3, QD3).
 to_qualitative(t, T, R) => R = T.
-to_qualitative(_, V, _), var(V)  => true.
+to_qualitative(_, V, _), \+ normal_number(V)  => true.
 to_qualitative(_, V, D), V > 0   => D = plus.
 to_qualitative(_, V, D), V < 0   => D = min.
 to_qualitative(_, V, D), V =:= 0 => D = zero.
@@ -755,7 +755,7 @@ same_qstate(S1, S2),
     is_dict(S2, Tag),
     del_dict(t, S1, _, A),
     del_dict(t, S2, _, B) =>
-    A == B.
+    A =@= B.
 
 insert_points([], []).
 insert_points([S1,S2|T0], [S1,Si|T]) :-
