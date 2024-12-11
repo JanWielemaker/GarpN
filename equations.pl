@@ -218,6 +218,11 @@ latex_mul_expression(Expr) -->
     ).
 
 latex_exp_expression(Expr) -->
+    [group(LaTeX)],
+    !,
+    { phrase(latex_expression(Expr), LaTeX)
+    }.
+latex_exp_expression(Expr) -->
     latex_var(Expr),
     !.
 latex_exp_expression(Expr) -->
