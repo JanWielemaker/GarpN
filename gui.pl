@@ -820,21 +820,6 @@ range(Series, Key, Min-Max) :-
     min_list_normal(Ys, Min),
     max_list_normal(Ys, Max).
 
-min_list_normal(Nums, Min) :-
-    include(normal_number, Nums, Normal),
-    (   min_list(Normal, Min0)
-    ->  Min = Min0
-    ;   Min = 0.0
-    ).
-
-max_list_normal(Nums, Max) :-
-    include(normal_number, Nums, Normal),
-    (   max_list(Normal, Max0)
-    ->  Max = Max0
-    ;   Max = 0.0
-    ).
-
-
 rescale(_, Min-Max, Scale), Min =:= 0, Max =:= 0 =>
     Scale = 1.
 rescale(GMin-GMax, Min-Max, Scale), Min =:= Max =>

@@ -409,9 +409,10 @@ skip_leadin(Values, Head, Values1, Options) :-
 
 zero_asymptote(Values, Level, How, Options) :-
     option(fraction(Frac), Options, 20),
-    min_list(Values, Min),
-    max_list(Values, Max),
+    min_list_normal(Values, Min),
+    max_list_normal(Values, Max),
     last(Values, Last),
+    normal_number(Last),
     (   Max > 0,
         Min >= 0,
         Last < Max/Frac
@@ -449,12 +450,15 @@ neg(Y, Yneg) :- Yneg is -Y.
 %       average over some value.
 
 monotonic_decreasing([H1,H2|T]) :-
+    normal_number(H1),
+    normal_number(H2),
     D is H1-H2,
     D >= 0,
     monotonic_decreasing(T, H2, D, H1).
 
 monotonic_decreasing([], _, _, _).
 monotonic_decreasing([H|T], V, D, Scale) :-
+    normal_number(H),
     D2 is V-H,
     D2 >= 0,
     D2 =< D,
@@ -462,13 +466,18 @@ monotonic_decreasing([H|T], V, D, Scale) :-
     monotonic_decreasing(T, H, D2, Scale).
 monotonic_decreasing(Remainder, _, _, Scale) :-
     Max is Scale/1000,
-    maplist(>(Max), Remainder).
+    forall(member(N, Remainder),
+           (   normal_number(N),
+               Max > N)).
 
 %!  local_extremes(+Values, -Highs, -Lows) is det.
 %
 %   Find the local minima and maxima of a series.
 
 local_extremes([V1,V2,V3|T0], Highs, Lows) :-
+    normal_number(V1),
+    normal_number(V2),
+    normal_number(V3),
     V2 > V1,
     $,
     (   V3 < V2
@@ -490,6 +499,9 @@ local_extremes([V1,V2,V3|T0], Highs, Lows) :-
     ;   local_extremes([V2,V3|T0], Highs, Lows)
     ).
 local_extremes([V1,V2,V3|T0], Highs, Lows) :-
+    normal_number(V1),
+    normal_number(V2),
+    normal_number(V3),
     V2 < V1,
     $,
     (   V3 > V2

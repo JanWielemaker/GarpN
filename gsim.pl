@@ -3,7 +3,9 @@
             simulate/3,           % +ModelSrc, -Series, +Options
             add_derivative/2,     % +Series, -DSeries
             read_model_to_terms/2, % ++Input, -Terms
-            normal_number/1        % @Term
+            normal_number/1,       % @Term
+            min_list_normal/2,
+            max_list_normal/2
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -653,3 +655,22 @@ normal_number(N), var(N) => fail.
 ok_float_class(zero).
 ok_float_class(subnormal).
 ok_float_class(normal).
+
+%!  min_list_normal(+Nums, -Min) is det.
+%!  max_list_normal(+Nums, -Max) is det.
+%
+%   Get the min/max number of a list, ignoring non-normal values.
+
+min_list_normal(Nums, Min) :-
+    include(normal_number, Nums, Normal),
+    (   min_list(Normal, Min0)
+    ->  Min = Min0
+    ;   Min = 0.0
+    ).
+
+max_list_normal(Nums, Max) :-
+    include(normal_number, Nums, Normal),
+    (   max_list(Normal, Max0)
+    ->  Max = Max0
+    ;   Max = 0.0
+    ).
