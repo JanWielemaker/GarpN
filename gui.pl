@@ -346,12 +346,24 @@ q_menu(_, _) -->
     [].
 
 q_control(IdMapping, Key) -->
-    { key_label(IdMapping, Key, Label),
-      atom_concat(d_, Key, Name)
+    { atom_concat(d_, Key, Name)
     },
-    html(tr([ th(class([quantity,name]), Label),
+    html(tr([ th(class([quantity,name]), \key_label(IdMapping,Key)),
               td(\derivatives_select(Name))
             ])).
+
+key_label(IdMapping, Key) -->
+    { Term = IdMapping.get(Key),
+      compound(Term),
+      compound_name_arguments(Term, Attr, [Ent]),
+      !
+    },
+    html(span([ span(class('entity-attr'), Attr),
+                span(class('entity'), Ent)
+              ])).
+key_label(IdMapping, Key) -->
+    { key_label(IdMapping, Key, Label) },
+    html(Label).
 
 derivatives_select(Name) -->
     html(select(name(Name),

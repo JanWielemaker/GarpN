@@ -152,6 +152,16 @@ span.min {
     color: #800
 }
 
+span.entity-attr {
+    font-size: 90%;
+}
+
+span.entity {
+    font-size: 70%;
+    position: relative;
+    top: -1.3ex;
+}
+
 /* Mathlive */
 
 div.equations {
