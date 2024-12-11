@@ -184,6 +184,11 @@ latex_expression(Expr) -->
     latex_expression(Expr),
     latex_symbol(')').
 latex_expression(Expr) -->
+    [left("(")],
+    !,
+    latex_expression(Expr),
+    [right(")")].
+latex_expression(Expr) -->
     latex_whites,
     latex_add_expression(Left),
     (   add_op(Op)
@@ -230,6 +235,14 @@ mul_op(*) --> latex_whites, [cdot()], !, latex_whites.
 
 exp_op(^) --> latex_symbol(^).
 
+cmd_expresion(pi)     --> [pi()],  !.
+cmd_expresion(sin(X)) --> [sin()], !, latex_expression(X).
+cmd_expresion(cos(X)) --> [cos()], !, latex_expression(X).
+cmd_expresion(tan(X)) --> [tan()], !, latex_expression(X).
+cmd_expresion(log(X)) --> [log()], !, latex_expression(X).
+cmd_expresion(sqrt(X)) -->
+    [sqrt(Ltx)],
+    { phrase(latex_expression(X), Ltx) }.
 cmd_expresion(L/R) -->
     [frac(EL, ER)],
     { phrase(latex_expression(L), EL),
@@ -353,7 +366,7 @@ is_end(eos) --> eos, !.
 is_end(String), [C]--> [C], {string_code(_, String, C)}, !.
 
 latex_cmd(Command) -->
-    "\\", ltx_name(Name), !, ltx_args(Name, Args),
+    "\\", ltx_name(Name), !, blanks, ltx_args(Name, Args),
     { compound_name_arguments(Command, Name, Args) }.
 latex_cmd(Command) -->
     "\\", [C],
@@ -379,6 +392,8 @@ ltx_name_char(C) -->
 ltx_args(prop,        Args) ==> ltx_nargs(2, Args).
 ltx_args(variable,    Args) ==> ltx_nargs(1, Args).
 ltx_args(cdot,        Args) ==> {Args = []}.
+ltx_args(left,        Args) ==> ltx_nargs(1, Args).
+ltx_args(right,       Args) ==> ltx_nargs(1, Args).
 ltx_args(placeholder, Args) ==> opt_arg(Name), curl_arg(Value),
 				{Args = [Name,Value]}.
 ltx_args(_,           Args) ==> curl_args(Args).
