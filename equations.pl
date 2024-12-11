@@ -369,7 +369,7 @@ latex_1(Char) -->
     [C],
     { char_code(Char, C) }.
 
-is_end(eos) --> eos, !.
+is_end(eos) --> !, eos.
 is_end(String), [C]--> [C], {string_code(_, String, C)}, !.
 
 latex_cmd(Command) -->
