@@ -43,14 +43,9 @@ function clear_output()
   document.getElementById("results").innerHTML = "";
 }
 
-function reset_model_menu()
-{ document.getElementById("init_model").value = "nil";
-}
-
 function setModel(name)
 { document.getElementById("model").value = name;
   clear_output();
-  reset_model_menu();
 }
 
 function currentModel()

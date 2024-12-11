@@ -184,21 +184,21 @@ model_option(Default, File) -->
 %   Provide options for populating the numerical model.
 
 init_model_menu -->
-    html(select([ 'hx-get'('/garp/htmx/start-model'),
+    !,
+    html(span(class('init-model-buttons'),
+              [ \model_button('\U0001F9F9', wipe_model,    "Clear model"),
+                \model_button('\U0001F4E5', load_model, "Load reference model"),
+                \model_button('\u2728',     propose_model, "Propose model")
+              ])).
+
+model_button(Label, Target, Title) -->
+    { http_link_to_id(Target, [], HREF) },
+    html(button([ 'hx-get'(HREF),
                   'hx-vals'('js:{model: currentModel()}'),
-                  'hx-trigger'(click),
                   'hx-target'('#quantity_controls'),
-                  'hx-target-304'('#errors'),
-                  id(init_model),
-                  name(init_model),
-                  class('init-model')
-                ],
-                [ option([value(nil), selected, disabled(true)],
-                         '(Re-)start model'),
-                  option(value(clear), 'Clear'),
-                  option(value(load),  'Load stored model'),
-                  option(value(start), 'Start fresh model')
-                ])).
+                  title(Title)
+                ], Label)).
+
 
 %!  methods//
 %
@@ -238,8 +238,10 @@ default_model(none, "").
 :- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
-:- http_handler(htmx('set-model'), set_model_handler, []).
-:- http_handler(htmx('start-model'), start_model_handler, []).
+:- http_handler(htmx('set-model'),     set_model_handler, []).
+:- http_handler(htmx('load-model'),    load_model, []).
+:- http_handler(htmx('wipe-model'),    wipe_model, []).
+:- http_handler(htmx('propose-model'), propose_model, []).
 
 %!  set_model_handler(+Request)
 %
@@ -272,27 +274,36 @@ set_model(Model, Source, Options) :-
 numeric_model_file(Model, File) :-
     format(atom(File), 'numeric/~w.pl', [Model]).
 
-%!  start_model_handler(+Request)
+%!  propose_model(+Request)
 %
-%   HTTP handler to start a new numeric  model based on the current Garp
-%   model.
+%   Create a new model based on the qualitative model
 
-start_model_handler(Request) :-
+propose_model(Request) :-
+     http_parameters(Request,
+                     [ model(Model, [])
+                     ]),
+     init_model(Model, Terms),
+     set_model(Model, terms(Terms), [grouped(true)]).
+
+%!  load_model(Request)
+%
+%   Load the (reference) model
+
+load_model(Request) :-
     http_parameters(Request,
-                    [ model(Model, []),
-                      init_model(Mode, [])
-                    ]),
-    start_model(Model, Mode).
-
-start_model(_Model, nil) =>
-    throw(http_reply(not_modified)).
-start_model(Model, load) =>
+                     [ model(Model, [])
+                     ]),
     set_model(Model).
-start_model(Model, clear) =>
+
+%!  wipe_model(+Request)
+%
+%   Clear the model, adding the default equations for time.
+
+wipe_model(Request) :-
+    http_parameters(Request,
+                     [ model(Model, [])
+                     ]),
     set_model(Model, _, []).
-start_model(Model, start) =>
-    init_model(Model, Terms),
-    set_model(Model, terms(Terms), [grouped(true)]).
 
 %!  analyze(+Request)
 %

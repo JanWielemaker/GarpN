@@ -7,7 +7,7 @@ div.model {
     sizing: border-box;
 }
 
-select.init-model {
+span.init-model-buttons {
     float:right;
 }
 
