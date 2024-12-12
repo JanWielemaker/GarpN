@@ -95,6 +95,7 @@ home -->
                [ div([class([narrow,content])
                      ],
                      [ \model_menus(Model),
+                       div([class('model-separator'), clear(both)], []),
                        div([ form(['hx-post'('/garp/htmx/run'),
                                    'hx-vals'('js:{"ml_source": ml_value_string()}'),
                                    'hx-target'('#results'),

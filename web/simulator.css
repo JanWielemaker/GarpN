@@ -11,6 +11,10 @@ span.init-model-buttons {
     float:right;
 }
 
+div.model-separator {
+    height: 4px;
+}
+
 div.downloads {
     margin-top: 1ex;
 }
