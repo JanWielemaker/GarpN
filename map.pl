@@ -227,18 +227,17 @@ qstate(engine, State, Values, Options) :-
     qstate(State, Values, Options).
 qstate(Model, State, Values, Options) :-
     ensure_loaded_model(Model, qstate/2),
-    option(d(N), Options, 3),
     option(match(Match), Options, #{}),
     Model:qstate(State, Values0),
     dict_pairs(Values0, Tag, Pairs0),
-    convlist(keep_derivatives_(Match, N), Pairs0, Pairs),
+    convlist(keep_derivatives_(Match), Pairs0, Pairs),
     dict_pairs(Values, Tag, Pairs).
 
-keep_derivatives_(Match, N, K-V0, K-V) :-
+keep_derivatives_(Match, K-V0, K-V) :-
     (   N2 = Match.get(K)
-    ->  N2 >= 0,
+    ->  N2 \== [],
         keep_derivatives(N2, V0, V)
-    ;   keep_derivatives(N, V0, V)
+    ;   keep_derivatives([0,1], V0, V)
     ).
 
 %!  q_input_state(+Model, -Dict)
@@ -653,12 +652,9 @@ q_series(Source, QSeries, Options) :-
 %
 %   Map the numeric Series into a qualitative QSeries.  Options:
 %
-%     - d(N)
-%     Add up to the Nth derivative.  Default 3.
 %     - match(Derivatives)
-%     Derivatives is a dict `Quantity -> Derivative`, where
-%     `Derivative` is -1..3 that determines how many derivatives
-%     to match.  -1 does not match the quantity at all.
+%     Derivatives is a dict `Quantity -> List`, where
+%     `List` holds a subset of [0,1,2].
 %     - link_garp_states(+Bool)
 %     Find related Garp states.
 
@@ -671,11 +667,11 @@ nq_series(Series, QSeries, Options) :-
 
 %!  deleted_unmatched(+AllSeries, -Series, +Options)
 %
-%   Delete the quantities set to -1 in the match(Match) option.
+%   Delete the quantities set to `[]` in the match(Match) option.
 
 deleted_unmatched(Series0, Series, Options) :-
     option(match(Match), Options, #{}),
-    findall(K-_, get_dict(K, Match, -1), Del),
+    findall(K-_, get_dict(K, Match, []), Del),
     Del \== [],
     !,
     dict_pairs(DelDict, _, Del),
@@ -692,17 +688,17 @@ add_derivatives(Series0, Series, Options) :-
     max_derivative_used(Options, MaxD),
     add_derivatives_(MaxD, Series0, Series1),
     (   option(match(Match), Options),
-        Match._ > 0
+        Match._ \== []
     ->  maplist(strip_derivatives(Match), Series1, Series)
     ;   Series = Series1
     ).
 
 max_derivative_used(Options, D) :-
-    option(d(N), Options, 3),
     option(match(Match), Options, #{}),
     dict_pairs(Match, _, Pairs),
     pairs_values(Pairs, Values),
-    max_list([N|Values], D).
+    append(Values, AllValues),
+    max_list(AllValues, D).
 
 add_derivatives_(0, Series, Series) :-
     !.
@@ -720,23 +716,38 @@ strip_derivatives_(Match, K, V0, V) :-
     keep_derivatives(Keep, V0, V).
 strip_derivatives_(_, _, V, V).
 
-keep_derivatives(0, D, V) =>
+keep_derivatives([0], D, V) =>
     arg(1, D, V).
-keep_derivatives(1, D, R) =>
+keep_derivatives([0,1], D, R) =>
     R = d(V,D1),
     arg(1, D, V),
     arg(2, D, D1).
-keep_derivatives(2, D, R) =>
+keep_derivatives([1], D, R) =>
+    R = d(_,D1),
+    arg(2, D, D1).
+keep_derivatives([0,1,2], D, R) =>
     R = d(V,D1,D2),
     arg(1, D, V),
     arg(2, D, D1),
     arg(3, D, D2).
-keep_derivatives(3, D, R) =>
+keep_derivatives([0,1,2,3], D, R) =>
     R = d(V,D1,D2,D3),
     arg(1, D, V),
     arg(2, D, D1),
     arg(3, D, D2),
     arg(4, D, D3).
+keep_derivatives(List, D, R) =>
+    max_list(List, Max),
+    Arity is Max+1,
+    functor(R, d, Arity),
+    copy_derivatives(List, D, R).
+
+copy_derivatives([], _, _).
+copy_derivatives([H|T], D, R) :-
+    A is H+1,
+    arg(A, D, V),
+    arg(A, R, V),
+    copy_derivatives(T, D, R).
 
 %!  simplify_qseries(+QSeries0, -QSeries) is det.
 %

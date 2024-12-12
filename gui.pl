@@ -237,7 +237,7 @@ default_model(Model, Source) :-
 default_model(none, "").
 
 :- http_handler(htmx(analyze), analyze, []).
-:- http_handler(htmx(run), run, []).
+:- http_handler(htmx(run), run_model, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
 :- http_handler(htmx('set-model'),     set_model_handler, []).
 :- http_handler(htmx('load-model'),    load_model, []).
@@ -421,7 +421,7 @@ mapping_table(SHA1, Time) :-
 
 full_garp_states(GarpStates, Options) :-
     option(model(ModelName), Options, engine),
-    findall(Id-QState, qstate(ModelName, Id, QState, [d(1)]), GarpStates).
+    findall(Id-QState, qstate(ModelName, Id, QState, Options), GarpStates).
 
 %!  info_seq(+Time, -States)// is semidet.
 %
@@ -745,11 +745,11 @@ v_label(plus) --> html(span(class(plus), '\u25B2')).
 v_label(min)  --> html(span(class(min),  '\u25BC')).
 v_label(zero) --> html(span(class(zero), '0')).
 
-%!  run(+Request)
+%!  run_model(+Request)
 %
 %   Run the simulation
 
-run(Request) :-
+run_model(Request) :-
     http_parameters(Request,
                     [ iterations(Iterations, [integer]),
                       track(Track, [oneof([all,initialized]),
@@ -757,7 +757,6 @@ run(Request) :-
                       method(Method, [oneof([euler,rk4]), default(euler)]),
                       sample(Sample, [integer, optional(true)]),
                       rulers(ShowRulers, [boolean, default(false)]),
-                      derivative(D, [between(-1,3), default(1)]),
                       ml_source(MlSource, []),
                       model(Model, [])
                     ],
@@ -770,7 +769,6 @@ run(Request) :-
     form_derivatives(Form, Derivatives),
     id_mapping(Model, IdMapping),
     Options = [ model(Model),
-                d(D),
                 match(Derivatives),
                 iterations(Iterations),
                 method(Method),
@@ -904,23 +902,32 @@ tv(Key, Scale, State, T-V) :-
 %
 %   Get the derivatives want to match for a specific quantity.
 %
-%   @arg Derivatives is a dict `Quantity -> Level`, where `Level`
-%   is 0..3.
+%   @arg Derivatives is a dict `Quantity -> List`, where `List`
+%   contains 0 (value), 1 (1st derivative), ....
 
 form_derivatives(Form, Derivatives) :-
     convlist(form_attr_derivative, Form, Pairs),
-    dict_pairs(Derivatives, #, Pairs).
+    keysort(Pairs, Sorted),
+    group_pairs_by_key(Sorted, ByKey),
+    maplist(order_derivatives, ByKey, ByKeySets),
+    dict_pairs(Derivatives, #, ByKeySets).
 
-form_attr_derivative(Name=Value, Key-D) :-
-    atom_concat(d_, Key, Name),
-    atom_number(Value, D),
-    between(-1, 3, D).
+form_attr_derivative(Name=on, Key-0) :-
+    atom_concat('__v_', Key, Name).
+form_attr_derivative(Name=on, Key-1) :-
+    atom_concat('__d1_', Key, Name).
+form_attr_derivative(Name=on, Key-2) :-
+    atom_concat('__d2_', Key, Name).
+
+order_derivatives(Key-List, Key-Set) :-
+    sort(List, Set).
 
 %!  annotate_garp_states(+Series, -Shapes, +Options) is det.
 
 annotate_garp_states(Series, Shapes, Options) :-
-    option(d(D), Options, 1),
-    D > 0,
+    option(match(Derivatives), Options),
+    List = Derivatives._,
+    List \== [],
     !,
     nq_series(Series, QSeries, [link_garp_states(true)|Options]),
     plotly_shapes(QSeries, Shapes).
