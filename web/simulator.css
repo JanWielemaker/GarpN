@@ -156,6 +156,18 @@ span.min {
     color: #800
 }
 
+table.quantities {
+    margin-top: 1ex;
+}
+
+table.quantities th.quantity {
+    padding-right: 2ex;
+}
+
+table.quantities td.link {
+    text-align: center;
+}
+
 span.entity-attr {
     font-size: 90%;
 }

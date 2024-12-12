@@ -338,7 +338,10 @@ q_menu(Model, Source) -->
           order_keys(IdMapping, Quantities0, Quantities)
         },
         html(table(class(quantities),
-                   [ tr([th(class(quantity), 'Quantity'), th('Link to Garp')]),
+                   [ tr([ th([class(quantity), rowspan(2)], 'Quantity'),
+                          th([colspan(3)], 'Link to Qualitative states')
+                        ]),
+                     tr([\derivative_headers(0,2)]),
                      \sequence(q_control(IdMapping), Quantities)
                    ]))
     ;   model_issues(Ball)
@@ -347,10 +350,8 @@ q_menu(_, _) -->
     [].
 
 q_control(IdMapping, Key) -->
-    { atom_concat(d_, Key, Name)
-    },
-    html(tr([ th(class([quantity,name]), \key_label(IdMapping,Key)),
-              td(\derivatives_select(Name))
+    html(tr([ th(class([quantity,name]), \key_label(IdMapping,Key))
+            | \derivatives_select(Key)
             ])).
 
 key_label(IdMapping, Key) -->
@@ -367,12 +368,14 @@ key_label(IdMapping, Key) -->
     html(Label).
 
 derivatives_select(Name) -->
-    html(select(name(Name),
-                [ option(value(-1), 'Off'),
-                  option(value(0),  'Value only'),
-                  option([value(1), selected], 'Value and 1st derivative'),
-                  option(value(2),  'Value, 1st and 2nd derivative')
-                ])).
+    { atom_concat('__v_', Name,  NValue),
+      atom_concat('__d1_', Name, ND1),
+      atom_concat('__d2_', Name, ND2)
+    },
+    html([ td(class('link'), input([type(checkbox), name(NValue), checked])),
+           td(class('link'), input([type(checkbox), name(ND1), checked])),
+           td(class('link'), input([type(checkbox), name(ND2)]))
+         ]).
 
 model_issues(model_error(no_time_formulas)) ==>
     html(div(class(warning),
@@ -607,12 +610,10 @@ derivative_headers(Nth, Der) -->
     !.
 derivative_headers(0, Der) -->
     !,
-    { h_label(value, Label) },
-    html(th(Label)),
+    th_label(value),
     derivative_headers(1, Der).
 derivative_headers(Nth, Der) -->
-    { h_label(d(Nth), Label) },
-    html(th(Label)),
+    th_label(d(Nth)),
     {Nth1 is Nth+1},
     derivative_headers(Nth1, Der).
 
@@ -730,6 +731,10 @@ join_attrs(Attrs0, Attrs1, [class(C)|Attrs]) :-
     append(Attrs00, Attrs10, Attrs).
 join_attrs(Attrs0, Attrs1, Attrs) :-
     append(Attrs0, Attrs1, Attrs).
+
+th_label(Key) -->
+    { h_label(Key, Label) },
+    html(th(Label)).
 
 h_label(d(1), '\U0001D4ED¹').
 h_label(d(2), '\U0001D4ED²').
