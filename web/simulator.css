@@ -157,7 +157,14 @@ span.min {
 }
 
 table.quantities {
+    border-top: 1px solid #888;
+    border-bottom: 1px solid #888;
     margin-top: 1ex;
+    border-collapse: collapse;
+}
+
+tr.quantity-link:nth-child(odd) {
+    background: #ddd;
 }
 
 table.quantities th.quantity {

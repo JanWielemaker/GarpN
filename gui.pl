@@ -350,7 +350,8 @@ q_menu(_, _) -->
     [].
 
 q_control(IdMapping, Key) -->
-    html(tr([ th(class([quantity,name]), \key_label(IdMapping,Key))
+    html(tr(class('quantity-link'),
+            [ th(class([quantity,name]), \key_label(IdMapping,Key))
             | \derivatives_select(Key)
             ])).
 
@@ -419,9 +420,19 @@ mapping_table(SHA1, Time) :-
     ;   reply_htmx('Could not find matching states at T=~3f'-[Time])
     ).
 
+%!  full_garp_states(-GarpStates, +Options) is det.
+%
+%   GarpStates is a list of Garp states up to the 2nd derivative.
+
 full_garp_states(GarpStates, Options) :-
     option(model(ModelName), Options, engine),
-    findall(Id-QState, qstate(ModelName, Id, QState, Options), GarpStates).
+    select_option(match(Match), Options, Options1),
+    mapdict(d2, Match, Match1),
+    findall(Id-QState, qstate(ModelName, Id, QState,
+                              [match(Match1)|Options1]),
+            GarpStates).
+
+d2(_Key, _V, [0,1]).
 
 %!  info_seq(+Time, -States)// is semidet.
 %
