@@ -1,10 +1,14 @@
 :- module(dynalearn,
-          []).
+          [ dynalearn_models/1,         % -Models
+            dynalearn_model/2           % ++Id, -Model
+          ]).
 :- use_module(library(uri)).
 :- use_module(library(http/http_client)).
-:- use_module(library(http/http_json)).
+:- use_module(library(http/http_json), []). % plugin
 :- use_module(library(apply)).
 :- use_module(library(dicts)).
+:- use_module(library(pairs)).
+:- use_module(library(terms)).
 
 dynalearn_url('https://api.dynalearn.nl/garpN/').
 
@@ -18,9 +22,19 @@ dynalearn_models(Models) :-
                json_object(dict)
              ]).
 
-dynalearn_model(Id, Simulation) :-
+%!  dynalearn_model(++Id, -Model) is det.
+
+dynalearn_model(Id, #{ results: Simulation,
+                       prolog:Terms,
+                       id_mapping:IdMapping
+                     }) :-
     get_model(Id, Model0),
+    prolog_model(Model0, Terms, IdMapping),
     import_simulation(Model0, Simulation).
+
+%!  get_model(++Id, -Model) is det.
+%
+%   Fetch the model with Id from DynaLearn
 
 :- table
     get_model/2.
@@ -33,6 +47,71 @@ get_model(Id, Model) :-
              [ value_string_as(atom),
                json_object(dict)
              ]).
+
+%!  prolog_model(+DLModel, -Terms) is det
+
+prolog_model(DLModel, Terms, IdMapping) :-
+    read_string_to_terms(DLModel.prolog, Terms0),
+    foldsubterms(unmap(DLModel.mapping), Terms0, Terms, [], QPairs0),
+    sort(QPairs0, QPairs),
+    dict_pairs(IdMapping, #, QPairs).
+
+unmap(Mapping, parameters(Parms0), Result, Q0, Q) =>
+    Result = parameters(Parms),
+    foldl(unmap_parameter(Mapping), Parms0, Parms, Q0, Q).
+unmap(Mapping, par_values(Values0), Result, Q0, Q) =>
+    Result = par_values(Values),
+    Q = Q0,
+    maplist(unmap_value(Mapping), Values0, Values).
+unmap(_Mapping, par_relations(Rels), Result, Q0, Q) =>
+    Result = par_relations(Rels),
+    Q = Q0.
+unmap(Mapping, Id, UnMapped, Q0, Q),
+    atom(Id),
+    UnMapped = Mapping.get(Id) =>
+    Q = Q0.
+unmap(_, _, _, _, _) =>
+    fail.
+
+unmap_parameter(Mapping, Term0, Term, Q0, [Id-Q|Q0]) :-
+    Term0 =.. [Id, Ent, Attr, U, QSpace], atom(Attr),
+    AttrName = Mapping.get(Attr,Attr),
+    EntName = Mapping.get(Ent,Ent),
+    Term  =.. [AttrName, EntName, Id, U, QSpace],
+    Q =.. [AttrName, EntName].
+
+unmap_value(Mapping, value(Id, A, V0, B), value(Id, A, V, B)) :-
+    V = Mapping.get(V0, V0).
+
+read_string_to_terms(String, Terms) :-
+    setup_call_cleanup(
+        open_string(String, In),
+        read_stream_to_terms(In, Terms, []),
+        close(In)).
+
+read_stream_to_terms(In, Terms, Options) :-
+    read_term(In, T0, [variable_names(Bindings)|Options]),
+    maplist(bind_nvar, Bindings),
+    read_stream_to_terms_(T0, In, Terms, Options).
+
+read_stream_to_terms_(end_of_file, _, [], _) :-
+    !.
+read_stream_to_terms_(T0, In, [T0|Terms], Options) :-
+    read_term(In, T1, [variable_names(Bindings)|Options]),
+    maplist(bind_nvar, Bindings),
+    read_stream_to_terms_(T1, In, Terms, Options).
+
+bind_nvar(Name=Var) :-
+    string_concat('N', Num, Name),
+    atom_number(Num, _),
+    !,
+    atom_concat(n, Num, Var).
+bind_nvar(_).
+
+%!  import_simulation(+DLModel, -Results)
+%
+%   Import the qualitative values and  state   graph  from the DynaLearn
+%   output.
 
 import_simulation(DL, #{qstates: Qstates, qstate_graph:Edges}) :-
     dict_pairs(DL.simulation.states, _, Pairs),
@@ -58,8 +137,7 @@ import_qvalues(Mapping, DLValues, Values) :-
     maplist(map_kv(Mapping), DLPairs, Pairs),
     dict_pairs(Values, _, Pairs).
 
-map_kv(Mapping, DLK-DLV, K-V) :-
-    K = Mapping.get(DLK,DLK),
+map_kv(Mapping, DLK-DLV, DLK-V) :-
     V = Mapping.get(DLV,DLV).
 
 join_ds(D1Values, D2Values, D3Values, Key, V, d(V,D1,D2,D3)) :-
