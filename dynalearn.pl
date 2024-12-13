@@ -26,10 +26,12 @@ dynalearn_models(Models) :-
 
 dynalearn_model(Id, #{ results: Simulation,
                        prolog:Terms,
-                       id_mapping:IdMapping
+                       id_mapping:IdMapping,
+                       qspaces:QSpaces
                      }) :-
     get_model(Id, Model0),
     prolog_model(Model0, Terms, IdMapping),
+    import_qspaces(Terms, QSpaces),
     import_simulation(Model0, Simulation).
 
 %!  get_model(++Id, -Model) is det.
@@ -107,6 +109,35 @@ bind_nvar(Name=Var) :-
     !,
     atom_concat(n, Num, Var).
 bind_nvar(_).
+
+%!  import_qspaces(+Terms, -QSpaces) is det.
+%
+%   Create list of terms
+%
+%       qspace(ParamId, Attr(Ent,ParamId,?,?), Spaces, fail)
+%
+%   @tbd It seems we lost  the  Garp   3th  and  second  argument, which
+%   provide properties (continuous) and the name of the quantity space.
+
+:- det(import_qspaces/2).
+import_qspaces(Terms, QSpaces) :-
+    memberchk(smd(_In,_SE,parameters(Parms),_ParVals,_ParRels,_SysStructs),
+              Terms),
+    include(is_qspace, Terms, QSpaceIn),
+    foldl(import_qspace(QSpaceIn), Parms, QSpaces, 1, _).
+
+is_qspace(quantity_space(_Id, _A, _QSpaces)) => true.
+is_qspace(_) => fail.
+
+import_qspace(QSpaceIn, Param, Result, N, N1) :-
+    Result = qspace(Id, Term, QSpaces, fail),
+    N1 is N+1,
+    arg(4, Param, QId),
+    functor(Param, Attr, 4),
+    arg(1, Param, Ent),
+    arg(2, Param, Id),
+    memberchk(quantity_space(QId, _A, QSpaces), QSpaceIn),
+    Term =.. [Attr,Ent,_,_].
 
 %!  import_simulation(+DLModel, -Results)
 %
