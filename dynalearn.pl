@@ -9,6 +9,8 @@
 :- use_module(library(dicts)).
 :- use_module(library(pairs)).
 :- use_module(library(terms)).
+:- use_module(library(lists)).
+:- use_module(library(occurs)).
 
 :- use_module(map).
 
@@ -31,10 +33,12 @@ dynalearn_model(Id, #{ results: Simulation,
                        id_mapping:IdMapping,
                        qspaces:QSpaces,
                        input_state:InputState,
-                       exogenous:Exogenous
+                       exogenous:Exogenous,
+                       qrels:QRels
                      }) :-
     get_model(Id, Model0),
     prolog_model(Model0, Terms, IdMapping),
+    import_qrels(Terms, QRels),
     import_qspaces(Terms, QSpaces),
     import_input_state(Terms, InputState),
     import_exogenous(Terms, Exogenous),
@@ -115,6 +119,25 @@ bind_nvar(Name=Var) :-
     !,
     atom_concat(n, Num, Var).
 bind_nvar(_).
+
+%!  import_qrels(+Terms, -QRels) is det.
+%
+%   Import the qualitative relations
+
+:- det(import_qrels/2).
+import_qrels(Terms, QRels) :-
+    findall(QRelSet,
+            (   sub_term(Sub, Terms),
+                par_relations(Sub, QRelSet)
+            ),
+            QRelSets),
+    append(QRelSets, QRels0),
+    list_to_set(QRels0, QRels).
+
+par_relations(par_relations(List), QRels), is_list(List) =>
+    QRels = List.
+par_relations(_, _) =>
+    fail.
 
 %!  import_qspaces(+Terms, -QSpaces) is det.
 %
