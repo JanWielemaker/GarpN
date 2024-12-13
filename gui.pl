@@ -24,6 +24,9 @@
 :- use_module(csv_util).
 :- use_module(equations).
 :- use_module(model).
+:- if(current_prolog_flag(dynalearn, true)).
+:- use_module(dynalearn).
+:- endif.
 
 http:location(garp, root(garp), []).
 http:location(htmx, garp(htmx), []).
@@ -151,6 +154,29 @@ model_menus(Default) -->
                \init_model_menu
              ])).
 
+:- if(current_prolog_flag(dynalearn, true)).
+% Fill menu from Dynalearn
+
+model_menu(_Default) -->
+    { dynalearn_models(Models)
+    },
+    html(select([ 'hx-get'('/garp/htmx/set-model'),
+                  'hx-trigger'(change),
+                  'hx-target'('#quantity_controls'),
+                  name(model)
+                ],
+                \sequence(dl_project, Models.result))).
+
+dl_project(Project) -->
+    sequence(dl_model(Project.project_code), Project.models).
+
+dl_model(Project, Model) -->
+    html(option([value(Model.id)],
+                '[~w] ~w (~w)'-[Project, Model.id, Model.user])).
+
+:- else.
+% Fill menu from local files, using local Garp
+
 model_menu(Default) -->
     { findall(File, directory_member(garp, File,
                                      [ extensions([db]) ]), Files0),
@@ -179,6 +205,8 @@ model_option(Default, File) -->
       )
     },
     html(option([value(Model)|T], Model)).
+
+:- endif.
 
 %!  init_model_menu//
 %
