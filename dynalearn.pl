@@ -10,6 +10,8 @@
 :- use_module(library(pairs)).
 :- use_module(library(terms)).
 
+:- use_module(map).
+
 dynalearn_url('https://api.dynalearn.nl/garpN/').
 
 %!  dynalearn_models(-Models)
@@ -27,11 +29,15 @@ dynalearn_models(Models) :-
 dynalearn_model(Id, #{ results: Simulation,
                        prolog:Terms,
                        id_mapping:IdMapping,
-                       qspaces:QSpaces
+                       qspaces:QSpaces,
+                       input_state:InputState,
+                       exogenous:Exogenous
                      }) :-
     get_model(Id, Model0),
     prolog_model(Model0, Terms, IdMapping),
     import_qspaces(Terms, QSpaces),
+    import_input_state(Terms, InputState),
+    import_exogenous(Terms, Exogenous),
     import_simulation(Model0, Simulation).
 
 %!  get_model(++Id, -Model) is det.
@@ -121,10 +127,14 @@ bind_nvar(_).
 
 :- det(import_qspaces/2).
 import_qspaces(Terms, QSpaces) :-
-    memberchk(smd(_In,_SE,parameters(Parms),_ParVals,_ParRels,_SysStructs),
-              Terms),
+    smd(Terms, SMD),
+    arg(3, SMD, parameters(Parms)),
     include(is_qspace, Terms, QSpaceIn),
     foldl(import_qspace(QSpaceIn), Parms, QSpaces, 1, _).
+
+smd(Terms, SMD) :-
+    SMD = smd(_In,_SE,_Parms,_ParVals,_ParRels,_SysStructs),
+    memberchk(SMD, Terms).
 
 is_qspace(quantity_space(_Id, _A, _QSpaces)) => true.
 is_qspace(_) => fail.
@@ -138,6 +148,49 @@ import_qspace(QSpaceIn, Param, Result, N, N1) :-
     arg(2, Param, Id),
     memberchk(quantity_space(QId, _A, QSpaces), QSpaceIn),
     Term =.. [Attr,Ent,_,_].
+
+%!  import_input_state(+Terms, -InputState) is det
+%
+%
+
+:- det(import_input_state/2).
+import_input_state(Terms, InputState) :-
+    smd(Terms, SMD),
+    arg(4, SMD, par_values(Values)),
+    maplist(value_pair, Values, Pairs),
+    dict_pairs(InputState, _, Pairs).
+
+value_pair(value(Q, _, Value, _), Q-Value).
+
+%!  import_exogenous(+Terms, -Exogenous) is det.
+%
+%   @arg Exogenous is a list of exogenous(Qid, Class)
+
+import_exogenous(Terms, Exogenous) :-
+    findall(exogenous(Qid, Class),
+            find_exogenous(Terms, Qid, Class), Exogenous).
+
+find_exogenous(Terms, Qid, Class) :-
+    member(system_structures(_,_,conditions(Conds),givens(Givens)), Terms),
+    member(system_elements(SEList), Conds),
+    exogeneous(SEList, Ent, Class),
+    memberchk(parameters(Params), Givens),
+    member(Param, Params),
+    functor(Param, Qid, 4),
+    arg(1, Param, Ent).
+
+exogeneous(SEList, Ent, Class) :-
+    numbervars(SEList, 0, _),
+    member(has_attribute(Ent, has_assumption, X), SEList),
+    is_instance(X, SEList, Class, [X]),
+    exogenous(Class).
+
+is_instance(X, _, X, _).
+is_instance(X, SEList, Class, Done) :-
+    member(instance(X, Super), SEList),
+    \+ memberchk(Super, Done),
+    is_instance(Super, SEList, Class, [Super|Done]).
+
 
 %!  import_simulation(+DLModel, -Results)
 %

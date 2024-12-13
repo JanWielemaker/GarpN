@@ -12,7 +12,8 @@
             saved_model_file/2,
             q_rel/2,                    % +Model, -Rel
             q_input_state/2,            % +Model, -Dict
-            q_exogenous/3               % +Model, ?Quantity, ?Exegenous
+            q_exogenous/3,              % +Model, ?Quantity, ?Exegenous
+            exogenous/1                 % ?Class
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
@@ -284,6 +285,10 @@ se_isa(Instance, Instance, _).
 se_isa(Instance, Super, SEList) :-
     member(instance(Instance, Parent), SEList),
     se_isa(Parent, Super, SEList).
+
+%!  exogenous(?Class)
+%
+%   True when Class identifies an exogenous object.
 
 exogenous(exogenous_free).      % Random
 exogenous(exogenous_steady).
