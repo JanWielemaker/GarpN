@@ -2,7 +2,6 @@
           [ id_mapping/1,               % -Mapping:dict
             id_mapping/2,               % +Model, -Mapping
             q_series/3,                 % +Model, -QSeries, +Options
-            qstate/3,                   % +State, -Values, +Options
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
             q_series_table/3,           % +QSeries, -Table, +IdMapping
             nq_series/3,                % +Series, -QSeries, +Options
@@ -48,6 +47,7 @@ id_map(Model, Id, Term) :-
     Term4 =.. [DV,Q|_],
     Term =.. [DV,Q].
 
+:- if(\+current_prolog_flag(dynalearn, true)).
 %!  qstate(?Id, -Values, +Options)
 %
 %   Get the qualitative state from Garp  in   the  same  notation as our
@@ -187,20 +187,32 @@ engine_relations(Relations) :-
 
 saved_model_file(Model, File) :-
     format(atom(File), 'garp/~w.db', [Model]).
+:- endif.            % \+ current_prolog_flag(dynalearn, true)
 
-%!  m_qspace(+Model, ?QspaceId, ?Qspace, ?Values) is nondet.
+%!  m_qspace(+ModelId, ?QspaceId, ?Qspace, ?Values) is nondet.
 
+:- if(current_prolog_flag(dynalearn, true)).
+m_qspace(ModelId, QspaceId, Qspace, Values) :-
+    dynalearn_model(ModelId, ModelData),
+    member(qspace(QspaceId, Qspace, Values, fail), ModelData.qspaces).
+:- else.
 m_qspace(engine, QspaceId, Qspace, Values) :-
     !,
     engine:qspace(QspaceId, Qspace, Values, fail).
 m_qspace(Model, QspaceId, Qspace, Values) :-
     ensure_loaded_model(Model, qspace/4),
     Model:qspace(QspaceId, Qspace, Values, fail).
+:- endif.
 
 %!  q_rel(+Model, -Rel) is nondet.
 %
 %   True when Rel is a relation in Model.
 
+:- if(current_prolog_flag(dynalearn, true)).
+q_rel(ModelId, QRel) :-
+    dynalearn_model(ModelId, ModelData),
+    member(QRel, ModelData.qrels).
+:- else.
 q_rel(engine, Rel) :-
     !,
     engine_relations(Relations),
@@ -217,19 +229,30 @@ ensure_loaded_model(Model, PI) :-
     exists_file(File),
     use_module(File, []),
     assertion(current_predicate(Model:PI)).
+:- endif.
 
 %!  qstate(+Model, ?Id, -Values, +Options)
 %
 %   Extract qualitative states from a saved Garp simulation If no model
 %   is saved, we use the current model.
 
+:- if(current_prolog_flag(dynalearn, true)).
+qstate(ModelId, State, Values, Options) :-
+    dynalearn_model(ModelId, ModelData),
+    member(qstate(State, Values0), ModelData.results.qstates),
+    select_derivatives(Values0, Values, Options).
+:- else.
 qstate(engine, State, Values, Options) :-
     !,
     qstate(State, Values, Options).
 qstate(Model, State, Values, Options) :-
     ensure_loaded_model(Model, qstate/2),
-    option(match(Match), Options, #{}),
     Model:qstate(State, Values0),
+    select_derivatives(Values0, Values, Options).
+:- endif.
+
+select_derivatives(Values0, Values, Options) :-
+    option(match(Match), Options, #{}),
     dict_pairs(Values0, Tag, Pairs0),
     convlist(keep_derivatives_(Match), Pairs0, Pairs),
     dict_pairs(Values, Tag, Pairs).
@@ -246,6 +269,11 @@ keep_derivatives_(Match, K-V0, K-V) :-
 %   True when Dict is a dict holding   the  (quantity space) start value
 %   for each quantity.
 
+:- if(current_prolog_flag(dynalearn, true)).
+q_input_state(ModelId, Dict) :-
+    dynalearn_model(ModelId, ModelData),
+    Dict = ModelData.get(input_state).
+:- else.
 q_input_state(engine, Dict) =>
     engine:scenario_state(SMD),
     once(arg(_, SMD, par_values(Values))),
@@ -254,13 +282,18 @@ q_input_state(engine, Dict) =>
 q_input_state(Model, Dict) =>
     ensure_loaded_model(Model, input_state/1),
     Model:input_state(Dict).
-
+:- endif.
 
 %!  q_exogenous(+Model, ?Quantity, ?Exegenous) is nondet.
 %
 %   True when Quantity is  determined   exogenously.  Possible exogenous
 %   functions are pre-wired and specified by exogenous/1.
 
+:- if(current_prolog_flag(dynalearn, true)).
+q_exogenous(ModelId, Quantity, Exegenous) :-
+    dynalearn_model(ModelId, ModelData),
+    member(exogenous(Quantity, Exegenous), ModelData.exogenous).
+:- else.
 q_exogenous(engine, Quantity, Exegenous) =>
     engine:state(1, SMD),
     arg(6, SMD, system_structures(Structures)),
@@ -285,6 +318,7 @@ se_isa(Instance, Instance, _).
 se_isa(Instance, Super, SEList) :-
     member(instance(Instance, Parent), SEList),
     se_isa(Parent, Super, SEList).
+:- endif.
 
 %!  exogenous(?Class)
 %

@@ -291,6 +291,11 @@ set_model(Model) :-
     set_model(Model, Source, []).
 
 %!  set_model(+Model:atom, +Source, +Options) is det.
+%
+%   Set the model we work on.
+%
+%   @arg Source is the (Prolog) source for the numerical model.
+%   This is either a string or a term terms(Terms).
 
 set_model(Model, Source, Options) :-
     reply_htmx(
