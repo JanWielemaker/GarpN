@@ -311,15 +311,20 @@ derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
 %!  derived_initial_state(+Formulas, +Constants, +State0, -State,
 %!                        +Options) is det.
 %
-%   Extend the initial state
+%   Extend the initial state. We do so  by evaluating formulas for which
+%   the right side is known and add these  to the state. This process is
+%   repeated until no formula can be filled.  _dt_ is set to 0.
 
 derived_initial_state(Formulas, Constants, State0, State, Options) :-
     select_option(allow_placeholders(true), Options, Options1),
     !,
-    mapsubterms(bind_placeholder, Formulas+Constants, Formulas1+Constants1),
-    derived_initial_state(Formulas1, Constants1, State0, State, Options1).
+    mapsubterms(bind_placeholder,
+                t(Formulas,Constants,State0),
+                t(Formulas1,Constants1,State1)),
+    derived_initial_state(Formulas1, Constants1, State1, State, Options1).
 derived_initial_state(Formulas, Constants, State0, State, Options) :-
-    findall(Key, missing_init(Formulas, Constants, State0, Key, Options), Missing),
+    findall(Key, missing_init(Formulas, Constants, State0, Key), Missing0),
+    sort(Missing0, Missing),
     dt_expression(Formulas, DTExpr0),
     copy_term(DTExpr0, DTExpr),
     0 = DTExpr._DTKey,
@@ -327,7 +332,8 @@ derived_initial_state(Formulas, Constants, State0, State, Options) :-
                      State0, State),
     (   Unresolved == []
     ->  true
-    ;   maplist(q_term_id(Options), Terms, Unresolved),
+    ;   sort(Unresolved, UnresolvedSet),
+        maplist(q_term_id(Options), Terms, UnresolvedSet),
         throw(model_error(no_initial_values(Terms)))
     ).
 
@@ -354,7 +360,13 @@ derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
                      State1, State).
 derived_initials(Missing, Missing, _, _, _, State, State).
 
-missing_init(Formulas, Constants, State, Key, _Options) :-
+%!  missing_init(+Formulas, +Constants, +State, -Key) is nondet.
+%
+%   True when Key appears at the right side of an equation and refers to
+%   a variable for which there is no   constant and that does not appear
+%   in State.
+
+missing_init(Formulas, Constants, State, Key) :-
     get_dict(_Left, Formulas, formula(Right, Bindings)),
     Bindings >:< Constants,
     Bindings >:< State,
@@ -363,16 +375,6 @@ missing_init(Formulas, Constants, State, Key, _Options) :-
     get_dict(Key, Bindings, Var),
     member(Var2, Vars),
     Var2 == Var.
-
-bind_placeholders(Term, Options),
-    option(allow_placeholders(true), Options) =>
-    foldsubterms(bind_placeholder, Term, _, _).
-bind_placeholders(_, _) =>
-    true.
-
-bind_placeholder(placeholder(_Id, Value), _, _), var(Value) =>
-    Value = 1.
-bind_placeholder(_, _, _) => fail.
 
 q_term_id(Options, Term, Id) :-
     q_term(Options, Term, q(Term,Id,_)).
