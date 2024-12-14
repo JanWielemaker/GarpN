@@ -5,16 +5,19 @@
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
             q_series_table/3,           % +QSeries, -Table, +IdMapping
             nq_series/3,                % +Series, -QSeries, +Options
-            save_garp_results/1,        % +File
             qstate/4,                   % +Model, ?Id, -Values, +Options
             zero_asymptote/2,           % +Values, +Options
-            saved_model_file/2,
             q_rel/2,                    % +Model, -Rel
             q_input_state/2,            % +Model, -Dict
             q_exogenous/3,              % +Model, ?Quantity, ?Exegenous
             exogenous/1,                % ?Class
             m_qspace/4                  % +ModelId, ?QspaceId, ?Qspace, ?Values
           ]).
+:- if(\+current_prolog_flag(dynalearn, true)).
+:- export(save_garp_results/1).
+:- export(saved_model_file/2).
+:- endif.
+
 :- use_module(library(apply)).
 :- use_module(library(option)).
 :- use_module(library(pairs)).
