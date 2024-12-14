@@ -309,7 +309,8 @@ prolog_name_followups([]) -->
     [].
 
 prolog_name_part(String) --> [String], {string(String)}, !.
-prolog_name_part('_') --> ['_'], !.
+prolog_name_part(String) --> [blanks(String)], !.
+prolog_name_part(Atom) --> [Atom], {atom(Atom)}, !.
 prolog_name_part('_') --> ['_'()], !.
 prolog_name_part(Int) --> [Int], {integer(Int)}, !.
 
