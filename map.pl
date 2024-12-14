@@ -12,7 +12,8 @@
             q_rel/2,                    % +Model, -Rel
             q_input_state/2,            % +Model, -Dict
             q_exogenous/3,              % +Model, ?Quantity, ?Exegenous
-            exogenous/1                 % ?Class
+            exogenous/1,                % ?Class
+            m_qspace/4                  % +ModelId, ?QspaceId, ?Qspace, ?Values
           ]).
 :- use_module(library(apply)).
 :- use_module(library(option)).
