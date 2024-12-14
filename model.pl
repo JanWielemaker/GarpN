@@ -56,21 +56,25 @@ qrel2nrel(QRels, Left, NRels, NLeft) :-
     ;   true
     ).
 
-qrel2nrel(QRels, Left, [NRel|NRels]) :-
+qrel2nrel(QRels, Left, [Diff := A - B|NRels]) :- % Diff = A-B
+    select(equal(min(A,B), Diff), QRels, QRels1),
+    !,
+    exclude(is_prop(Diff), QRels1, QRels2),
+    qrel2nrel(QRels2, Left, NRels).
+qrel2nrel(QRels, Left, [NRel|NRels]) :-       % multiple prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, Prob),
     partition(is_prop(Dep), QRels1, Props, QRels2),
     Props \== [],
     prop_nrel([Prob|Props], NRel),
     qrel2nrel(QRels2, Left, NRels).
-qrel2nrel(QRels, Left, [NRel|NRels]) :-
+qrel2nrel(QRels, Left, [NRel|NRels]) :-       % multiple integrals on a target
     select(Integral, QRels, QRels1),
     is_inf_by(Dep, Integral),
     partition(is_inf_by(Dep), QRels1, Integrals, QRels2),
     Integrals \== [],
     inf_by_nrel([Integral|Integrals], NRel),
     qrel2nrel(QRels2, Left, NRels).
-
 qrel2nrel(QRels, Left, NRels) :-
     qrel_nrel(Q, N),
     select_graph(Q, QRels, QRels1),
@@ -86,27 +90,6 @@ qrel2nrel(Left, Left, []).
 %
 %   @tbd include quantity spaces into the picture
 
-qrel_nrel([ equal(min(InflA,InflB), Dep),
-            prop_pos(Dep,InflA),
-            prop_neg(Dep,InflB)
-          ],
-          [ Dep := InflA-InflB
-          ]).
-qrel_nrel([ equal(min(InflA,InflB), Dep),
-            prop_pos(Dep,InflB),
-            prop_neg(Dep,InflA)
-          ],
-          [ Dep := InflB-InflA
-          ]).
-qrel_nrel([ equal(min(InflA,InflB), Dep),
-            prop_pos(Dep,InflA)
-          ],
-          [ Dep := InflA-InflB
-          ]).
-qrel_nrel([ equal(min(InflA,InflB), Dep)
-          ],
-          [ Dep := InflB-InflA
-          ]).
 qrel_nrel([inf_pos_by(I,D)], [I := I + D*'Δt']).
 qrel_nrel([inf_neg_by(I,D)], [I := I - D*'Δt']).
 qrel_nrel([prop_pos(Dep,Infl)], [Dep := c*Infl]).
