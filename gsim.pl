@@ -336,11 +336,9 @@ derived_initial_state(Formulas, Constants, State0, State, Options) :-
     (   Unresolved == []
     ->  true
     ;   formulas_needs_init(Formulas, NeedsInit),
-        maplist(q_term_id(Options), NeedsInitTerms, NeedsInit),
-        pp(NeedsInitTerms),
-        sort(Unresolved, UnresolvedSet),
-        maplist(q_term_id(Options), Terms, UnresolvedSet),
-        throw(model_error(no_initial_values(Terms)))
+        ord_intersection(Unresolved, NeedsInit, Init),
+        maplist(q_term_id(Options), InitTerms, Init),
+        throw(model_error(no_initial_values(InitTerms)))
     ).
 
 bind_placeholder(placeholder(_Id, PValue), Value) :-
@@ -348,6 +346,12 @@ bind_placeholder(placeholder(_Id, PValue), Value) :-
     ->  Value = PValue
     ;   Value = 1
     ).
+
+%!  derived_initials(+Missing, -Unresolved:ordset, +Formulas, +DTExpr,
+%!                   +Constants, +State0, -State) is det.
+%
+%   Remove missing values that can be   computed  from other fully known
+%   values.
 
 derived_initials([], [], _, _, _, State, State) :-
     !.
@@ -364,7 +368,8 @@ derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
     State1 = State0.put(Key,Value),
     derived_initials(Missing1, Unres, Formulas, DTExpr, Constants,
                      State1, State).
-derived_initials(Missing, Missing, _, _, _, State, State).
+derived_initials(Missing, Unresolved, _, _, _, State, State) :-
+    sort(Missing, Unresolved).
 
 %!  missing_init(+Formulas, +Constants, +State, -Key) is nondet.
 %
@@ -385,7 +390,7 @@ missing_init(Formulas, Constants, State, Key) :-
 q_term_id(Options, Term, Id) :-
     q_term(Options, Term, q(Term,Id,_)).
 
-%!  formulas_needs_init(+Formulas, -NeedsInit) is det.
+%!  formulas_needs_init(+Formulas, -NeedsInit:ordset) is det.
 %
 %   Find the variables that require to be initialized.  That is
 %    - Any variable that depends on itself (i.e., integrations)
@@ -395,7 +400,8 @@ formulas_needs_init(Formulas, NeedsInit) :-
     formulas_ugraph(Formulas, UGRaph),
     ugraph_remove_cycles(UGRaph, UGRaph1, Vertices),
     ugraph_layers(UGRaph1, [First|_]),
-    append(Vertices, First, NeedsInit).
+    append(Vertices, First, NeedsInit0),
+    sort(NeedsInit0, NeedsInit).
 
 ugraph_remove_cycles(UGRaph0, UGRaph, Vertices) :-
     ugraph_remove_self_cycles(UGRaph0, UGRaph1, Del0),
