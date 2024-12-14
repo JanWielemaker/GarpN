@@ -165,14 +165,16 @@ model_menu(_Default) -->
                   'hx-target'('#quantity_controls'),
                   name(model)
                 ],
-                \sequence(dl_project, Models.result))).
+                [ option(value(none), 'Please select a model from Dynalearn')
+                | \sequence(dl_project, Models.result)
+                ])).
 
 dl_project(Project) -->
     sequence(dl_model(Project.project_code), Project.models).
 
 dl_model(Project, Model) -->
     html(option([value(Model.id)],
-                '[~w] ~w (~w)'-[Project, Model.id, Model.user])).
+                '[~w] ~w (~w)'-[Project, Model.title, Model.user])).
 
 :- else.
 % Fill menu from local files, using local Garp

@@ -38,7 +38,9 @@
 id_mapping(Mapping) :-
     id_mapping(engine, Mapping).
 
-id_mapping(Model, Mapping) :-
+id_mapping(none, Mapping) =>
+    Mapping = #{}.
+id_mapping(Model, Mapping) =>
     findall(Id-Term, id_map(Model, Id, Term), Pairs),
     dict_pairs(Mapping, _, Pairs).
 
