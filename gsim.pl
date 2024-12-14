@@ -314,6 +314,9 @@ derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
 %   Extend the initial state. We do so  by evaluating formulas for which
 %   the right side is known and add these  to the state. This process is
 %   repeated until no formula can be filled.  _dt_ is set to 0.
+%
+%   @throw model_error(no_initial_values(Terms)) for the variables that
+%   require an initial value that is not given.
 
 derived_initial_state(Formulas, Constants, State0, State, Options) :-
     select_option(allow_placeholders(true), Options, Options1),
@@ -332,7 +335,10 @@ derived_initial_state(Formulas, Constants, State0, State, Options) :-
                      State0, State),
     (   Unresolved == []
     ->  true
-    ;   sort(Unresolved, UnresolvedSet),
+    ;   formulas_needs_init(Formulas, NeedsInit),
+        maplist(q_term_id(Options), NeedsInitTerms, NeedsInit),
+        pp(NeedsInitTerms),
+        sort(Unresolved, UnresolvedSet),
         maplist(q_term_id(Options), Terms, UnresolvedSet),
         throw(model_error(no_initial_values(Terms)))
     ).
@@ -378,6 +384,79 @@ missing_init(Formulas, Constants, State, Key) :-
 
 q_term_id(Options, Term, Id) :-
     q_term(Options, Term, q(Term,Id,_)).
+
+%!  formulas_needs_init(+Formulas, -NeedsInit) is det.
+%
+%   Find the variables that require to be initialized.  That is
+%    - Any variable that depends on itself (i.e., integrations)
+%    - Any _source_ of the dependency graph.
+
+formulas_needs_init(Formulas, NeedsInit) :-
+    formulas_ugraph(Formulas, UGRaph),
+    ugraph_remove_cycles(UGRaph, UGRaph1, Vertices),
+    ugraph_layers(UGRaph1, [First|_]),
+    append(Vertices, First, NeedsInit).
+
+ugraph_remove_cycles(UGRaph0, UGRaph, Vertices) :-
+    ugraph_remove_self_cycles(UGRaph0, UGRaph1, Del0),
+    ugraph_remove_other_cycles(UGRaph1, UGRaph, Del1),
+    append(Del0, Del1, Del),
+    sort(Del, Vertices).
+
+ugraph_remove_self_cycles([], [], []).
+ugraph_remove_self_cycles([V-E0|T0], [V-E|T], [V|DT]) :-
+    selectchk(V, E0, E),
+    !,
+    ugraph_remove_self_cycles(T0, T, DT).
+ugraph_remove_self_cycles([VE|T0], [VE|T], Del) :-
+    ugraph_remove_self_cycles(T0, T, Del).
+
+ugraph_remove_other_cycles(UGRaph0, UGRaph, Del) :-
+    ugraph_layers(UGRaph0, _), !,
+    UGRaph = UGRaph0,
+    Del = [].
+ugraph_remove_other_cycles(UGRaph0, UGRaph, [V|Del]) :-
+    findall(Cycle, ugraph_cycle(UGRaph0, Cycle), Cycles),
+    shortest_cycle(Cycles, V-_),
+    del_vertices(UGRaph0, [V], UGRaph1),
+    ugraph_remove_other_cycles(UGRaph1, UGRaph, Del).
+
+ugraph_cycle(UGRaph, V0-Path) :-
+    member(V0-To, UGRaph),
+    once(bf_reachable(To, UGRaph, V0, To, Path)).
+
+bf_reachable([V0|_], _, V0, _Seen, [V0]).
+bf_reachable([V0|Agenda], UGRaph, V, Seen, [V0|Path]) :-
+    memberchk(V0-To, UGRaph),
+    ord_subtract(To, Seen, New),
+    append(Agenda, New, Agenda1),
+    ord_union(New, Seen, Seen1),
+    bf_reachable(Agenda1, UGRaph, V, Seen1, Path).
+
+shortest_cycle(Cycles, Cycle) :-
+    map_list_to_pairs(cycle_length, Cycles, Keyed),
+    keysort(Keyed, [_-Cycle|_]).
+
+cycle_length(_V-L, Len) :-
+    length(L, Len).
+
+
+%!  formulas_ugraph(+Formulas, -UGRaph) is det.
+%
+%   Create a ugraph holding all InVar-OutVar edges.
+
+formulas_ugraph(Formulas, UGRaph) :-
+    dict_pairs(Formulas, _, FPairs),
+    maplist(formula_edges, FPairs, EdgesL),
+    append(EdgesL, Edges),
+    vertices_edges_to_ugraph([], Edges, UGRaph).
+
+formula_edges(Left-formula(_Right,Bindings), Edges) :-
+    dict_keys(Bindings, RVars),
+    maplist(mk_edge(Left), RVars, Edges).
+
+mk_edge(LVar, RVal, RVal-LVar).
+
 
 %!  intern_constants(+Constants, -DTExpr, +FormualsIn, -Formuals) is det.
 %
