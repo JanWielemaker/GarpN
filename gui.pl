@@ -814,13 +814,15 @@ run_model(Request) :-
     ),
     form_derivatives(Form, Derivatives),
     id_mapping(Model, IdMapping),
+    qspaces(Model, QSpaces),
     Options = [ model(Model),
                 match(Derivatives),
                 iterations(Iterations),
                 method(Method),
                 track(Track),
                 sample(Sample),
-                id_mapping(IdMapping)
+                id_mapping(IdMapping),
+                qspaces(QSpaces)
               ],
     latex_to_prolog_source(MlSource, Source),
     call_time(simulate(string(Source), Series, Options), Time),
@@ -842,6 +844,14 @@ run_model(Request) :-
                  div([id('mapping-table'),class(narrow)], [&(nbsp)]),
                  \download_links(Source, Options)
                ]).
+
+%!  qspaces(+Model, -QSpaces) is det.
+%
+%   @arg QSpaces is a dict Quantity -> QualitativeValues.
+
+qspaces(Model, QSpaces) :-
+    findall(Q-Values, m_qspace(Model, Q, _QName, Values), Pairs),
+    dict_pairs(QSpaces, #, Pairs).
 
 traces(VTraces, DTraces, Shapes) -->
     { append(VTraces, DTraces, Traces)

@@ -572,22 +572,24 @@ local_extremes(_, [], []).
 		 *       NUM -> QUALITATIVE	*
 		 *******************************/
 
-%!  series_qualitative(+Series, -Qualitative) is det.
+%!  series_qualitative(+Series, -Qualitative, +Options) is det.
 %
 %   Where Series is a list of  dicts   holding  values, Qualitative is a
 %   list of qualitative states.
 %
 %   @tbd Deal with quatity spaces. Currently assumes all quantity spaces
-%   are {negative, zero, possitive}, represented   as  `min`, `zero` and
+%   are {negative, zero, positive},  represented   as  `min`, `zero` and
 %   `plus`.
 
-series_qualitative(Series, Qualitative) :-
-    stable_from(Series, Asymptotes, Time, []),
+series_qualitative(Series, Qualitative, Options) :-
+    stable_from(Series, Asymptotes, Time, Options),
     !,
+    option(qspaces(QSpaces), Options),
     stable_min_derivatives(Asymptotes, Asymptotes1),
-    maplist(state_qualitative_a(Asymptotes1,Time), Series, Qualitative).
-series_qualitative(Series, Qualitative) :-
-    maplist(state_qualitative, Series, Qualitative).
+    maplist(state_qualitative_a(Asymptotes1,Time,QSpaces), Series, Qualitative).
+series_qualitative(Series, Qualitative, Options) :-
+    option(qspaces(QSpaces), Options),
+    maplist(state_qualitative(QSpaces), Series, Qualitative).
 
 stable_min_derivatives(Asymptotes0, Asymptotes) :-
     sort(Asymptotes0, Asymptotes1),
@@ -602,17 +604,24 @@ stable_min_derivatives_([H1,H2|T0], T) :-
 stable_min_derivatives_([H|T0], [H|T]) :-
     stable_min_derivatives_(T0, T).
 
-state_qualitative_a(Asymptotes, Time, Dict, QDict) :-
+%!  state_qualitative_a(+Asymptotes, +Time, +QSpaces, +NDict, -QDict) is
+%!                      det.
+%
+%   Turn the numeric  state  NDict  into   a  qualitative  state  QDict,
+%   considering that all quantities in  Asymptotes are considered `zero`
+%   after Time.
+
+state_qualitative_a(Asymptotes, Time, QSpaces, Dict, QDict) :-
     (   Dict.t >= Time
-    ->  mapdict(to_qualitative_z(Asymptotes), Dict, QDict)
-    ;   mapdict(to_qualitative, Dict, QDict)
+    ->  mapdict(to_qualitative_z(Asymptotes, QSpaces), Dict, QDict)
+    ;   mapdict(to_qualitative(QSpaces), Dict, QDict)
     ).
 
-state_qualitative(Dict, QDict) :-
-    mapdict(to_qualitative, Dict, QDict).
+state_qualitative(QSpaces, Dict, QDict) :-
+    mapdict(to_qualitative(QSpaces), Dict, QDict).
 
-to_qualitative_z(Asymptotes, Q, V0, R) :-
-    to_qualitative(Q, V0, R0),
+to_qualitative_z(Asymptotes, QSpaces, Q, V0, R) :-
+    to_qualitative(QSpaces, Q, V0, R0),
     (   memberchk(asymptote(Q,D,_), Asymptotes)
     ->  to_zero(D, R0, R)
     ;   R = R0
@@ -629,26 +638,100 @@ to_zero(0, _, R) => R = zero.
 
 to_zero(_, zero).
 
-to_qualitative(Q, d(V,D1), R) =>
+%!  to_qualitative(+QSpaces, +Quantity, +NumIn, -QOut) is det.
+%
+%   Map a numeric result NumIn for Quantity into a qualitative result
+%   QOut.
+%
+%   @arg NumIn is either a plain number, a term d(V,D1), term d(V,D1,D2)
+%   or term d(V,D1,D3).  Each Dn must be mapped to plus/min/zero.  Each
+%   V must be mapped to the quantity space.
+
+to_qualitative(_, t, T, R) => R = T.
+to_qualitative(QSpaces, Q, d(V,D1), R) =>
     R = d(QV,QD1),
-    to_qualitative(Q, V, QV),
-    to_qualitative(_, D1, QD1).
-to_qualitative(Q, d(V,D1,D2), R) =>
+    to_qualitative_v(QSpaces, Q, V, QV),
+    to_qualitative_d(D1, QD1).
+to_qualitative(QSpaces, Q, d(V,D1,D2), R) =>
     R = d(QV,QD1,QD2),
-    to_qualitative(Q, V, QV),
-    to_qualitative(_, D1, QD1),
-    to_qualitative(_, D2, QD2).
-to_qualitative(Q, d(V,D1,D2,D3), R) =>
+    to_qualitative_v(QSpaces, Q, V, QV),
+    to_qualitative_d(D1, QD1),
+    to_qualitative_d(D2, QD2).
+to_qualitative(QSpaces, Q, d(V,D1,D2,D3), R) =>
     R = d(QV,QD1,QD2,QD3),
-    to_qualitative(Q, V, QV),
-    to_qualitative(_, D1, QD1),
-    to_qualitative(_, D2, QD2),
-    to_qualitative(_, D3, QD3).
-to_qualitative(t, T, R) => R = T.
-to_qualitative(_, V, _), \+ normal_number(V)  => true.
-to_qualitative(_, V, D), V > 0   => D = plus.
-to_qualitative(_, V, D), V < 0   => D = min.
-to_qualitative(_, V, D), V =:= 0 => D = zero.
+    to_qualitative_v(QSpaces, Q, V, QV),
+    to_qualitative_d(D1, QD1),
+    to_qualitative_d(D2, QD2),
+    to_qualitative_d(D3, QD3).
+to_qualitative(QSpaces, Q, V, QV) =>
+    to_qualitative_v(QSpaces, Q, V, QV).
+
+to_qualitative_d(V, _), \+ normal_number(V)  => true.
+to_qualitative_d(V, D), V > 0   => D = plus.
+to_qualitative_d(V, D), V < 0   => D = min.
+to_qualitative_d(V, D), V =:= 0 => D = zero.
+
+to_qualitative_v(_QSpaces, _, V, _), \+ normal_number(V)  => true.
+to_qualitative_v(QSpaces, Q, V, VQ), QSpace = QSpaces.get(Q) =>
+    n_to_qualitative(QSpace, V, VQ).
+to_qualitative_v(_, _, V, VQ) =>
+    to_qualitative_d(V, VQ).
+
+%!  n_to_qualitative(+QSpace, +Num, -QValue) is det.
+%
+%   Map Num into a qualitative name from QSpace.
+%
+%   @arg QValue is one  of  point(Name),  Name   or  a  variable  if the
+%   quantity space is undefined (`[interval]`).
+
+n_to_qualitative([interval], _V, _VQ) => true.
+n_to_qualitative([Name,point(P)|_], V, VQ),
+    qspace_value(point(P), PV),
+    V =< PV =>
+    (   V < PV
+    ->  VQ = Name
+    ;   VQ = point(P)
+    ).
+n_to_qualitative([point(P)|_], V, VQ),
+    qspace_value(P, PV),
+    V =< PV =>
+    (   V < PV
+    ->  VQ = error
+    ;   VQ = point(P)
+    ).
+n_to_qualitative(List, V, VQ),
+    append(_, [point(P), Name], List),
+    qspace_value(P, PV),
+    V >= PV =>
+    (   V > PV
+    ->  VQ = Name
+    ;   VQ = point(P)
+    ).
+n_to_qualitative(List, V, VQ),
+    append(_, [point(P)], List),
+    qspace_value(P, PV),
+    V >= PV =>
+    (   V > PV
+    ->  VQ = error
+    ;   VQ = point(P)
+    ).
+n_to_qualitative(List, V, VQ) =>
+    append(_, [point(P1),Name,point(P2)|_], List),
+    qspace_value(P1, N1),
+    qspace_value(P2, N2),
+    (   V =:= N1
+    ->  VQ = point(P1)
+    ;   V =:= N2
+    ->  VQ = point(P2)
+    ;   V > N1, V < N2
+    ->  VQ = Name
+    ),
+    !.
+
+qspace_value(zero, V) => V = 0.0.
+qspace_value(N, V), number(N) => V = N.
+qspace_value(A, V), atom_number(A,N) => V = N.
+% TBD: others must be provided by the user.
 
 %!  opt_link_garp_states(+QSeries0, -QSeries, +Options) is det.
 
@@ -698,15 +781,17 @@ q_series(Source, QSeries, Options) :-
 %   Map the numeric Series into a qualitative QSeries.  Options:
 %
 %     - match(Derivatives)
-%     Derivatives is a dict `Quantity -> List`, where
-%     `List` holds a subset of [0,1,2].
+%       Derivatives is a dict `Quantity -> List`, where
+%       `List` holds a subset of [0,1,2].
 %     - link_garp_states(+Bool)
-%     Find related Garp states.
+%       Find related Garp states.
+%     - qspaces(Dict)
+%       Dict mapping quantities to their qualitative value space
 
 nq_series(Series, QSeries, Options) :-
     deleted_unmatched(Series, Series1, Options),
     add_derivatives(Series1, SeriesD, Options),
-    series_qualitative(SeriesD, QSeries0),
+    series_qualitative(SeriesD, QSeries0, Options),
     simplify_qseries(QSeries0, QSeries1),
     opt_link_garp_states(QSeries1, QSeries, Options).
 
