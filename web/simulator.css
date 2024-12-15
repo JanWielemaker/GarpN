@@ -1,10 +1,21 @@
 div.narrow {
+    position: relative;
     width: 90%;
     margin: auto;
 }
 
+section.columns {
+    display: flex;
+}
+
+section.columns > div {
+    position: relative;
+    flex-basis: 0px;
+    flex-grow: 1;
+}
+
 div.model {
-    sizing: border-box;
+    box-sizing: border-box;
 }
 
 span.init-model-buttons {

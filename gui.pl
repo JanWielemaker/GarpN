@@ -106,31 +106,18 @@ home -->
                                   ],
                                   [ div([id('ml-model')],
                                         \mathlive_model(Model, Source, [])),
-                                    div([id(quantity_controls)],
-                                        \q_menu(Model, Source)),
-                                    div(class([controls]),
-                                        [ label(for(iterations),
-                                                '# Iterations'),
-                                          input([ type(number),
-                                                  name(iterations),
-                                                  min(10),
-                                                  value(1000),
-                                                  max(100_000)
-                                                ]),
-                                          ' ',
-                                          \methods,
-                                          input([ type(hidden), name(track), value(all)]),
-                                          input([ type(hidden), name(model), id(model),
-                                                  value(Model)
-                                                ]),
-                                          ' ',
-                                          input([ type(submit),
-                                                  value("Run!")
-                                                ])
-                                        ])
-                                  ]),
-                             div([id(errors)], []),
-                             div([id(status)], [])
+                                    section(class(columns),
+                                            [ div([class(left)],
+                                                  [ div([id(quantity_controls)],
+                                                        \q_menu(Model, Source))
+                                                  ]),
+                                              div([class(right)],
+                                                  [ \run_controls(Model),
+                                                    div([id(errors)], []),
+                                                    div([id(status)], [])
+                                                  ])
+                                            ])
+                                  ])
                            ])
                      ]),
                  div(id(results), []),
@@ -242,6 +229,31 @@ save_model_button -->
                 ], '\U0001F4E4')).
 
 
+%!  run_controls(++Model)// is det.
+%
+%   Emit the controls for running the simulation
+
+run_controls(Model) -->
+    html(div(class([controls]),
+             [ label(for(iterations),
+                     '# Iterations'),
+               input([ type(number),
+                       name(iterations),
+                       min(10),
+                       value(1000),
+                       max(100_000)
+                     ]),
+               ' ',
+               \methods,
+               input([ type(hidden), name(track), value(all)]),
+               input([ type(hidden), name(model), id(model),
+                       value(Model)
+                     ]),
+               ' ',
+               input([ type(submit),
+                       value("Run!")
+                     ])
+             ])).
 
 %!  methods//
 %
