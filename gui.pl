@@ -112,7 +112,9 @@ home -->
                                                         \q_menu(Model, Source))
                                                   ]),
                                               div([class(right)],
-                                                  [ \run_controls(Model),
+                                                  [ div(id('qspace-control'),
+                                                        \qspace_controls(Model)),
+                                                    \run_controls(Model),
                                                     div([id(errors)], []),
                                                     div([id(status)], [])
                                                   ])
@@ -454,6 +456,45 @@ derivatives_select(Name) -->
            td(class('link'), input([type(checkbox), name(ND1), checked])),
            td(class('link'), input([type(checkbox), name(ND2)]))
          ]).
+
+%!  qspace_controls(+Model)// is det.
+%
+%   Provides controls to define quantity space  points for which we need
+%   a value.
+
+qspace_controls(none) -->
+    !.
+qspace_controls(Model) -->
+    foreach(m_qspace(Model, QspaceId, _QSpaceName, Values),
+            qspace_control(QspaceId, Values)).
+
+qspace_control(QspaceId, Values),
+    member(point(P), Values),
+    \+ qspace_point_value(P, _) ==>
+    html(div([ class('qspace-control'),
+               id(QspaceId)
+             ],
+             \sequence(qspace_element, Values))).
+qspace_control(_QspaceId, _Values) ==>
+    [].
+
+qspace_element(point(Name)) ==>
+    { (   qspace_point_value(Name, PreDef)
+      ->  Extra = [value(PreDef), disabled]
+      ;   Extra = []
+      )
+    },
+    html(div(class('qspace-point'),
+             [ span(Name),
+               input([ type(number),
+                       name(Name)
+                     | Extra
+                     ])
+             ])).
+qspace_element(Name) ==>
+    html(span(class('qspace-interval'), '~w'-[Name])).
+
+%!  model_issues(+Error)//
 
 model_issues(model_error(no_time_formulas)) ==>
     html(div(class(warning),

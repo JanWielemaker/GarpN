@@ -11,7 +11,8 @@
             q_input_state/2,            % +Model, -Dict
             q_exogenous/3,              % +Model, ?Quantity, ?Exegenous
             exogenous/1,                % ?Class
-            m_qspace/4                  % +ModelId, ?QspaceId, ?Qspace, ?Values
+            m_qspace/4,                 % +ModelId, ?QspaceId, ?Qspace, ?Values
+            qspace_point_value/2        % +Name, -Number
           ]).
 :- if(\+current_prolog_flag(dynalearn, true)).
 :- export(save_garp_results/1).
@@ -666,59 +667,59 @@ to_qualitative(QSpaces, Q, d(V,D1,D2,D3), R) =>
 to_qualitative(QSpaces, Q, V, QV) =>
     to_qualitative_v(QSpaces, Q, V, QV).
 
-to_qualitative_d(V, _), \+ normal_number(V)  => true.
+to_qualitative_d(V, _), \+ normal_number(V) => true.
 to_qualitative_d(V, D), V > 0   => D = plus.
 to_qualitative_d(V, D), V < 0   => D = min.
 to_qualitative_d(V, D), V =:= 0 => D = zero.
 
-to_qualitative_v(_QSpaces, _, V, _), \+ normal_number(V)  => true.
+to_qualitative_v(_QSpaces, _, V, _), \+ normal_number(V) => true.
 to_qualitative_v(QSpaces, Q, V, VQ), QSpace = QSpaces.get(Q) =>
-    n_to_qualitative(QSpace, V, VQ).
+    n_to_qualitative(QSpace, Q, V, VQ).
 to_qualitative_v(_, _, V, VQ) =>
     to_qualitative_d(V, VQ).
 
-%!  n_to_qualitative(+QSpace, +Num, -QValue) is det.
+%!  n_to_qualitative(+QSpace, +Quantity, +Num, -QValue) is det.
 %
 %   Map Num into a qualitative name from QSpace.
 %
 %   @arg QValue is one  of  point(Name),  Name   or  a  variable  if the
 %   quantity space is undefined (`[interval]`).
 
-n_to_qualitative([interval], _V, _VQ) => true.
-n_to_qualitative([Name,point(P)|_], V, VQ),
-    qspace_value(point(P), PV),
+n_to_qualitative([interval], _Q, _V, _VQ) => true.
+n_to_qualitative([Name,point(P)|_], Q, V, VQ),
+    qspace_point_value(Q, P, PV),
     V =< PV =>
     (   V < PV
     ->  VQ = Name
     ;   VQ = point(P)
     ).
-n_to_qualitative([point(P)|_], V, VQ),
-    qspace_value(P, PV),
+n_to_qualitative([point(P)|_], Q, V, VQ),
+    qspace_point_value(Q, P, PV),
     V =< PV =>
     (   V < PV
     ->  VQ = error
     ;   VQ = point(P)
     ).
-n_to_qualitative(List, V, VQ),
+n_to_qualitative(List, Q, V, VQ),
     append(_, [point(P), Name], List),
-    qspace_value(P, PV),
+    qspace_point_value(Q, P, PV),
     V >= PV =>
     (   V > PV
     ->  VQ = Name
     ;   VQ = point(P)
     ).
-n_to_qualitative(List, V, VQ),
+n_to_qualitative(List, Q, V, VQ),
     append(_, [point(P)], List),
-    qspace_value(P, PV),
+    qspace_point_value(Q, P, PV),
     V >= PV =>
     (   V > PV
     ->  VQ = error
     ;   VQ = point(P)
     ).
-n_to_qualitative(List, V, VQ) =>
+n_to_qualitative(List, Q, V, VQ) =>
     append(_, [point(P1),Name,point(P2)|_], List),
-    qspace_value(P1, N1),
-    qspace_value(P2, N2),
+    qspace_point_value(Q, P1, N1),
+    qspace_point_value(Q, P2, N2),
     (   V =:= N1
     ->  VQ = point(P1)
     ;   V =:= N2
@@ -728,10 +729,20 @@ n_to_qualitative(List, V, VQ) =>
     ),
     !.
 
-qspace_value(zero, V) => V = 0.0.
-qspace_value(N, V), number(N) => V = N.
-qspace_value(A, V), atom_number(A,N) => V = N.
-% TBD: others must be provided by the user.
+%!  qspace_point_value(+Quantity, +Name, -Number) is det.
+
+% TBD: Get from configuration
+qspace_point_value(_Quantity, Name, Value),
+    qspace_point_value(Name, Value0) =>
+    Value = Value0.
+
+%!  qspace_point_value(+Name, -Number) is semidet.
+%
+%   Well known quantity space point values.
+
+qspace_point_value(zero, V) => V = 0.0.
+qspace_point_value(N, V), number(N) => V = N.
+qspace_point_value(A, V), atom_number(A,N) => V = N.
 
 %!  opt_link_garp_states(+QSeries0, -QSeries, +Options) is det.
 
