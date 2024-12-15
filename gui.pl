@@ -129,7 +129,8 @@ home -->
                                                 ])
                                         ])
                                   ]),
-                             div([id(errors)], [])
+                             div([id(errors)], []),
+                             div([id(status)], [])
                            ])
                      ]),
                  div(id(results), []),
@@ -218,6 +219,7 @@ init_model_menu -->
     !,
     html(span(class('init-model-buttons'),
               [ \model_button('\U0001F9F9', wipe_model,    "Clear model"),
+                \save_model_button,
                 \model_button('\U0001F4E5', load_model, "Load reference model"),
                 \model_button('\u2728',     propose_model, "Propose model")
               ])).
@@ -229,6 +231,16 @@ model_button(Label, Target, Title) -->
                   'hx-target'('#quantity_controls'),
                   title(Title)
                 ], Label)).
+
+save_model_button -->
+    { http_link_to_id(save_model, [], HREF) },
+    html(button([ 'hx-get'(HREF),
+                  'hx-vals'('js:{model: currentModel(), \c
+                                 ml_source: ml_value_string()}'),
+                  'hx-target'('#status'),
+                  title('Save as reference model')
+                ], '\U0001F4E4')).
+
 
 
 %!  methods//
@@ -270,6 +282,7 @@ default_model(none, "").
 :- http_handler(htmx(run), run_model, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
 :- http_handler(htmx('set-model'),     set_model_handler, []).
+:- http_handler(htmx('save-model'),    save_model, []).
 :- http_handler(htmx('load-model'),    load_model, []).
 :- http_handler(htmx('wipe-model'),    wipe_model, []).
 :- http_handler(htmx('propose-model'), propose_model, []).
@@ -330,6 +343,23 @@ load_model(Request) :-
                      [ model(Model, [])
                      ]),
     set_model(Model).
+
+%!  save_model(Request)
+%
+%   Save the current model as reference model
+
+save_model(Request) :-
+    http_parameters(Request,
+                     [ model(Model, []),
+                       ml_source(LaTeX, [])
+                     ]),
+    numeric_model_file(Model, File),
+    latex_to_prolog_source(LaTeX, Source),
+    setup_call_cleanup(
+        open(File, write, Out, [encoding(utf8)]),
+        format(Out, '~s', [Source]),
+        close(Out)),
+    reply_htmx('Saved model').
 
 %!  wipe_model(+Request)
 %

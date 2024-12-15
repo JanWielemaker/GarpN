@@ -40,6 +40,7 @@ function getPlotCoordinates(div, ev)
 
 function clear_output()
 { document.getElementById("errors").innerHTML = "";
+  document.getElementById("status").innerHTML = "";
   document.getElementById("results").innerHTML = "";
 }
 
