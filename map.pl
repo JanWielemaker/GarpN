@@ -792,7 +792,7 @@ nq_series(Series, QSeries, Options) :-
     deleted_unmatched(Series, Series1, Options),
     add_derivatives(Series1, SeriesD, Options),
     series_qualitative(SeriesD, QSeries0, Options),
-    simplify_qseries(QSeries0, QSeries1),
+    simplify_qseries(QSeries0, QSeries1, Options),
     opt_link_garp_states(QSeries1, QSeries, Options).
 
 %!  deleted_unmatched(+AllSeries, -Series, +Options)
@@ -879,7 +879,7 @@ copy_derivatives([H|T], D, R) :-
     arg(A, R, V),
     copy_derivatives(T, D, R).
 
-%!  simplify_qseries(+QSeries0, -QSeries) is det.
+%!  simplify_qseries(+QSeries0, -QSeries, +Options) is det.
 %
 %   Tasks:
 %
@@ -891,8 +891,9 @@ copy_derivatives([H|T], D, R) :-
 %   first and last of am equal series to keep the start and
 %   end time.
 
-simplify_qseries(Series0, Series) :-
-    insert_points(Series0, Series1),
+simplify_qseries(Series0, Series, Options) :-
+    option(qspaces(QSpaces), Options),
+    insert_points(Series0, Series1, QSpaces),
     removes_equal_sequences(Series1, Series).
 
 removes_equal_sequences([], T) => T = [].
@@ -910,52 +911,73 @@ same_qstate(S1, S2),
     del_dict(t, S2, _, B) =>
     A =@= B.
 
-insert_points([], []).
-insert_points([S1,S2|T0], [S1,Si|T]) :-
-    insert_point(S1, S2, Si),
+insert_points([], [], _).
+insert_points([S1,S2|T0], [S1,Si|T], QSpaces) :-
+    insert_point(S1, S2, Si, QSpaces),
     !,
-    insert_points([S2|T0], T).
-insert_points([S1|T0], [S1|T]) :-
-    insert_points(T0, T).
+    insert_points([S2|T0], T, QSpaces).
+insert_points([S1|T0], [S1|T], QSpaces) :-
+    insert_points(T0, T, QSpaces).
 
-insert_point(S1, S2, Si) :-
-    dict_pairs(S1, _, Pairs),
-    maplist(insert_value(S2, Done), Pairs, PairsI),
-    Done == true,
-    dict_pairs(Si, _, PairsI).
+%!  insert_point(+S1, +S2, -Si, +QSpaces) is semidet.
+%
+%   True when Si needs to be inserted between   S1 and S2 because one or
+%   more variables crossed a point in the  quantity space. S1 and S2 are
+%   qualitative states.
 
-:- det(insert_value/4).
-insert_value(S2, _, t-V1, t-Vi) :-
+insert_point(S1, S2, Si, QSpaces) :-
+    mapdict(insert_value(S2, QSpaces, Done), S1, Si),
+    Done == true.
+
+%!  insert_value(+State2, QSpaces, -Done, +Q, +V1, -Vi) is det.
+
+:- det(insert_value/6).
+insert_value(S2, _, _, t, V1, Vi) :-
     !,
     get_dict(t, S2, V2),
     Vi is (V1+V2)/2.
-insert_value(S2, Done, K-V1, K-Vi) :-
-    get_dict(K, S2, V2),
-    insert_value_(V1, V2, Vi, Done).
+insert_value(S2, QSpaces, Done, Q, V1, Vi) :-
+    get_dict(Q, S2, V2),
+    insert_value_(Q, QSpaces, V1, V2, Vi, Done).
 
-insert_value_(d(V1,D11,D12,D13), d(V2,D21,D22,D23), R, Done) =>
+insert_value_(Q, QSpaces, d(V1,D11,D12,D13), d(V2,D21,D22,D23), R, Done) =>
     R = d(Vi,D1i,D2i,D3i),
-    insert_value_(V1, V2, Vi, Done),
-    insert_value_(D11, D21, D1i, Done),
-    insert_value_(D12, D22, D2i, Done),
-    insert_value_(D13, D23, D3i, Done).
-insert_value_(d(V1,D11,D12), d(V2,D21,D22), R, Done) =>
+    insert_value_v(Q, QSpaces, V1, V2, Vi, Done),
+    insert_value_d(D11, D21, D1i, Done),
+    insert_value_d(D12, D22, D2i, Done),
+    insert_value_d(D13, D23, D3i, Done).
+insert_value_(Q, QSpaces, d(V1,D11,D12), d(V2,D21,D22), R, Done) =>
     R = d(Vi, D1i, D2i),
-    insert_value_(V1, V2, Vi, Done),
-    insert_value_(D11, D21, D1i, Done),
-    insert_value_(D12, D22, D2i, Done).
-insert_value_(d(V1,D11), d(V2,D21), R, Done) =>
+    insert_value_v(Q, QSpaces, V1, V2, Vi, Done),
+    insert_value_d(D11, D21, D1i, Done),
+    insert_value_d(D12, D22, D2i, Done).
+insert_value_(Q, QSpaces, d(V1,D11), d(V2,D21), R, Done) =>
     R = d(Vi, D1i),
-    insert_value_(V1, V2, Vi, Done),
-    insert_value_(D11, D21, D1i, Done).
-insert_value_(min, plus, Vi, Done) => Vi = zero, Done = true.
-insert_value_(plus, min, Vi, Done) => Vi = zero, Done = true.
-insert_value_(V, V, Vi, _Done) => Vi = V.
-insert_value_(zero, V, Vi, _Done) => Vi = V.
-insert_value_(V, zero, Vi, _Done) => Vi = V.
-insert_value_(Var, _, _, _Done), var(Var) => true.
-insert_value_(_, Var, _, _Done), var(Var) => true.
+    insert_value_v(Q, QSpaces, V1, V2, Vi, Done),
+    insert_value_d(D11, D21, D1i, Done).
+insert_value_(Q, QSpaces, V1, V2, Vi, Done) =>
+    insert_value_v(Q, QSpaces, V1, V2, Vi, Done).
 
+insert_value_d(V, V, Vi, _Done) => Vi = V.
+insert_value_d(min, plus, Vi, Done) => Vi = zero, Done = true.
+insert_value_d(plus, min, Vi, Done) => Vi = zero, Done = true.
+insert_value_d(zero, V, Vi, _Done) => Vi = V.
+insert_value_d(V, zero, Vi, _Done) => Vi = V.
+insert_value_d(Var, _, _, _Done), var(Var) => true.
+insert_value_d(_, Var, _, _Done), var(Var) => true.
+
+insert_value_v(_Q, _QSpaces, V, V, Vi, _Done) => Vi = V.
+insert_value_v(_Q, _QSpaces, V, point(_), Vi, _Done) => Vi = V.
+insert_value_v(_Q, _QSpaces, point(_), V, Vi, _Done) => Vi = V.
+insert_value_v(_Q, _QSpaces, Var, _, _, _Done), var(Var) => true.
+insert_value_v(_Q, _QSpaces, _, Var, _, _Done), var(Var) => true.
+insert_value_v(Q, QSpaces, V1, V2, Vi, Done) =>
+    (   Values = QSpaces.get(Q),
+        append(_, [V1,point(P),V2|_], Values)
+    ->  Vi = point(P),
+        Done = true
+    ;   Vi = V1
+    ).
 
 		 /*******************************
 		 *              CSV		*
