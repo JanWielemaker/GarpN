@@ -1,6 +1,7 @@
 :- module(dynalearn,
           [ dynalearn_models/1,         % -Models
-            dynalearn_model/2           % ++Id, -Model
+            dynalearn_model/2,          % ++Id, -Model
+            flush_dynalearn_model/1
           ]).
 :- use_module(library(uri)).
 :- use_module(library(http/http_client)).
@@ -26,15 +27,31 @@ dynalearn_models(Models) :-
                json_object(dict)
              ]).
 
+:- dynamic dynalearn_model_cache/2.
+
+%!  flush_dynalearn_model(++Id)
+%
+%   Flush the downloaded model
+
+flush_dynalearn_model(Id) :-
+    retractall(dynalearn_model_cache(Id, _)).
+
 %!  dynalearn_model(++Id, -Model) is det.
 
-dynalearn_model(Id, #{ results: Simulation,
-                       prolog:Terms,
-                       id_mapping:IdMapping,
-                       qspaces:QSpaces,
-                       input_state:InputState,
-                       exogenous:Exogenous,
-                       qrels:QRels
+dynalearn_model(Id, Model) :-
+    dynalearn_model_cache(Id, Model),
+    !.
+dynalearn_model(Id, Model) :-
+    dynalearn_model_nc(Id, Model),
+    asserta(dynalearn_model_cache(Id, Model)).
+
+dynalearn_model_nc(Id, #{ results: Simulation,
+                          prolog:Terms,
+                          id_mapping:IdMapping,
+                          qspaces:QSpaces,
+                          input_state:InputState,
+                          exogenous:Exogenous,
+                          qrels:QRels
                      }) :-
     get_model(Id, Model0),
     prolog_model(Model0, Terms, IdMapping),
@@ -47,9 +64,6 @@ dynalearn_model(Id, #{ results: Simulation,
 %!  get_model(++Id, -Model) is det.
 %
 %   Fetch the model with Id from DynaLearn
-
-:- table
-    get_model/2.
 
 get_model(Id, Model) :-
     dynalearn_url(Base),
@@ -78,6 +92,10 @@ unmap(Mapping, par_values(Values0), Result, Q0, Q) =>
 unmap(_Mapping, par_relations(Rels), Result, Q0, Q) =>
     Result = par_relations(Rels),
     Q = Q0.
+unmap(Mapping, quantity_space(Id, A, Points0), Result, Q0, Q) =>
+    Result = quantity_space(Id, A, Points),
+    maplist(unmap_qpoint(Mapping), Points0, Points),
+    Q = Q0.
 unmap(Mapping, Id, UnMapped, Q0, Q),
     atom(Id),
     UnMapped = Mapping.get(Id) =>
@@ -94,6 +112,12 @@ unmap_parameter(Mapping, Term0, Term, Q0, [Id-Q|Q0]) :-
 
 unmap_value(Mapping, value(Id, A, V0, B), value(Id, A, V, B)) :-
     V = Mapping.get(V0, V0).
+
+unmap_qpoint(Mapping, point(P0), Result),
+    functor(P0, Name, _) =>
+    Result = point(Mapping.get(Name,Name)).
+unmap_qpoint(Mapping, Interval, Result), atom(Interval) =>
+    Result = Mapping.get(Interval,Interval).
 
 read_string_to_terms(String, Terms) :-
     setup_call_cleanup(
