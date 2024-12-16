@@ -349,6 +349,7 @@ set_model(Model) :-
 %   This is either a string or a term terms(Terms).
 
 set_model(Model, Source, Options) :-
+    flush_dynalearn_model(Model),
     reply_htmx(
         [ \q_menu(Model, Source),
           div([id('ml-model'), 'hx-swap-oob'(true)],
