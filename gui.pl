@@ -471,15 +471,27 @@ derivatives_select(Name) -->
 qspace_controls(none) -->
     !.
 qspace_controls(Model) -->
-    { id_mapping(Model, IdMapping)
+    { id_mapping(Model, IdMapping),
+      findall(QspaceId-Values,
+              incomplete_qspace(Model, QspaceId, Values),
+              Pairs),
+      Pairs \== []
     },
+    !,
     html(div(class('qspace-header'), 'Quantity spaces')),
-    foreach(m_qspace(Model, QspaceId, _QSpaceName, Values),
-            qspace_control(QspaceId, IdMapping, Values)).
+    sequence(qspace_control(IdMapping), Pairs).
+qspace_controls(_) -->
+    [].
 
-qspace_control(QspaceId, IdMapping, Values),
-    member(point(P), Values),
-    \+ qspace_point_value(P, _) ==>
+incomplete_qspace(Model, QspaceId, Values) :-
+    m_qspace(Model, QspaceId, _QSpaceName, Values),
+    (   member(point(P), Values),
+        \+ qspace_point_value(P, _)
+    ->  true
+    ).
+
+
+qspace_control(IdMapping, QspaceId-Values) -->
     html(div([ class('qspace-control'),
                id(QspaceId)
              ],
@@ -489,8 +501,6 @@ qspace_control(QspaceId, IdMapping, Values),
                          html(span(class('qspace-sep'), '<')),
                          Values)
              ])).
-qspace_control(_QspaceId, _, _Values) ==>
-    [].
 
 qspace_element(point(Name)) ==>
     { (   qspace_point_value(Name, PreDef)

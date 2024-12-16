@@ -89,9 +89,11 @@ function qspace_get_value(elem)
 function get_qspaces(elem)
 { elem = elem||document.getElementById("qspace-controls");
   const qspaces = [];
-  const qcontrols = elem.querySelectorAll("div.qspace-control");
-  for(let i=0; i<qcontrols.length; i++) {
-    qspaces.push(qspace_get_value(qcontrols[i]));
+  if ( elem )
+  { const qcontrols = elem.querySelectorAll("div.qspace-control");
+    for(let i=0; i<qcontrols.length; i++) {
+      qspaces.push(qspace_get_value(qcontrols[i]));
+    }
   }
 
   return qspaces;
