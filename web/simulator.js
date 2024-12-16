@@ -91,7 +91,6 @@ function get_qspaces(elem)
   const qspaces = [];
   const qcontrols = elem.querySelectorAll("div.qspace-control");
   for(let i=0; i<qcontrols.length; i++) {
-    console.log(qcontrols[i]);
     qspaces.push(qspace_get_value(qcontrols[i]));
   }
 
