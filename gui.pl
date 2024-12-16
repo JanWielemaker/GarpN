@@ -210,7 +210,8 @@ model_option(Default, File) -->
 init_model_menu -->
     !,
     html(span(class('init-model-buttons'),
-              [ \model_button('\U0001F9F9', wipe_model,    "Clear model"),
+              [ \refresh_model_button,
+                \model_button('\U0001F9F9', wipe_model,    "Clear model"),
                 \save_model_button,
                 \model_button('\U0001F4E5', load_model, "Load reference model"),
                 \model_button('\u2728',     propose_model, "Propose model")
@@ -232,6 +233,14 @@ save_model_button -->
                   'hx-target'('#status'),
                   title('Save as reference model')
                 ], '\U0001F4E4')).
+
+refresh_model_button -->
+    { http_link_to_id(refresh_model, [], HREF) },
+    html(button([ 'hx-get'(HREF),
+                  'hx-vals'('js:{model: currentModel()}'),
+                  'hx-target'('#qspace-controls'),
+                  title('Reload qualitative model from Dynalearn')
+                ], '\U0001F504')).
 
 
 %!  run_controls(++Model)// is det.
@@ -299,6 +308,7 @@ default_model(none, "").
 :- http_handler(htmx(run), run_model, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
 :- http_handler(htmx('set-model'),     set_model_handler, []).
+:- http_handler(htmx('refresh-model'), refresh_model, []).
 :- http_handler(htmx('save-model'),    save_model, []).
 :- http_handler(htmx('load-model'),    load_model, []).
 :- http_handler(htmx('wipe-model'),    wipe_model, []).
@@ -362,6 +372,20 @@ load_model(Request) :-
                      [ model(Model, [])
                      ]),
     set_model(Model).
+
+%!  refresh_model(Request)
+%
+%   Invalidate the model as we got it from Dynalearn.  Updates
+%   the quantity spaces.
+
+refresh_model(Request) :-
+    http_parameters(Request,
+                     [ model(Model, [])
+                     ]),
+    flush_dynalearn_model(Model),
+    reply_htmx([ \qspace_controls(Model),
+                 \htmx_oob(status, 'Reloaded model from Dynalearn')
+               ]).
 
 %!  save_model(Request)
 %
