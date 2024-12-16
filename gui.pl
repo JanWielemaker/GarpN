@@ -112,7 +112,7 @@ home -->
                                                         \q_menu(Model, Source))
                                                   ]),
                                               div([class(right)],
-                                                  [ div(id('qspace-control'),
+                                                  [ div(id('qspace-controls'),
                                                         \qspace_controls(Model)),
                                                     \run_controls(Model),
                                                     div([id(errors)], []),
@@ -331,6 +331,8 @@ set_model(Model, Source, Options) :-
         [ \q_menu(Model, Source),
           div([id('ml-model'), 'hx-swap-oob'(true)],
               \mathlive_model(Model, Source, Options)),
+          div([id('qspace-controls'), 'hx-swap-oob'(true)],
+              \qspace_controls(Model)),
           \js_script({|javascript(Model)||setModel(Model)|})
         ]).
 
@@ -465,17 +467,26 @@ derivatives_select(Name) -->
 qspace_controls(none) -->
     !.
 qspace_controls(Model) -->
-    foreach(m_qspace(Model, QspaceId, _QSpaceName, Values),
-            qspace_control(QspaceId, Values)).
+    { id_mapping(Model, IdMapping)
+    },
+    html(div(class('qspace-header'), 'Quantity spaces')),
+    foreach(qspace(Model, QspaceId, _QSpaceName, Values),
+            qspace_control(QspaceId, IdMapping, Values)).
 
-qspace_control(QspaceId, Values),
+% test
+qspace(_, x25, _QSpaceName, [solid, point(meld), fluid, point(boil), gass]).
+
+qspace_control(QspaceId, IdMapping, Values),
     member(point(P), Values),
     \+ qspace_point_value(P, _) ==>
     html(div([ class('qspace-control'),
                id(QspaceId)
              ],
-             \sequence(qspace_element, Values))).
-qspace_control(_QspaceId, _Values) ==>
+             [ span(class('qspace-quantity'),
+                    \key_label(IdMapping,QspaceId))
+             | \sequence(qspace_element, Values)
+             ])).
+qspace_control(_QspaceId, _, _Values) ==>
     [].
 
 qspace_element(point(Name)) ==>
@@ -485,11 +496,13 @@ qspace_element(point(Name)) ==>
       )
     },
     html(div(class('qspace-point'),
-             [ span(Name),
-               input([ type(number),
-                       name(Name)
+             [ input([ class('qspace-point'),
+                       type(number),
+                       name(Name),
+                       size(3)
                      | Extra
-                     ])
+                     ]),
+               br([]), span(Name)
              ])).
 qspace_element(Name) ==>
     html(span(class('qspace-interval'), '~w'-[Name])).

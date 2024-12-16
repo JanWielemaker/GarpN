@@ -743,6 +743,7 @@ qspace_point_value(_Quantity, Name, Value),
 qspace_point_value(zero, V) => V = 0.0.
 qspace_point_value(N, V), number(N) => V = N.
 qspace_point_value(A, V), atom_number(A,N) => V = N.
+qspace_point_value(_, _) => fail.
 
 %!  opt_link_garp_states(+QSeries0, -QSeries, +Options) is det.
 

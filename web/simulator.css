@@ -201,6 +201,47 @@ span.entity {
     top: -1.3ex;
 }
 
+/* Quantity spaces */
+
+#qspace-controls {
+    margin-top: 1ex;
+    border-bottom: 1px solid #888;
+    margin-bottom: 1ex;
+}
+
+div.qspace-header {
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 1px solid #888;
+    margin-bottom: 1ex;
+}
+
+span.qspace-quantity {
+    font-weight: bold;
+    margin-right: 2ex;
+}
+
+div.qspace-point {
+    font-size: 80%;
+    text-align: center;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+span.qspace-interval {
+    font-size: 80%;
+}
+
+input.qspace-point::-webkit-outer-spin-button,
+input.qspace-point::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input.qspace-point {
+    -moz-appearance: textfield;
+}
+
 /* Mathlive */
 
 div.equations {
