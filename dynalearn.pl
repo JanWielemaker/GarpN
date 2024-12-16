@@ -111,7 +111,13 @@ unmap_parameter(Mapping, Term0, Term, Q0, [Id-Q|Q0]) :-
     Q =.. [AttrName, EntName].
 
 unmap_value(Mapping, value(Id, A, V0, B), value(Id, A, V, B)) :-
+    unmap_plain_value(Mapping, V0, V).
+
+unmap_plain_value(Mapping, V0, V), atom(V0) =>
     V = Mapping.get(V0, V0).
+unmap_plain_value(Mapping, V0, V), compound(V0), functor(V0, PN, 1) =>
+    V = point(Name),
+    Name = Mapping.get(PN, PN).
 
 unmap_qpoint(Mapping, point(P0), Result),
     functor(P0, Name, _) =>
