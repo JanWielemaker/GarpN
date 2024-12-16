@@ -595,7 +595,7 @@ incomplete_qspace(Model, QspaceId, Values) :-
 
 qspace_control(IdMapping, Options, QspaceId-Values) -->
     { (   option(qspaces(QSpaces), Options),
-          QspaceId = IdMapping.get(Q),
+          Q = IdMapping.get(QspaceId),
           memberchk(qspace(Q, Savedvalues), QSpaces)
       ->  true
       ;   Savedvalues = []
