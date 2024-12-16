@@ -238,7 +238,8 @@ save_model_button -->
     { http_link_to_id(save_model, [], HREF) },
     html(button([ 'hx-get'(HREF),
                   'hx-vals'('js:{model: currentModel(), \c
-                                 ml_source: ml_value_string()}'),
+                                 ml_source: ml_value_string(), \c
+                                 qspaces: get_jqspaces()}'),
                   'hx-target'('#status'),
                   title('Save as reference model')
                 ], '\U0001F4E4')).
@@ -404,15 +405,68 @@ refresh_model(Request) :-
 save_model(Request) :-
     http_parameters(Request,
                      [ model(Model, []),
-                       ml_source(LaTeX, [])
+                       ml_source(LaTeX, []),
+                       qspaces(JQspaces, [default("[]")])
                      ]),
     numeric_model_file(Model, File),
     latex_to_prolog_source(LaTeX, Source),
+    jqspaces_to_prolog(Model, JQspaces, Prolog),
     setup_call_cleanup(
         open(File, write, Out, [encoding(utf8)]),
-        format(Out, '~s', [Source]),
+        (   format(Out, '~s', [Source]),
+            write_qspaces(Out, Prolog)
+        ),
         close(Out)),
     reply_htmx('Saved model').
+
+write_qspaces(Out, Prolog) :-
+    format(Out, '~n% Quantity spaces~n~n', []),
+    forall(member(QSpace, Prolog),
+           portray_clause(Out, QSpace)).
+
+%!  jqspaces_to_prolog(+Model, +JQspaces, -Prolog)
+%
+%   Turn the data from  the  quantity  space   control  into  a  list of
+%   qspace(Quantity,  Values),  where  points  in    Values  are  either
+%   point(Name=Value) or point(Nam).
+
+jqspaces_to_prolog(Model, JQSpaces, Prolog) :-
+    atom_json_dict(JQSpaces, List,
+                   [ value_string_as(atom)
+                   ]),
+    maplist(jqspace_to_prolog(Model), List, Prolog).
+
+jqspace_to_prolog(Model, Dict, qspace(Quantity, Values)) :-
+    _{ qspace_id: QSpaceId,
+       quantity: QDict,
+       values:AValues
+     } :< Dict,
+     m_qspace(Model, QSpaceId, _QName, Values0),
+     jq_to_prolog(QDict, Quantity),
+     maplist(jqvalue_no_ex, AValues, NPoints),
+     num_points_no_ex(Values0, NPoints, Values).
+
+jq_to_prolog(Dict, Q), _{entity:E, attrib:A} :< Dict =>
+    Q =.. [A,E].
+jq_to_prolog(Name, Q), atom(Name) =>
+    Q = Name.
+
+jqvalue_no_ex(AValue, NValue) :-
+    atom_number(AValue, NValue),
+    !.
+jqvalue_no_ex(_, _).
+
+num_points_no_ex([], [], []).
+num_points_no_ex([point(Name)|T0], [Num|T1], [point(P)|T]) :-
+    !,
+    (   number(Num)
+    ->  P = (Name=Num)
+    ;   P = Name
+    ),
+    num_points_no_ex(T0, T1, T).
+num_points_no_ex([H|T0], T1, [H|T]) :-
+    num_points_no_ex(T0, T1, T).
+
 
 %!  wipe_model(+Request)
 %
