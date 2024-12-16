@@ -474,13 +474,8 @@ qspace_controls(Model) -->
     { id_mapping(Model, IdMapping)
     },
     html(div(class('qspace-header'), 'Quantity spaces')),
-    foreach(qspace(Model, QspaceId, _QSpaceName, Values),
+    foreach(m_qspace(Model, QspaceId, _QSpaceName, Values),
             qspace_control(QspaceId, IdMapping, Values)).
-
-% test
-qspace(Model, QspaceId, QSpaceName,
-       [solid, point(meld), fluid, point(boil), gass]) :-
-    m_qspace(Model, QspaceId, QSpaceName, _).
 
 qspace_control(QspaceId, IdMapping, Values),
     member(point(P), Values),
