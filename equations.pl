@@ -317,15 +317,16 @@ prolog_name_part(Int) --> [Int], {integer(Int)}, !.
 latex_number(Value) -->
     latex_whites, [Value], { number(Value) }, !, latex_whites.
 latex_number(Value) -->
-    [placeholder(_Id,Arg)],
-    { phrase(placeholder_value(Value), Arg) }.
+    [placeholder(Id,Arg)],
+    { phrase(placeholder_value(Id, Value), Arg) }.
 
-placeholder_value(Value) -->
+placeholder_value(_, Value) -->
     latex_number(Value),
     !.
-placeholder_value(_) -->
+placeholder_value(LtxId, placeholder(Id,_)) -->
     latex_symbol(?),
-    !.
+    !,
+    { phrase(latex_name(Id), LtxId) }.
 
 latex_whites --> latex_white, !, latex_whites.
 latex_whites --> [].
