@@ -442,12 +442,13 @@ key_label(IdMapping, Key) -->
       compound_name_arguments(Term, Attr, [Ent]),
       !
     },
-    html(span([ span(class('entity-attr'), Attr),
+    html(span(class('q-attrib'),
+              [ span(class('entity-attr'), Attr),
                 span(class('entity'), Ent)
               ])).
 key_label(IdMapping, Key) -->
     { key_label(IdMapping, Key, Label) },
-    html(Label).
+    html(span(class('q-plain'), Label)).
 
 derivatives_select(Name) -->
     { atom_concat('__v_', Name,  NValue),
@@ -474,7 +475,9 @@ qspace_controls(Model) -->
             qspace_control(QspaceId, IdMapping, Values)).
 
 % test
-qspace(_, x25, _QSpaceName, [solid, point(meld), fluid, point(boil), gass]).
+qspace(Model, QspaceId, QSpaceName,
+       [solid, point(meld), fluid, point(boil), gass]) :-
+    m_qspace(Model, QspaceId, QSpaceName, _).
 
 qspace_control(QspaceId, IdMapping, Values),
     member(point(P), Values),
@@ -484,7 +487,9 @@ qspace_control(QspaceId, IdMapping, Values),
              ],
              [ span(class('qspace-quantity'),
                     \key_label(IdMapping,QspaceId))
-             | \sequence(qspace_element, Values)
+             | \sequence(qspace_element,
+                         html(span(class('qspace-sep'), '<')),
+                         Values)
              ])).
 qspace_control(_QspaceId, _, _Values) ==>
     [].

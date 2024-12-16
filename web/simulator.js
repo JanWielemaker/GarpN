@@ -53,6 +53,48 @@ function currentModel()
 { return document.getElementById("model").value;
 }
 
+		 /*******************************
+		 *       QUANTITY SPACES        *
+		 *******************************/
+
+function q_get_value(elem) {
+  const eattr = elem.querySelector("span.entity-attr");
+  const eent  = elem.querySelector("span.entity");
+  if ( eattr && eent ) {
+    return { entity: eent.textContent,
+	     attrib: eattr.textContent
+	   }
+  } else
+  { const eplain = elem.querySelector("span.q-plain");
+    return eplain.textContent;
+  }
+}
+
+/** Return the currently represented points of the quantity space.
+ */
+
+function qspace_get_value(elem)
+{ const q = q_get_value(elem.querySelector("span.qspace-quantity"));
+  const res = { quantity: q,
+		values: []
+	      };
+  const il = elem.querySelectorAll("input");
+  for(let i=0; i<il.length; i++)
+    res.values.push(il[i].value);
+
+  return res;
+}
+
+function get_qspaces(elem)
+{ elem = elem||document.getElementById("qspace-controls");
+  const qspaces = [];
+  const qcontrols = elem.querySelectorAll("div.qspace-control");
+  for(let i=0; i<qcontrols.length; i++)
+    qspaces.push(qspace_get_value(qcontrols[i]));
+
+  return qspaces;
+}
+
 
 		 /*******************************
 		 *        ERROR HANDLING        *
