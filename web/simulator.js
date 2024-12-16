@@ -75,7 +75,8 @@ function q_get_value(elem) {
 
 function qspace_get_value(elem)
 { const q = q_get_value(elem.querySelector("span.qspace-quantity"));
-  const res = { quantity: q,
+  const res = { qspace_id: q.id,
+		quantity: q,
 		values: []
 	      };
   const il = elem.querySelectorAll("input");
@@ -89,12 +90,17 @@ function get_qspaces(elem)
 { elem = elem||document.getElementById("qspace-controls");
   const qspaces = [];
   const qcontrols = elem.querySelectorAll("div.qspace-control");
-  for(let i=0; i<qcontrols.length; i++)
+  for(let i=0; i<qcontrols.length; i++) {
+    console.log(qcontrols[i]);
     qspaces.push(qspace_get_value(qcontrols[i]));
+  }
 
   return qspaces;
 }
 
+function get_jqspaces(elem)
+{ return JSON.stringify(get_qspaces(elem));
+}
 
 		 /*******************************
 		 *        ERROR HANDLING        *

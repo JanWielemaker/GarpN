@@ -18,6 +18,7 @@
 :- use_module(library(dcg/high_order)).
 :- use_module(library(exceptions)).
 :- use_module(library(filesex)).
+:- use_module(library(http/json)).
 
 :- use_module(gsim).
 :- use_module(map).
@@ -26,6 +27,7 @@
 :- use_module(model).
 :- if(current_prolog_flag(dynalearn, true)).
 :- use_module(dynalearn).
+
 :- endif.
 
 http:location(garp, root(garp), []).
@@ -100,7 +102,8 @@ home -->
                      [ \model_menus(Model),
                        div([class('model-separator'), clear(both)], []),
                        div([ form(['hx-post'('/garp/htmx/run'),
-                                   'hx-vals'('js:{"ml_source": ml_value_string()}'),
+                                   'hx-vals'('js:{"ml_source": ml_value_string(), \c
+                                                  "qspaces": get_jqspaces()}'),
                                    'hx-target'('#results'),
                                    'hx-on-htmx-before-request'('clear_output()')
                                   ],
@@ -905,6 +908,7 @@ run_model(Request) :-
                       sample(Sample, [integer, optional(true)]),
                       rulers(ShowRulers, [boolean, default(false)]),
                       ml_source(MlSource, []),
+                      qspaces(JQspaces, []),
                       model(Model, [])
                     ],
                     [ form_data(Form)
@@ -915,7 +919,7 @@ run_model(Request) :-
     ),
     form_derivatives(Form, Derivatives),
     id_mapping(Model, IdMapping),
-    qspaces(Model, QSpaces),
+    qspaces(Model, JQspaces, QSpaces),
     Options = [ model(Model),
                 match(Derivatives),
                 iterations(Iterations),
@@ -946,13 +950,49 @@ run_model(Request) :-
                  \download_links(Source, Options)
                ]).
 
-%!  qspaces(+Model, -QSpaces) is det.
+%!  qspaces(+Model, +JQSpaces, -QSpaces) is det.
 %
 %   @arg QSpaces is a dict Quantity -> QualitativeValues.
 
-qspaces(Model, QSpaces) :-
-    findall(Q-Values, m_qspace(Model, Q, _QName, Values), Pairs),
+qspaces(Model, JQSpaces, QSpaces) :-
+    jqspaces(JQSpaces, QPoints),
+    findall(Q-Values, qspace(Model, QPoints, Q, Values), Pairs),
     dict_pairs(QSpaces, #, Pairs).
+
+qspace(Model, QPoints, Q, Values) :-
+    m_qspace(Model, Q, _QName, Values0),
+    (   Points = QPoints.get(Q)
+    ->  num_points(Values0, Points, Values)
+    ;   Values = Values0
+    ).
+
+num_points([], [], []).
+num_points([point(Name)|T0], [Num|T1], [point(Name=Num)|T]) :-
+    !,
+    num_points(T0, T1, T).
+num_points([H|T0], T1, [H|T]) :-
+    num_points(T0, T1, T).
+
+jqspaces(JQSpaces, QPoints) :-
+    atom_json_dict(JQSpaces, List,
+                   [ value_string_as(atom)
+                   ]),
+    maplist(jqspace, List, QPoints).
+
+jqspace(Dict, QSpace-Points) :-
+    _{ qspace_id:QSpace,
+       values:AValues
+     } :< Dict,
+     (   maplist(atom_number, AValues, Points)
+     ->  true
+     ;   type_error(numbers, AValues)
+     ).
+
+
+%!  traces(+VTraces, +DTraces, +Shapes)//
+%
+%   Emit the value and derivative series using plotly.
+%   @tbd We no longer distinquish values and derivatives here.
 
 traces(VTraces, DTraces, Shapes) -->
     { append(VTraces, DTraces, Traces)

@@ -209,6 +209,14 @@ span.entity {
     margin-bottom: 1ex;
 }
 
+div.qspace-control {
+    padding: 3px;
+}
+
+div.qspace-control:nth-child(odd) {
+    background: #ddd;
+}
+
 div.qspace-header {
     text-align: center;
     font-weight: bold;

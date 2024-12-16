@@ -685,41 +685,42 @@ to_qualitative_v(_, _, V, VQ) =>
 %   @arg QValue is one  of  point(Name),  Name   or  a  variable  if the
 %   quantity space is undefined (`[interval]`).
 
-n_to_qualitative([interval], _Q, _V, _VQ) => true.
-n_to_qualitative([Name,point(P)|_], Q, V, VQ),
-    qspace_point_value(Q, P, PV),
+n_to_qualitative([Name], _Q, _V, VQ), atom(Name) =>
+    VQ = Name.
+n_to_qualitative([Name,point(NP)|_], Q, V, VQ),
+    qspace_point_value(Q, NP, P, PV),
     V =< PV =>
     (   V < PV
     ->  VQ = Name
     ;   VQ = point(P)
     ).
-n_to_qualitative([point(P)|_], Q, V, VQ),
-    qspace_point_value(Q, P, PV),
+n_to_qualitative([point(NP)|_], Q, V, VQ),
+    qspace_point_value(Q, NP, P, PV),
     V =< PV =>
     (   V < PV
     ->  VQ = error
     ;   VQ = point(P)
     ).
 n_to_qualitative(List, Q, V, VQ),
-    append(_, [point(P), Name], List),
-    qspace_point_value(Q, P, PV),
+    append(_, [point(NP), Name], List),
+    qspace_point_value(Q, NP, P, PV),
     V >= PV =>
     (   V > PV
     ->  VQ = Name
     ;   VQ = point(P)
     ).
 n_to_qualitative(List, Q, V, VQ),
-    append(_, [point(P)], List),
-    qspace_point_value(Q, P, PV),
+    append(_, [point(NP)], List),
+    qspace_point_value(Q, NP, P, PV),
     V >= PV =>
     (   V > PV
     ->  VQ = error
     ;   VQ = point(P)
     ).
 n_to_qualitative(List, Q, V, VQ) =>
-    append(_, [point(P1),Name,point(P2)|_], List),
-    qspace_point_value(Q, P1, N1),
-    qspace_point_value(Q, P2, N2),
+    append(_, [point(NP1),Name,point(NP2)|_], List),
+    qspace_point_value(Q, NP1, P1, N1),
+    qspace_point_value(Q, NP2, P2, N2),
     (   V =:= N1
     ->  VQ = point(P1)
     ;   V =:= N2
@@ -729,10 +730,12 @@ n_to_qualitative(List, Q, V, VQ) =>
     ),
     !.
 
-%!  qspace_point_value(+Quantity, +Name, -Number) is det.
+%!  qspace_point_value(+Quantity, +Point, -Name, -Number) is det.
 
-% TBD: Get from configuration
-qspace_point_value(_Quantity, Name, Value),
+qspace_point_value(_Quantity, V=N, Name, Value) =>
+    Name = N,
+    Value = V.
+qspace_point_value(_Quantity, Name, Name, Value),
     qspace_point_value(Name, Value0) =>
     Value = Value0.
 
