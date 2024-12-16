@@ -116,12 +116,7 @@ home -->
                                                         \q_menu(Model, Source))
                                                   ]),
                                               div([class(right)],
-                                                  [ div(id('qspace-controls'),
-                                                        \qspace_controls(Model)),
-                                                    \run_controls(Model),
-                                                    div([id(errors)], []),
-                                                    div([id(status)], [])
-                                                  ])
+                                                  \right_controls(Model))
                                             ])
                                   ])
                            ])
@@ -247,11 +242,24 @@ save_model_button -->
 refresh_model_button -->
     { http_link_to_id(refresh_model, [], HREF) },
     html(button([ 'hx-get'(HREF),
-                  'hx-vals'('js:{model: currentModel()}'),
+                  'hx-vals'('js:{model: currentModel()}, \c
+                                 qspaces: get_jqspaces()'),
                   'hx-target'('#qspace-controls'),
                   title('Reload qualitative model from Dynalearn')
                 ], '\U0001F504')).
 
+
+%!  right_controls(+Model)//
+%
+%   Controls for the right div below the numerical model.
+
+right_controls(Model) -->
+    html([ div(id('qspace-controls'),
+               \qspace_controls(Model, [])),
+           \run_controls(Model),
+           div([id(errors)], []),
+           div([id(status)], [])
+         ]).
 
 %!  run_controls(++Model)// is det.
 %
@@ -337,10 +345,15 @@ set_model(Model) :-
     ->  true
     ;   numeric_model_file(Model, File),
         exists_file(File)
-    ->  read_file_to_string(File, Source, [])
+    ->  read_model_to_terms(file(File), Terms0),
+        partition(is_qspace, Terms0, QSpaces, Terms),
+        Source = terms(Terms)
     ;   Source = _
     ),
-    set_model(Model, Source, []).
+    set_model(Model, Source, [qspaces(QSpaces)]).
+
+is_qspace(qspace(_Q,_Values)) => true.
+is_qspace(_) => fail.
 
 %!  set_model(+Model:atom, +Source, +Options) is det.
 %
@@ -356,7 +369,7 @@ set_model(Model, Source, Options) :-
           div([id('ml-model'), 'hx-swap-oob'(true)],
               \mathlive_model(Model, Source, Options)),
           div([id('qspace-controls'), 'hx-swap-oob'(true)],
-              \qspace_controls(Model)),
+              \qspace_controls(Model, Options)),
           \js_script({|javascript(Model)||setModel(Model)|})
         ]).
 
@@ -391,10 +404,12 @@ load_model(Request) :-
 
 refresh_model(Request) :-
     http_parameters(Request,
-                     [ model(Model, [])
+                     [ model(Model, []),
+                       qspaces(JQspaces, [default("[]")])
                      ]),
+    jqspaces_to_prolog(Model, JQspaces, Qspaces),
     flush_dynalearn_model(Model),
-    reply_htmx([ \qspace_controls(Model),
+    reply_htmx([ \qspace_controls(Model, [qspaces(Qspaces)]),
                  \htmx_oob(status, 'Reloaded model from Dynalearn')
                ]).
 
@@ -551,14 +566,14 @@ derivatives_select(Name) -->
            td(class('link'), input([type(checkbox), name(ND2)]))
          ]).
 
-%!  qspace_controls(+Model)// is det.
+%!  qspace_controls(+Model, +Options)// is det.
 %
 %   Provides controls to define quantity space  points for which we need
 %   a value.
 
-qspace_controls(none) -->
+qspace_controls(none, _) -->
     !.
-qspace_controls(Model) -->
+qspace_controls(Model, Options) -->
     { id_mapping(Model, IdMapping),
       findall(QspaceId-Values,
               incomplete_qspace(Model, QspaceId, Values),
@@ -567,8 +582,8 @@ qspace_controls(Model) -->
     },
     !,
     html(div(class('qspace-header'), 'Quantity spaces')),
-    sequence(qspace_control(IdMapping), Pairs).
-qspace_controls(_) -->
+    sequence(qspace_control(IdMapping, Options), Pairs).
+qspace_controls(_, _) -->
     [].
 
 incomplete_qspace(Model, QspaceId, Values) :-
@@ -578,21 +593,29 @@ incomplete_qspace(Model, QspaceId, Values) :-
     ->  true
     ).
 
-
-qspace_control(IdMapping, QspaceId-Values) -->
+qspace_control(IdMapping, Options, QspaceId-Values) -->
+    { (   option(qspaces(QSpaces), Options),
+          QspaceId = IdMapping.get(Q),
+          memberchk(qspace(Q, Savedvalues), QSpaces)
+      ->  true
+      ;   Savedvalues = []
+      )
+    },
     html(div([ class('qspace-control'),
                id(QspaceId)
              ],
              [ span(class('qspace-quantity'),
                     \key_label(IdMapping,QspaceId))
-             | \sequence(qspace_element,
+             | \sequence(qspace_element(Savedvalues),
                          html(span(class('qspace-sep'), '<')),
                          Values)
              ])).
 
-qspace_element(point(Name)) ==>
+qspace_element(Savedvalues, point(Name)) ==>
     { (   qspace_point_value(Name, PreDef)
       ->  Extra = [value(PreDef), disabled]
+      ;   memberchk(point(Name=SavedVal), Savedvalues)
+      ->  Extra = [value(SavedVal)]
       ;   Extra = []
       )
     },
@@ -605,8 +628,8 @@ qspace_element(point(Name)) ==>
                      ]),
                br([]), span(Name)
              ])).
-qspace_element(Name) ==>
-    html(span(class('qspace-interval'), '~w'-[Name])).
+qspace_element(_, Name), atom(Name) ==>
+    html(span(class('qspace-interval'), Name)).
 
 %!  model_issues(+Error)//
 

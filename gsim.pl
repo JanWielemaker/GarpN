@@ -95,15 +95,20 @@ simulate(From, Series, Options) :-
 
 read_model(From, Formulas, Constants, State, Options) :-
     read_model_to_terms(From, Terms0),
+    partition(is_qspace, Terms0, QSpaces, Terms1),
+    option(qspaces(QSpaces), Options, _),
     maplist(quantity, Terms0, Quantities0),        % Quantities are the
     sort(Quantities0, Sorted),                     % left side of equations
     maplist(q_term(Options), Sorted, Quantities1), % q(Term,Id,Var)
-    maplist(intern_model_term(Quantities1), Terms0, Terms1),
-    validate_model(Terms1, Options),
-    foldl(model_expression, Terms1, m(f{}, i{}), m(Formulas0, Init)),
+    maplist(intern_model_term(Quantities1), Terms1, Terms2),
+    validate_model(Terms2, Options),
+    foldl(model_expression, Terms2, m(f{}, i{}), m(Formulas0, Init)),
     split_init(Init, Formulas0, Constants0, State0),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
     derived_initial_state(Formulas, Constants, State0, State, Options).
+
+is_qspace(qspace(_Q,_Values)) => true.
+is_qspace(_) => fail.
 
 %!  read_model_to_terms(++Input, -Terms) is det.
 %
