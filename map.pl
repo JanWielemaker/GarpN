@@ -732,7 +732,7 @@ n_to_qualitative(List, Q, V, VQ) =>
 
 %!  qspace_point_value(+Quantity, +Point, -Name, -Number) is det.
 
-qspace_point_value(_Quantity, V=N, Name, Value) =>
+qspace_point_value(_Quantity, N=V, Name, Value) =>
     Name = N,
     Value = V.
 qspace_point_value(_Quantity, Name, Name, Value),
