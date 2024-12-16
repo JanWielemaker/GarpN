@@ -96,7 +96,7 @@ simulate(From, Series, Options) :-
 read_model(From, Formulas, Constants, State, Options) :-
     read_model_to_terms(From, Terms0),
     partition(is_qspace, Terms0, QSpaces, Terms1),
-    option(qspaces(QSpaces), Options, _),
+    option(source_qspaces(QSpaces), Options, _),
     maplist(quantity, Terms0, Quantities0),        % Quantities are the
     sort(Quantities0, Sorted),                     % left side of equations
     maplist(q_term(Options), Sorted, Quantities1), % q(Term,Id,Var)

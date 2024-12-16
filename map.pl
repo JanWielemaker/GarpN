@@ -735,8 +735,9 @@ n_to_qualitative(List, Q, V, VQ) =>
 qspace_point_value(_Quantity, N=V, Name, Value) =>
     Name = N,
     Value = V.
-qspace_point_value(_Quantity, Name, Name, Value),
-    qspace_point_value(Name, Value0) =>
+qspace_point_value(_Quantity, N, Name, Value),
+    qspace_point_value(N, Value0) =>
+    Name = N,
     Value = Value0.
 
 %!  qspace_point_value(+Name, -Number) is semidet.

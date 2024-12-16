@@ -135,7 +135,7 @@ home -->
 refresh -->
     js_script({|javascript||
                addEventListener("DOMContentLoaded", (ev) => {
-                 document.getElementById("model").dispatchEvent(new Event("change"));
+                 document.getElementById("model-menu").dispatchEvent(new Event("change"));
                });
               |}).
 
@@ -159,7 +159,7 @@ model_menu(_Default) -->
     html(select([ 'hx-get'('/garp/htmx/set-model'),
                   'hx-trigger'(change),
                   'hx-target'('#quantity_controls'),
-                  id(model),
+                  id('model-menu'),
                   name(model)
                 ],
                 [ option(value(none), 'Please select a model from Dynalearn')
