@@ -84,7 +84,8 @@ home(_Request) :-
                       script([type('text/javascript'),
                               src('/garp/simulator.js')], []),
                       script([type('text/javascript'),
-                              src('/garp/plotly-2.32.0.min.js')], [])
+                              src('/garp/plotly-2.32.0.min.js')], []),
+                      \refresh
                     ]).
 
 home -->
@@ -136,6 +137,13 @@ home -->
                       |})
          ]).
 
+refresh -->
+    js_script({|javascript||
+               addEventListener("DOMContentLoaded", (ev) => {
+                 document.getElementById("model").dispatchEvent(new Event("change"));
+               });
+              |}).
+
 %!  model_menus(+Default)//
 %
 %   Add the menus above the model. One for loading an existing model and
@@ -156,6 +164,7 @@ model_menu(_Default) -->
     html(select([ 'hx-get'('/garp/htmx/set-model'),
                   'hx-trigger'(change),
                   'hx-target'('#quantity_controls'),
+                  id(model),
                   name(model)
                 ],
                 [ option(value(none), 'Please select a model from Dynalearn')
