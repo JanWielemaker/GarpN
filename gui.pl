@@ -982,7 +982,8 @@ jqspaces(JQSpaces, QPoints) :-
     atom_json_dict(JQSpaces, List,
                    [ value_string_as(atom)
                    ]),
-    maplist(jqspace, List, QPoints).
+    maplist(jqspace, List, QList),
+    dict_pairs(QPoints, #, QList).
 
 jqspace(Dict, QSpace-Points) :-
     _{ qspace_id:QSpace,

@@ -75,7 +75,7 @@ function q_get_value(elem) {
 
 function qspace_get_value(elem)
 { const q = q_get_value(elem.querySelector("span.qspace-quantity"));
-  const res = { qspace_id: q.id,
+  const res = { qspace_id: elem.id,
 		quantity: q,
 		values: []
 	      };
