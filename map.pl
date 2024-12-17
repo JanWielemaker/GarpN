@@ -682,8 +682,10 @@ to_qualitative_v(_, _, V, VQ) =>
 %
 %   Map Num into a qualitative name from QSpace.
 %
-%   @arg QValue is one  of  point(Name),  Name   or  a  variable  if the
-%   quantity space is undefined (`[interval]`).
+%   @arg QSpace is the value list defining the quantity space.
+%   Its values are atoms (internal names), point(Name) or
+%   point(Name=Value).
+%   @arg QValue is one of point(PointName) or IntervalName.
 
 n_to_qualitative([Name], _Q, _V, VQ), atom(Name) =>
     VQ = Name.
@@ -990,10 +992,15 @@ insert_value_v(_Q, _QSpaces, _, Var, _, _Done), var(Var) => true.
 insert_value_v(Q, QSpaces, V1, V2, Vi, Done) =>
     (   Values = QSpaces.get(Q),
         append(_, [V1,point(P),V2|_], Values)
-    ->  Vi = point(P),
+    ->  point_name(P, PN),
+        Vi = point(PN),
         Done = true
     ;   Vi = V1
     ).
+
+point_name(N=_V, Name) => Name = N.
+point_name(N, Name), atom(N) => Name = N.
+
 
 		 /*******************************
 		 *              CSV		*
