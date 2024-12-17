@@ -501,8 +501,8 @@ analyze(Request) :-
     http_read_json_dict(Request, Data, []),
     _{model:ModelS, ml_data:MlData} :< Data,
     atom_string(Model, ModelS),
-    latex_to_prolog_source(MlData, Source),
-    reply_htmx([ \q_menu(Model, Source),
+    latex_to_prolog(MlData, Prolog),
+    reply_htmx([ \q_menu(Model, terms(Prolog)),
                  \js_script({|javascript(Model,Source)||
                              setModel(Model,Source)|})
                ]).
@@ -1045,8 +1045,8 @@ run_model(Request) :-
                 id_mapping(IdMapping),
                 qspaces(QSpaces)
               ],
-    latex_to_prolog_source(MlSource, Source),
-    call_time(simulate(string(Source), Series, Options), Time),
+    latex_to_prolog(MlSource, Equations),
+    call_time(simulate(terms(Equations), Series, Options), Time),
     annotate_garp_states(Series, Shapes, Options),
     plotly_traces(Series, VTraces, DTraces, IdMapping),
     reply_htmx([ hr([]),
@@ -1063,7 +1063,7 @@ run_model(Request) :-
                        \js_script({|javascript||initShapes("plotly")|})
                      ]),
                  div([id('mapping-table'),class(narrow)], [&(nbsp)]),
-                 \download_links(Source, Options)
+                 \download_links(terms(Equations), Options)
                ]).
 
 %!  qspaces(+Model, +JQSpaces, -QSpaces) is det.
@@ -1348,7 +1348,7 @@ download_links(Source, Options) -->
 
 download_csv(SHA1, _Request) :-
     saved(SHA1, Model, Options),
-    simulate(string(Model), Series, Options),
+    simulate(Model, Series, Options),
     option(id_mapping(IdMapping), Options, _{}),
     Series = [First|_],
     dict_keys(First, Keys0),

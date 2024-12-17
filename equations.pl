@@ -1,6 +1,7 @@
 :- module(equations,
           [ equations//2,               % +Term, +Options
-            latex_to_prolog_source/2    % +LaTeX:list(string), -Source:string
+            latex_to_prolog_source/2,   % +LaTeX:list(string), -Source:string
+            latex_to_prolog/2           % +LaTeX, -Prolog:list(term)
           ]).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(http/html_write)).
@@ -147,6 +148,7 @@ quantity_string(Q, S) :-
 		 *            PARSE		*
 		 *******************************/
 
+%!  latex_to_prolog(+LaTeX, -Prolog:list(term)) is det.
 %!  latex_to_prolog_source(+LaTeX, -Source:string) is det.
 %
 %   Translate MathLive LaTeX output to a source text.
@@ -154,13 +156,17 @@ quantity_string(Q, S) :-
 %   @arg LaTeX is either a list of strings or a string
 %   where the equations are separated by \v (vertical tab)
 
-latex_to_prolog_source(LaTeX, Source), is_list(LaTeX) =>
-    maplist(latex_prolog, LaTeX, Prolog),
+latex_to_prolog_source(LaTeX, Source) :-
+    latex_to_prolog(LaTeX, Prolog),
     with_output_to(string(Source),
                    maplist(portray_clause, Prolog)).
-latex_to_prolog_source(LaTeX, Source) =>
+
+
+latex_to_prolog(LaTeX, Prolog), is_list(LaTeX) =>
+    maplist(latex_prolog, LaTeX, Prolog).
+latex_to_prolog(LaTeX, Prolog) =>
     split_string(LaTeX, "\v", "", Equations),
-    latex_to_prolog_source(Equations, Source).
+    latex_to_prolog(Equations, Prolog).
 
 %!  latex_prolog(+LaTeX:string, -Prolog:term) is det.
 
