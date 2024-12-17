@@ -700,7 +700,7 @@ n_to_qualitative([point(NP)|_], Q, V, VQ),
     qspace_point_value(Q, NP, P, PV),
     V =< PV =>
     (   V < PV
-    ->  VQ = error
+    ->  VQ = error(underflow)
     ;   VQ = point(P)
     ).
 n_to_qualitative(List, Q, V, VQ),
@@ -716,7 +716,7 @@ n_to_qualitative(List, Q, V, VQ),
     qspace_point_value(Q, NP, P, PV),
     V >= PV =>
     (   V > PV
-    ->  VQ = error
+    ->  VQ = error(overflow)
     ;   VQ = point(P)
     ).
 n_to_qualitative(List, Q, V, VQ) =>
