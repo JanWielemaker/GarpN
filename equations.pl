@@ -216,6 +216,45 @@ latex_var(Q) -->
 latex_var(Q) -->
      latex_variable(Q).
 
+latex_expression(Expr) -->
+    latex_expression(Expr, 1200).
+
+latex_expression(Expr, 0) -->
+    embraced_expression(Expr),
+    !.
+latex_expression(Expr, Pri) -->
+    prefix_op(Op, OpPri, MaxPriRight),
+    { OpPri =< Pri },
+    latex_expression(Right, MaxPriRight),
+    { Expr =.. [Op,Right]
+    }.
+latex_expression(Expr, Pri) -->
+    latex_expression(Left, PriLeft),
+    infix_op(Op, MaxPriLeft, OpPri, MaxPriRight),
+    { OpPri =< Pri,
+      PriLeft =< MaxPriLeft
+    },
+    latex_expression(Right, MaxPriRight),
+    { Expr =.. [Op,Left,Right]
+    }.
+latex_expression(L/R, 400) -->
+    [frac(EL, ER)],
+    { phrase(latex_expression(L), EL),
+      phrase(latex_expression(R), ER)
+    }.
+latex_expression(Expr, 0) -->
+    latex_var(Expr),
+    !.
+latex_expression(Expr, 0) -->
+    latex_number(Expr),
+    !.
+latex_expression(Expr, 0) -->
+    cmd_expression(Expr).
+
+embraced_expression(Expr) -->
+    [group(LaTeX)],
+    !,
+    { phrase(latex_expression(Expr), LaTeX) }.
 embraced_expression(Expr) -->
     latex_symbol('('),
     !,
@@ -228,81 +267,15 @@ embraced_expression(Expr) -->
     latex_whites, [right(")")],
     !.
 
-latex_expression(Expr) -->
-    embraced_expression(Expr),
-    !.
-latex_expression(Expr) -->
-    latex_whites,
-    latex_add_expression(Left),
-    (   add_op(Op)
-    ->  latex_expression(Right),
-        { Expr =.. [Op,Left,Right] }
-    ;   { Expr = Left }
-    ).
-
-latex_add_expression(Expr) -->
-    embraced_expression(Expr),
-    !.
-latex_add_expression(Expr) -->
-    latex_whites,
-    latex_mul_expression(Left),
-    (   mul_op(Op)
-    ->  latex_add_expression(Right),
-        { Expr =.. [Op,Left,Right] }
-    ;   { Expr = Left }
-    ).
-
-latex_mul_expression(Expr) -->
-    embraced_expression(Expr),
-    !.
-latex_mul_expression(Expr) -->
-    latex_whites,
-    latex_exp_expression(Left),
-    (   exp_op(Op)
-    ->  latex_mul_expression(Right),
-        { Expr =.. [Op,Left,Right] }
-    ;   { Expr = Left }
-    ).
-
-latex_exp_expression(Expr) -->
-    [group(LaTeX)],
-    !,
-    { phrase(latex_expression(Expr), LaTeX)
-    }.
-latex_exp_expression(Expr) -->
-    latex_var(Expr),
-    !.
-latex_exp_expression(Expr) -->
-    latex_number(Expr),
-    !.
-latex_exp_expression(-Expr) -->
-    latex_symbol(-),
-    !,
-    latex_exp_expression(Expr).
-latex_exp_expression(Expr) -->
-    cmd_expresion(Expr).
-
-add_op(+) --> latex_symbol(+), !.
-add_op(-) --> latex_symbol(-).
-
-mul_op(*) --> latex_whites, [cdot()], !, latex_whites.
-
-exp_op(^) --> latex_symbol(^).
-
-cmd_expresion(pi)     --> [pi()],  !.
-cmd_expresion(sin(X)) --> [sin()], !, latex_expression(X).
-cmd_expresion(cos(X)) --> [cos()], !, latex_expression(X).
-cmd_expresion(tan(X)) --> [tan()], !, latex_expression(X).
-cmd_expresion(log(X)) --> [log()], !, latex_expression(X).
-cmd_expresion(sqrt(X)) -->
+cmd_expression(pi)     --> [pi()],  !.
+cmd_expression(sin(X)) --> [sin()], !, latex_expression(X).
+cmd_expression(cos(X)) --> [cos()], !, latex_expression(X).
+cmd_expression(tan(X)) --> [tan()], !, latex_expression(X).
+cmd_expression(log(X)) --> [log()], !, latex_expression(X).
+cmd_expression(sqrt(X)) -->
     [sqrt(Ltx)],
     { phrase(latex_expression(X), Ltx) }.
-cmd_expresion(L/R) -->
-    [frac(EL, ER)],
-    { phrase(latex_expression(L), EL),
-      phrase(latex_expression(R), ER)
-    }.
-cmd_expresion(Expr) -->
+cmd_expression(Expr) -->
     [placeholder(_Id, Content)],
     { phrase(latex_expression(Expr), Content)
     }.
@@ -335,9 +308,28 @@ latex_variable(V) -->
       atom_string(V, Name)
     }.
 
+prefix_op(Op, OpPri, RightPri) -->
+    latex_symbol(Op),
+    { c_prefix_op(Op, OpPri, RightPri)
+    }.
+
+c_prefix_op(+, 200, 200).
+c_prefix_op(-, 200, 200).
+
+infix_op(Op, LeftPri, OpPri, RightPri) -->
+    latex_symbol(Op),
+    { c_infix_op(Op, LeftPri, OpPri, RightPri)
+    }.
+
+c_infix_op(+, 500, 500, 499).
+c_infix_op(-, 500, 500, 499).
+c_infix_op(*, 400, 400, 399).
+c_infix_op(/, 400, 400, 399).
+c_infix_op(^, 199, 200, 200).
+
 latex_symbol(Code) -->
     latex_whites,
-    [Code],
+    [Code], {atom(Code)},
     latex_whites.
 
 latex_name(Name) -->
