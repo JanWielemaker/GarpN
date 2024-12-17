@@ -242,8 +242,8 @@ save_model_button -->
 refresh_model_button -->
     { http_link_to_id(refresh_model, [], HREF) },
     html(button([ 'hx-get'(HREF),
-                  'hx-vals'('js:{model: currentModel()}, \c
-                                 qspaces: get_jqspaces()'),
+                  'hx-vals'('js:{model: currentModel(), \c
+                                 qspaces: get_jqspaces()}'),
                   'hx-target'('#qspace-controls'),
                   title('Reload qualitative model from Dynalearn')
                 ], '\U0001F504')).
