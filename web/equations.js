@@ -190,3 +190,26 @@ activatePlusButton(eql)
     });
   }
 }
+
+/** Handle errors in the model
+ *
+ * @param errors is a list of errors.  Each error is an object
+ * holding the expression line (1 based), the source (as LaTeX) and
+ * a message.
+ */
+
+function ml_errors(errors, eql)
+{ eql = eql||document.getElementById("equations");
+
+  for(e of errors)
+  { const eq = eql.children[e.line-1];
+    const div = document.createElement("div");
+
+    div.classList.add("ml-error");
+    if ( e.html )
+      div.innerHTML = e.html;
+    else
+      div.textContent = e.message;
+    eq.after(div);
+  }
+}

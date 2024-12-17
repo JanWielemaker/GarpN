@@ -42,6 +42,9 @@ function clear_output()
 { document.getElementById("errors").innerHTML = "";
   document.getElementById("status").innerHTML = "";
   document.getElementById("results").innerHTML = "";
+  document.querySelectorAll("div.ml-error").forEach((e) => {
+    e.remove();
+  });
 }
 
 function setModel(name)
@@ -102,52 +105,3 @@ function get_qspaces(elem)
 function get_jqspaces(elem)
 { return JSON.stringify(get_qspaces(elem));
 }
-
-		 /*******************************
-		 *        ERROR HANDLING        *
-		 *******************************/
-
-document.body.addEventListener('htmx:afterRequest', function(ev) {
-  const xhr = ev.detail.xhr;
-  if ( xhr.status != 200 && xhr.responseText )
-  { const err = JSON.parse(xhr.responseText);
-    let a;
-    if ( err.message &&
-	 (a=/:([0-9]+):([0-9]+) *Syntax error: (.*)$/.exec(err.message)) )
-    { const errors = document.getElementById("errors");
-      const ta = document.getElementById("model");
-      const lines = ta.value.split("\n");
-      let start = 0;
-      let line = parseInt(a[1]);
-      const col = parseInt(a[2]);
-      let charno=0;
-
-      errors.innerText = `ERROR: ${line}:${col}: Syntax error: ${a[3]}`;
-      for(let i=0; i<line-1; i++)
-      { start += lines[i].length+1;
-      }
-
-      if ( col == 0 )
-      { while(line >= 1 && lines[line-1].length == 0)
-	{ line--;
-	  start--;
-	}
-	start--;
-      } else
-      { let c=0;
-	const txt = lines[line-1];
-	for(; c<col; charno++)
-	{ if ( txt[charno] == "\t" )
-	  { c |= 7;
-	  }
-	  c++
-	}
-      }
-      if ( charno >= lines[line-1].length )
-	charno = lines[line-1].length;
-      ta.selectionStart = start+charno;
-      ta.selectionEnd = start+charno+1;
-      ta.focus();
-    }
-  }
-});

@@ -501,7 +501,7 @@ analyze(Request) :-
     http_read_json_dict(Request, Data, []),
     _{model:ModelS, ml_data:MlData} :< Data,
     atom_string(Model, ModelS),
-    latex_to_prolog(MlData, Prolog),
+    latex_to_prolog_ex(MlData, Prolog),
     reply_htmx([ \q_menu(Model, terms(Prolog)),
                  \js_script({|javascript(Model,Source)||
                              setModel(Model,Source)|})
@@ -1045,7 +1045,7 @@ run_model(Request) :-
                 id_mapping(IdMapping),
                 qspaces(QSpaces)
               ],
-    latex_to_prolog(MlSource, Equations),
+    latex_to_prolog_ex(MlSource, Equations),
     call_time(simulate(terms(Equations), Series, Options), Time),
     annotate_garp_states(Series, Shapes, Options),
     plotly_traces(Series, VTraces, DTraces, IdMapping),

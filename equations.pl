@@ -1,7 +1,8 @@
 :- module(equations,
           [ equations//2,               % +Term, +Options
             latex_to_prolog_source/2,   % +LaTeX:list(string), -Source:string
-            latex_to_prolog/2           % +LaTeX, -Prolog:list(term)
+            latex_to_prolog/2,          % +LaTeX, -Prolog:list(term)
+            latex_to_prolog_ex/2        % +LaTeX, -Prolog:list(term)
           ]).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(http/html_write)).
@@ -148,35 +149,61 @@ quantity_string(Q, S) :-
 		 *            PARSE		*
 		 *******************************/
 
+test_eq :-
+    read_line_to_string(user_input, LaTeX),
+    gtrace,
+    latex_to_prolog(LaTeX, Prolog),
+    print_term(Prolog, []).
+
 %!  latex_to_prolog(+LaTeX, -Prolog:list(term)) is det.
-%!  latex_to_prolog_source(+LaTeX, -Source:string) is det.
+%!  latex_to_prolog_ex(+LaTeX, -Prolog:list(term)) is det.
 %
-%   Translate MathLive LaTeX output to a source text.
+%   Translate MathLive LaTeX  output  into  Prolog.   If  the  LaTeX  is
+%   invalid,  latex_to_prolog/2  returns  a  dict    for  every  invalid
+%   equation. latex_to_prolog_ex/2 only returns   valid Prolog equations
+%   and throws invalid_model(Errors) in case one   or more equations are
+%   invalid.
 %
 %   @arg LaTeX is either a list of strings or a string
 %   where the equations are separated by \v (vertical tab)
 
-latex_to_prolog_source(LaTeX, Source) :-
-    latex_to_prolog(LaTeX, Prolog),
-    with_output_to(string(Source),
-                   maplist(portray_clause, Prolog)).
-
-
 latex_to_prolog(LaTeX, Prolog), is_list(LaTeX) =>
-    maplist(latex_prolog, LaTeX, Prolog).
+    foldl(latex_prolog, LaTeX, Prolog, 1, _).
 latex_to_prolog(LaTeX, Prolog) =>
     split_string(LaTeX, "\v", "", Equations),
     latex_to_prolog(Equations, Prolog).
 
-%!  latex_prolog(+LaTeX:string, -Prolog:term) is det.
+latex_to_prolog_ex(LaTeX, Prolog) :-
+    latex_to_prolog(LaTeX, Prolog),
+    include(is_dict, Prolog, Errors),
+    (   Errors == []
+    ->  true
+    ;   throw(invalid_model(Errors))
+    ).
 
-latex_prolog(LaTeX, Prolog) :-
+%!  latex_to_prolog_source(+LaTeX, -Source:string) is det.
+%
+%   Translate  a  correct   set   of    equations   into   their  Prolog
+%   representation as a string.
+
+latex_to_prolog_source(LaTeX, Source) :-
+    latex_to_prolog_ex(LaTeX, Prolog),
+    with_output_to(string(Source),
+                   maplist(portray_clause, Prolog)).
+
+%!  latex_prolog(+LaTeX:string, -Prolog:term, +Line0, -Line) is det.
+
+latex_prolog(LaTeX, Prolog, N0, N) :-
+    N is N0+1,
     parse_latex(LaTeX, LaTexCmd),
     phrase(latex_prolog(Prolog), LaTexCmd),
     !,
     debug(eq(from_prolog), '~p --> ~p', [LaTeX, Prolog]).
-latex_prolog(LaTeX, _) :-
-    throw(error(latex_syntax(LaTeX), _)).
+latex_prolog(LaTeX, error{ line: N0,
+                           latex:LaTeX,
+                           message: "Invalid equation"
+                         }, N0, N) :-
+    N is N0+1.
 
 latex_prolog(Q:=Expr) -->               % TBD: decide on := vs =
     latex_var(Q), latex_symbol(=), latex_expression(Expr).
@@ -186,16 +213,21 @@ latex_var(Q) -->
 latex_var(Q) -->
      latex_variable(Q).
 
-latex_expression(Expr) -->
+embraced_expression(Expr) -->
     latex_symbol('('),
     !,
     latex_expression(Expr),
-    latex_symbol(')').
-latex_expression(Expr) -->
-    [left("(")],
-    !,
+    latex_symbol(')'),
+    !.
+embraced_expression(Expr) -->
+    latex_whites, [left("(")], latex_whites,
     latex_expression(Expr),
-    [right(")")].
+    latex_whites, [right(")")],
+    !.
+
+latex_expression(Expr) -->
+    embraced_expression(Expr),
+    !.
 latex_expression(Expr) -->
     latex_whites,
     latex_add_expression(Left),
@@ -206,6 +238,9 @@ latex_expression(Expr) -->
     ).
 
 latex_add_expression(Expr) -->
+    embraced_expression(Expr),
+    !.
+latex_add_expression(Expr) -->
     latex_whites,
     latex_mul_expression(Left),
     (   mul_op(Op)
@@ -214,6 +249,9 @@ latex_add_expression(Expr) -->
     ;   { Expr = Left }
     ).
 
+latex_mul_expression(Expr) -->
+    embraced_expression(Expr),
+    !.
 latex_mul_expression(Expr) -->
     latex_whites,
     latex_exp_expression(Left),
@@ -494,11 +532,35 @@ eq_type_order(constant,   3).
 eq_type_order(init,       4).
 eq_type_order(init_value, 5).
 
+
 		 /*******************************
-		 *            MESSAGES		*
+		 *          EXCEPTIONS		*
 		 *******************************/
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+This maps the invalid_model(+JSON) into  an   HTML  document suitable as
+htmx  reply.  The  'hx-target-error'('#errors')`  statement  in  home//0
+ensures this is forwarded to the #errors div, but in this case it simply
+executes ml_errors(Data).
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-:- multifile prolog:error_message//1.
 
-prolog:error_message(latex_syntax(String)) -->
-    [ 'Invalid equation: ~s'-[String] ].
+:- multifile
+    http:map_exception_to_http_status_hook/4.
+
+http:map_exception_to_http_status_hook(
+         invalid_model(Errors),
+         html(Tokens),
+         [ status(400) ],
+         []) :-
+    maplist(html_message, Errors, Errors1),
+    phrase(js_script({|javascript(Errors1)||
+                      ml_errors(Errors1);
+                     |}), Tokens).
+
+html_message(Error0, Error) :-
+    _{message: Msg0, latex: LaTeX} :< Error0,
+    phrase(html([ span(class(msg), Msg0),
+                  span(class(latex), LaTeX)
+                ]), Tokens),
+    with_output_to(string(HTML), print_html(Tokens)),
+    Error = Error0.put(html, HTML).

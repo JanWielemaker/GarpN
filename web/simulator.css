@@ -314,3 +314,20 @@ div.add-equation {
     font-weight: bold;
     color: darkgreen;
 }
+
+div.ml-error:before {
+    content: "\26A0\FE0F";
+    margin-right: 5px;
+}
+
+div.ml-error {
+    color: red;
+}
+
+div.ml-error span.latex {
+    color: darkblue;
+    background-color: #eee;
+    font-family: monospace;
+    font-size: 80%;
+    margin-left: 1ex;
+}
