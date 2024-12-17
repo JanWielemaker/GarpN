@@ -206,7 +206,8 @@ latex_prolog(LaTeX, error{ line: N0,
 
 latex_prolog(LaTeX, Prolog) :-
     parse_latex(LaTeX, LaTexCmd),
-    phrase(latex_prolog(Prolog), LaTexCmd).
+    phrase(latex_prolog(Prolog), LaTexCmd),
+    !.
 
 latex_prolog(Q:=Expr) -->               % TBD: decide on := vs =
     latex_var(Q), latex_symbol(=), latex_expression(Expr).
@@ -217,38 +218,40 @@ latex_var(Q) -->
      latex_variable(Q).
 
 latex_expression(Expr) -->
-    latex_expression(Expr, 1200).
+    latex_expression(Expr, 1200, _).
 
-latex_expression(Expr, 0) -->
+latex_expression(Expr, _, 0) -->
     embraced_expression(Expr),
     !.
-latex_expression(Expr, Pri) -->
-    prefix_op(Op, OpPri, MaxPriRight),
-    { OpPri =< Pri },
-    latex_expression(Right, MaxPriRight),
+latex_expression(Expr, MaxPri, Pri) -->
+    prefix_op(Op, Pri, MaxPriRight),
+    { Pri =< MaxPri
+    },
+    latex_expression(Right, MaxPriRight, _),
     { Expr =.. [Op,Right]
     }.
-latex_expression(Expr, Pri) -->
-    latex_expression(Left, PriLeft),
-    infix_op(Op, MaxPriLeft, OpPri, MaxPriRight),
-    { OpPri =< Pri,
-      PriLeft =< MaxPriLeft
+latex_expression(Expr, MaxPri, Pri) -->
+    string(Tokens),
+    infix_op(Op, MaxPriLeft, Pri, MaxPriRight),
+    { Pri =< MaxPri,
+      phrase(latex_expression(Left, MaxPriLeft, _), Tokens)
     },
-    latex_expression(Right, MaxPriRight),
+    latex_expression(Right, MaxPriRight, _),
     { Expr =.. [Op,Left,Right]
     }.
-latex_expression(L/R, 400) -->
+latex_expression(L/R, MaxPri, 400) -->
     [frac(EL, ER)],
-    { phrase(latex_expression(L), EL),
+    { 400 =< MaxPri,
+      phrase(latex_expression(L), EL),
       phrase(latex_expression(R), ER)
     }.
-latex_expression(Expr, 0) -->
+latex_expression(Expr, _, 0) -->
     latex_var(Expr),
     !.
-latex_expression(Expr, 0) -->
+latex_expression(Expr, _, 0) -->
     latex_number(Expr),
     !.
-latex_expression(Expr, 0) -->
+latex_expression(Expr, _, 0) -->
     cmd_expression(Expr).
 
 embraced_expression(Expr) -->
@@ -316,6 +319,10 @@ prefix_op(Op, OpPri, RightPri) -->
 c_prefix_op(+, 200, 200).
 c_prefix_op(-, 200, 200).
 
+infix_op(*, LeftPri, OpPri, RightPri) -->
+    latex_whites, [cdot()],
+    { c_infix_op(*, LeftPri, OpPri, RightPri)
+    }.
 infix_op(Op, LeftPri, OpPri, RightPri) -->
     latex_symbol(Op),
     { c_infix_op(Op, LeftPri, OpPri, RightPri)
