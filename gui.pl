@@ -1177,7 +1177,7 @@ fair(_, _) =>
 
 
 scale(X) :-                             % 1, 5, 10, 50, ...
-    between(0, 20, S),
+    between(0, 200, S),
     (   X is 10^S
     ;   X is 5*10^S
     ).
