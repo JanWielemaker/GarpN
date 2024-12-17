@@ -195,8 +195,7 @@ latex_to_prolog_source(LaTeX, Source) :-
 
 latex_prolog(LaTeX, Prolog, N0, N) :-
     N is N0+1,
-    parse_latex(LaTeX, LaTexCmd),
-    phrase(latex_prolog(Prolog), LaTexCmd),
+    latex_prolog(LaTeX, Prolog),
     !,
     debug(eq(from_prolog), '~p --> ~p', [LaTeX, Prolog]).
 latex_prolog(LaTeX, error{ line: N0,
@@ -204,6 +203,10 @@ latex_prolog(LaTeX, error{ line: N0,
                            message: "Invalid equation"
                          }, N0, N) :-
     N is N0+1.
+
+latex_prolog(LaTeX, Prolog) :-
+    parse_latex(LaTeX, LaTexCmd),
+    phrase(latex_prolog(Prolog), LaTexCmd).
 
 latex_prolog(Q:=Expr) -->               % TBD: decide on := vs =
     latex_var(Q), latex_symbol(=), latex_expression(Expr).
