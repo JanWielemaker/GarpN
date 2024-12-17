@@ -54,12 +54,12 @@ dynalearn_model_nc(Id, #{ results: Simulation,
                           qrels:QRels
                      }) :-
     get_model(Id, Model0),
-    prolog_model(Model0, Terms, IdMapping),
+    prolog_model(Model0, Terms, IdMapping, QSpaceMapping),
     import_qrels(Terms, QRels),
     import_qspaces(Terms, QSpaces),
     import_input_state(Terms, InputState),
     import_exogenous(Terms, Exogenous),
-    import_simulation(Model0, Simulation).
+    import_simulation(Model0, QSpaceMapping, Simulation).
 
 %!  get_model(++Id, -Model) is det.
 %
@@ -74,13 +74,22 @@ get_model(Id, Model) :-
                json_object(dict)
              ]).
 
-%!  prolog_model(+DLModel, -Terms) is det
+%!  prolog_model(+DLModel, -Terms, -IdMapping, -QSpaceMapping) is det
+%
+%   @arg IdMapping maps nXXX to quantitities
+%   @arg QSpaceMapping maps nXXX to quantity space values. The latter
+%   maps to an interval (atom) or term point(Name).
 
-prolog_model(DLModel, Terms, IdMapping) :-
+prolog_model(DLModel, Terms, IdMapping, QSpaceMapping) :-
     read_string_to_terms(DLModel.prolog, Terms0),
     foldsubterms(unmap(DLModel.mapping), Terms0, Terms, [], QPairs0),
     sort(QPairs0, QPairs),
-    dict_pairs(IdMapping, #, QPairs).
+    partition(is_id_map, QPairs, QIdPairs, QSpacePairs),
+    dict_pairs(IdMapping, #, QIdPairs),
+    dict_create(QSpaceMapping, #, QSpacePairs).
+
+is_id_map(_-_).
+
 
 unmap(Mapping, parameters(Parms0), Result, Q0, Q) =>
     Result = parameters(Parms),
@@ -94,8 +103,7 @@ unmap(_Mapping, par_relations(Rels), Result, Q0, Q) =>
     Q = Q0.
 unmap(Mapping, quantity_space(Id, A, Points0), Result, Q0, Q) =>
     Result = quantity_space(Id, A, Points),
-    maplist(unmap_qpoint(Mapping), Points0, Points),
-    Q = Q0.
+    foldl(unmap_qpoint(Mapping), Points0, Points, Q0, Q).
 unmap(Mapping, Id, UnMapped, Q0, Q),
     atom(Id),
     UnMapped = Mapping.get(Id) =>
@@ -119,11 +127,13 @@ unmap_plain_value(Mapping, V0, V), compound(V0), functor(V0, PN, 1) =>
     V = point(Name),
     Name = Mapping.get(PN, PN).
 
-unmap_qpoint(Mapping, point(P0), Result),
+unmap_qpoint(Mapping, point(P0), Result, Q0, Q),
     functor(P0, Name, _) =>
-    Result = point(Mapping.get(Name,Name)).
-unmap_qpoint(Mapping, Interval, Result), atom(Interval) =>
-    Result = Mapping.get(Interval,Interval).
+    Result = point(Mapping.get(Name,Name)),
+    Q = [Name=Result|Q0].
+unmap_qpoint(Mapping, Interval, Result, Q0, Q), atom(Interval) =>
+    Result = Mapping.get(Interval,Interval),
+    Q = [Interval=Result|Q0].
 
 read_string_to_terms(String, Terms) :-
     setup_call_cleanup(
@@ -183,7 +193,7 @@ import_qspaces(Terms, QSpaces) :-
     smd(Terms, SMD),
     arg(3, SMD, parameters(Parms)),
     include(is_qspace, Terms, QSpaceIn),
-    foldl(import_qspace(QSpaceIn), Parms, QSpaces, 1, _).
+    maplist(import_qspace(QSpaceIn), Parms, QSpaces).
 
 smd(Terms, SMD) :-
     SMD = smd(_In,_SE,_Parms,_ParVals,_ParRels,_SysStructs),
@@ -192,9 +202,8 @@ smd(Terms, SMD) :-
 is_qspace(quantity_space(_Id, _A, _QSpaces)) => true.
 is_qspace(_) => fail.
 
-import_qspace(QSpaceIn, Param, Result, N, N1) :-
+import_qspace(QSpaceIn, Param, Result) :-
     Result = qspace(Id, Term, QSpaces, fail),
-    N1 is N+1,
     arg(4, Param, QId),
     functor(Param, Attr, 4),
     arg(1, Param, Ent),
@@ -245,22 +254,22 @@ is_instance(X, SEList, Class, Done) :-
     is_instance(Super, SEList, Class, [Super|Done]).
 
 
-%!  import_simulation(+DLModel, -Results)
+%!  import_simulation(+DLModel, +QSpaceMapping, -Results)
 %
 %   Import the qualitative values and  state   graph  from the DynaLearn
 %   output.
 
-import_simulation(DL, #{qstates: Qstates, qstate_graph:Edges}) :-
+import_simulation(DL, QSpaceMapping, #{qstates: Qstates, qstate_graph:Edges}) :-
     dict_pairs(DL.simulation.states, _, Pairs),
     pairs_values(Pairs, DLStates),
-    maplist(import_qstate(DL.mapping), DLStates, Qstates, Edges).
+    maplist(import_qstate(QSpaceMapping), DLStates, Qstates, Edges).
 
 import_qstate(Mapping, DLState, qstate(Num, QValues), qstate_from(Num, From)) :-
     atom_number(DLState.num, Num),
-    import_qvalues(Mapping, DLState.values,     Values0),
-    import_qvalues(Mapping, DLState.dvalues,  D1Values0),
-    import_qvalues(Mapping, DLState.d2values, D2Values0),
-    import_qvalues(Mapping, DLState.d3values, D3Values0),
+    import_qvalues_v(Mapping, DLState.values,     Values0),
+    import_qvalues_d(Mapping, DLState.dvalues,  D1Values0),
+    import_qvalues_d(Mapping, DLState.d2values, D2Values0),
+    import_qvalues_d(Mapping, DLState.d3values, D3Values0),
     dicts_to_same_keys([Values0, D1Values0, D2Values0, D3Values0],
                        unbound,
                        [Values,  D1Values,  D2Values,  D3Values]),
@@ -269,12 +278,12 @@ import_qstate(Mapping, DLState, qstate(Num, QValues), qstate_from(Num, From)) :-
 
 unbound(_, _, _).
 
-import_qvalues(Mapping, DLValues, Values) :-
-    dict_pairs(DLValues, _, DLPairs),
-    maplist(map_kv(Mapping), DLPairs, Pairs),
-    dict_pairs(Values, _, Pairs).
+import_qvalues_d(_Mapping, DValues, DValues).
 
-map_kv(Mapping, DLK-DLV, DLK-V) :-
+import_qvalues_v(QSpaceMapping, DLValues, Values) :-
+    mapdict(map_kv(QSpaceMapping), DLValues, Values).
+
+map_kv(Mapping, _DLK, DLV, V) :-
     V = Mapping.get(DLV,DLV).
 
 join_ds(D1Values, D2Values, D3Values, Key, V, d(V,D1,D2,D3)) :-
