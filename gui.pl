@@ -348,7 +348,8 @@ set_model(Model) :-
     ->  read_model_to_terms(file(File), Terms0),
         partition(is_qspace, Terms0, QSpaces, Terms),
         Source = terms(Terms)
-    ;   Source = _
+    ;   Source = _,
+        QSpaces = []
     ),
     set_model(Model, Source, [qspaces(QSpaces)]).
 
