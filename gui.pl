@@ -661,7 +661,7 @@ mapping_table(Request) :-
 
 mapping_table(SHA1, Time) :-
     saved(SHA1, Model, Options),
-    q_series(string(Model), QSeries,
+    q_series(Model, QSeries,
              [ link_garp_states(true)
              | Options
              ]),
@@ -963,6 +963,16 @@ cell_value(Attrs, _K-Value) -->
       join_attrs([class(qualitative)], Attrs, Attrs1)
     },
     html(td(Attrs1, \v_label(Value))).
+cell_value(Attrs, _K-point(Name)) -->
+    !,
+    { join_attrs([class(qualitative)], Attrs, Attrs1)
+    },
+    html(td(Attrs1, span(class('qspace-point'), Name))).
+cell_value(Attrs, _K-error(Error)) -->
+    !,
+    { join_attrs([class(qualitative)], Attrs, Attrs1)
+    },
+    html(td(Attrs1, span(class('qspace-error'), Error))).
 cell_value(Attrs, garp_states-[]) -->
     { join_attrs([class(['garp-link', nomatch])], Attrs, Attrs1)
     },

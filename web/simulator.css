@@ -156,6 +156,20 @@ table.states tr.garp {
     background-color: #bbb;
 }
 
+span.qspace-point:before {
+    content: "\25c9";
+    font-size: 90%;
+    margin-right: 2px;
+}
+
+span.qspace-point {
+    color: blue;
+}
+
+span.qspace-error {
+    color: red;
+}
+
 span.plus {
     font-size: 200%;
     line-height: 50%;
@@ -315,7 +329,7 @@ div.add-equation {
     color: darkgreen;
 }
 
-div.ml-error:before {
+div.ml-error:before, span.qspace-error:before {
     content: "\26A0\FE0F";
     margin-right: 5px;
 }
