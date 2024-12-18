@@ -1,3 +1,5 @@
+:- create_prolog_flag(dynalearn, true, [keep(true)]).
+
 :- use_module(gui).
 :- use_module(map).
 :- if(current_prolog_flag(dynalearn, true)).
