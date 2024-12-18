@@ -624,20 +624,42 @@ state_qualitative(QSpaces, Dict, QDict) :-
 to_qualitative_z(Asymptotes, QSpaces, Q, V0, R) :-
     to_qualitative(QSpaces, Q, V0, R0),
     (   memberchk(asymptote(Q,D,_), Asymptotes)
-    ->  to_zero(D, R0, R)
+    ->  QSpace = QSpaces.get(Q, [point(zero)]),
+        to_zero(D, QSpace, R0, R)
     ;   R = R0
     ).
 
-:- det(to_zero/3).
-to_zero(N, V0, R), V0 =.. [d|Args] =>
+%!  to_zero(+N, +QSpace, +VIn, -VOut) is det.
+%
+%   Keep the first N  of  value  or   d(V,D1,...)  as  is,  mapping  all
+%   subsequent to zero. For the value, zero means point(zero), while for
+%   derivatives it means the plain atom `zero`.
+
+:- det(to_zero/4).
+to_zero(N, QSpace, V0, R), V0 =.. [d|Args] =>
     length(Keep, N),
     append(Keep, ToZero, Args),
-    maplist(to_zero, ToZero, Zero),
+    foldl(to_zero(QSpace), ToZero, Zero, N, _),
     append(Keep, Zero, Args1),
     R =.. [d|Args1].
-to_zero(0, _, R) => R = zero.
+to_zero(0, QSpace, _, Zero) =>
+    qspace_zero(QSpace, Zero).
+to_zero(_, _, V, R) =>
+    R = V.
 
-to_zero(_, zero).
+to_zero(QSpace, _, Zero, 0, N) =>          % value is a quantity space element
+    qspace_zero(QSpace, Zero),
+    N = 1.
+to_zero(_, _, Zero, N, N1) =>              % Derivatives
+    Zero = zero,
+    N1 is N+1.
+
+qspace_zero(QSpace, Zero) :-
+    member(point(Name=Val), QSpace),
+    Val =:= 0,
+    !,
+    Zero = point(Name).
+qspace_zero(_, point(zero)).
 
 %!  to_qualitative(+QSpaces, +Quantity, +NumIn, -QOut) is det.
 %
