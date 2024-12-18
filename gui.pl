@@ -239,16 +239,6 @@ save_model_button -->
                   title('Save as reference model')
                 ], '\U0001F4E4')).
 
-refresh_model_button -->
-    { http_link_to_id(refresh_model, [], HREF) },
-    html(button([ 'hx-get'(HREF),
-                  'hx-vals'('js:{model: currentModel(), \c
-                                 qspaces: get_jqspaces()}'),
-                  'hx-target'('#qspace-controls'),
-                  title('Reload qualitative model from Dynalearn')
-                ], '\U0001F504')).
-
-
 %!  right_controls(+Model)//
 %
 %   Controls for the right div below the numerical model.
@@ -326,7 +316,6 @@ default_model(none, "").
 :- http_handler(htmx(run), run_model, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
 :- http_handler(htmx('set-model'),     set_model_handler, []).
-:- http_handler(htmx('refresh-model'), refresh_model, []).
 :- http_handler(htmx('save-model'),    save_model, []).
 :- http_handler(htmx('load-model'),    load_model, []).
 :- http_handler(htmx('wipe-model'),    wipe_model, []).
@@ -374,6 +363,10 @@ set_model(Model, Source, Options) :-
           \js_script({|javascript(Model)||setModel(Model)|})
         ]).
 
+:- if(\+current_predicate(flush_dynalearn_model/1)).
+flush_dynalearn_model(_).
+:- endif.
+
 numeric_model_file(Model, File) :-
     format(atom(File), 'numeric/~w.pl', [Model]).
 
@@ -398,6 +391,19 @@ load_model(Request) :-
                      ]),
     set_model(Model).
 
+:- if(current_prolog_flag(dynalearn, true)).
+:- http_handler(htmx('refresh-model'), refresh_model, []).
+
+refresh_model_button -->
+    { http_link_to_id(refresh_model, [], HREF) },
+    html(button([ 'hx-get'(HREF),
+                  'hx-vals'('js:{model: currentModel(), \c
+                                 qspaces: get_jqspaces()}'),
+                  'hx-target'('#qspace-controls'),
+                  title('Reload qualitative model from Dynalearn')
+                ], '\U0001F504')).
+
+
 %!  refresh_model(Request)
 %
 %   Invalidate the model as we got it from Dynalearn.  Updates
@@ -413,6 +419,12 @@ refresh_model(Request) :-
     reply_htmx([ \qspace_controls(Model, [qspaces(Qspaces)]),
                  \htmx_oob(status, 'Reloaded model from Dynalearn')
                ]).
+:- else.
+
+refresh_model_button -->
+    [].
+
+:- endif.
 
 %!  save_model(Request)
 %
