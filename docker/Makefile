@@ -3,7 +3,8 @@ VOLUME=$(shell pwd)/data
 PORT=3510
 
 PUBLISH=--publish=${PORT}:3510
-DOPTS=${PUBLISH}
+MOUNT=--volume=$(shell dirname `pwd`)/numeric:/garpn/numeric
+DOPTS=${PUBLISH} ${MOUNT}
 IMG=garpn
 SRV=garpn
 
