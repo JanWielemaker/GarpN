@@ -7,7 +7,7 @@ check()
      auth="$(cat health.auth)"
   fi
   curl --fail -s --retry 3 --max-time 5 \
-       http://localhost:3060/health
+       http://localhost:3510/garp/health
 }
 
 stop()

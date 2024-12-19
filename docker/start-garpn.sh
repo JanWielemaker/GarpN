@@ -6,12 +6,21 @@
 
 start=--no-fork
 udaemon=daemon
+cd /garpn
 
 date "+%s" > /var/run/epoch
 
 if [ -t 0 ] ; then
   start=--interactive
+  exec swipl run.pl --user=$udaemon --port=3510 $start
 fi
+
+case $1 in
+    --bash)
+	bash
+	exit 0
+	;;
+esac
 
 ## Make the server stop on signals sent from the health.sh.  Process
 ## 1 only accepts signals for which there is an installed signal
@@ -42,10 +51,9 @@ trap "stop TERM" SIGTERM
 trap "stop QUIT" SIGQUIT
 trap "hangup" SIGHUP
 
-cd /lpn
-mkdir -p log cache
-chown -R $udaemon log cache
-swipl run.pl --user=$udaemon --port=3501 $start &
+cd /garpn
+echo swipl run.pl --user=$udaemon --port=3510 $start &
+swipl run.pl --user=$udaemon --port=3510 $start &
 child_pid=$!
 
 stat=129

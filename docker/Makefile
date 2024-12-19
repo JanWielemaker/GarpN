@@ -1,11 +1,11 @@
 RESTART=--restart unless-stopped
 VOLUME=$(shell pwd)/data
-PORT=3501
+PORT=3510
 
-PUBLISH=--publish=${PORT}:3501
+PUBLISH=--publish=${PORT}:3510
 DOPTS=${PUBLISH}
-IMG=GarpN
-SRV=GarpN
+IMG=garpn
+SRV=garpn
 
 all:
 	@echo "Targets"
@@ -16,7 +16,7 @@ all:
 	@echo "restart          Stop and restart the image"
 
 image::
-	docker build --build-context GarpN=.. -t $(IMG) .
+	docker build --build-context garpn=.. -t $(IMG) .
 
 install:
 	docker run --name=$(SRV) -d ${RESTART} ${DOPTS} $(IMG)

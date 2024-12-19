@@ -4,6 +4,7 @@
 :- use_module(library(http/http_server)).
 :- use_module(library(http/http_unix_daemon)).
 :- use_module(library(http/http_files)).
+:- use_module(library(http/http_server_health)).
 :- use_module(library(http/htmx)).
 :- use_module(library(http/http_json)).
 :- use_module(library(option)).
@@ -43,6 +44,8 @@ http:location(htmx, garp(htmx), []).
 :- http_handler(garp('node_modules/'),
                 http_reply_from_files(node_modules, [not_found(404)]),
                 [prefix]).
+:- http_handler(garp(health), server_health,
+                [id(server_health)]).
 
 home(_Request) :-
     reply_html_page([ title('GarpN: the Garp numerical simulator'),
