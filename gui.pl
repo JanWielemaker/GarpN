@@ -69,7 +69,7 @@ set_model_file(_) =>
                 [prefix]).
 
 home(_Request) :-
-    reply_html_page([ title('Garp numerical simulator'),
+    reply_html_page([ title('GarpN: the Garp numerical simulator'),
                       link([rel(stylesheet), href('/garp/simulator.css')]),
                       link([rel(icon), type('image/png'), sizes('32x32'),
                             href('https://www.swi-prolog.org/icons/favicon.ico')])
