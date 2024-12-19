@@ -886,6 +886,8 @@ strip_derivatives_(Match, K, V0, V) :-
     keep_derivatives(Keep, V0, V).
 strip_derivatives_(_, _, V, V).
 
+keep_derivatives([0], D, V), atomic(D) =>
+    V = D.
 keep_derivatives([0], D, V) =>
     arg(1, D, V).
 keep_derivatives([0,1], D, R) =>
