@@ -199,14 +199,15 @@ saved_model_file(Model, File) :-
 %!  m_qspace(+ModelId, ?QspaceId, ?Qspace, ?Values) is nondet.
 
 :- if(current_prolog_flag(dynalearn, true)).
-m_qspace(ModelId, QspaceId, Qspace, Values) :-
+m_qspace(none, _QspaceId, _Qspace, _Values) =>
+    fail.
+m_qspace(ModelId, QspaceId, Qspace, Values) =>
     dynalearn_model(ModelId, ModelData),
     member(qspace(QspaceId, Qspace, Values, fail), ModelData.qspaces).
 :- else.
-m_qspace(engine, QspaceId, Qspace, Values) :-
-    !,
+m_qspace(engine, QspaceId, Qspace, Values) =>
     engine:qspace(QspaceId, Qspace, Values, fail).
-m_qspace(Model, QspaceId, Qspace, Values) :-
+m_qspace(Model, QspaceId, Qspace, Values) =>
     ensure_loaded_model(Model, qspace/4),
     Model:qspace(QspaceId, Qspace, Values, fail).
 :- endif.
@@ -238,21 +239,22 @@ ensure_loaded_model(Model, PI) :-
     assertion(current_predicate(Model:PI)).
 :- endif.
 
-%!  qstate(+Model, ?Id, -Values, +Options)
+%!  qstate(+Model, ?Id, -Values, +Options) is nondet.
 %
 %   Extract qualitative states from a saved Garp simulation If no model
 %   is saved, we use the current model.
 
 :- if(current_prolog_flag(dynalearn, true)).
-qstate(ModelId, State, Values, Options) :-
+qstate(none, _State, _Values, _Options) =>
+    fail.
+qstate(ModelId, State, Values, Options) =>
     dynalearn_model(ModelId, ModelData),
     member(qstate(State, Values0), ModelData.results.qstates),
     select_derivatives(Values0, Values, Options).
 :- else.
-qstate(engine, State, Values, Options) :-
-    !,
+qstate(engine, State, Values, Options) =>
     qstate(State, Values, Options).
-qstate(Model, State, Values, Options) :-
+qstate(Model, State, Values, Options) =>
     ensure_loaded_model(Model, qstate/2),
     Model:qstate(State, Values0),
     select_derivatives(Values0, Values, Options).
