@@ -2,6 +2,7 @@
           []).
 :- use_module(library(main)).
 :- use_module(library(http/http_server)).
+:- use_module(library(http/http_unix_daemon)).
 :- use_module(library(http/http_files)).
 :- use_module(library(http/htmx)).
 :- use_module(library(http/http_json)).
@@ -32,31 +33,6 @@
 
 http:location(garp, root(garp), []).
 http:location(htmx, garp(htmx), []).
-
-:- initialization(main, main).
-:- dynamic model_file/1.
-
-main(Argv) :-
-    argv_options(Argv, Pos, Options),
-    set_model_file(Pos),
-    http_server(Options),
-    (   option(interactive(true), Options)
-    ->  cli_enable_development_system
-    ;   thread_get_message(quit)
-    ).
-
-opt_type(port,        port,        integer).
-opt_type(p,           port,        integer).
-opt_type(interactive, interactive, boolean).
-opt_type(i,           interactive, boolean).
-
-opt_help(help(usage),
-         " [option..] file").
-
-set_model_file([File]) =>
-    asserta(model_file(File)).
-set_model_file(_) =>
-    true.
 
 :- http_handler(root(.),    http_redirect(see_other, garp(home)), []).
 :- http_handler(garp(.),    http_redirect(see_other, garp(home)), []).
@@ -89,10 +65,7 @@ home(_Request) :-
                     ]).
 
 home -->
-    { (   default_model(Model, Source)
-      ->  true
-      ;   Model = none
-      )
+    { Model = none
     },
     html([ h1("Garp numerical simulator"),
            div([ 'hx-ext'('response-targets'),
@@ -303,14 +276,6 @@ mathlive_model(Model, Source, Options) ==>
       id_mapping(Model, IdMapping)
     },
     html(div(\equations(Terms, [id_mapping(IdMapping)|Options]))).
-
-default_model(Model, Source) :-
-    model_file(File),
-    !,
-    file_base_name(File, Base),
-    file_name_extension(Model, _, Base),
-    read_file_to_string(File, Source, []).
-default_model(none, "").
 
 :- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run_model, []).
