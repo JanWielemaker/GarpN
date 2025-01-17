@@ -408,6 +408,10 @@ latex_1(blanks(Blanks)) -->
     blanks(T),
     { string_codes(Blanks, [H|T]) }.
 latex_1(Number) -->
+    peek_float,
+    number(Number),
+    !.
+latex_1(Number) -->
     peek(D),
     { char_type(D, digit) },
     number(Number),
@@ -420,6 +424,10 @@ latex_1(Word) -->
 latex_1(Char) -->
     [C],
     { char_code(Char, C) }.
+
+peek_float, [0'0,0'.,D] -->
+    ".", [D],
+    { code_type(D, digit) }.
 
 is_end(eos) --> !, eos.
 is_end(String), [C]--> [C], {string_code(_, String, C)}, !.
