@@ -151,8 +151,9 @@ quantity_string(Q, S) :-
 
 test_eq :-
     read_line_to_string(user_input, LaTeX),
+    asserta(user:latex(LaTeX)),
     gtrace,
-    latex_to_prolog(LaTeX, Prolog),
+    latex_prolog(LaTeX, Prolog),
     print_term(Prolog, []).
 
 %!  latex_to_prolog(+LaTeX, -Prolog:list(term)) is det.
@@ -220,9 +221,8 @@ latex_var(Q) -->
 latex_expression(Expr) -->
     latex_expression(Expr, 1200, _).
 
-latex_expression(Expr, _, 0) -->
-    embraced_expression(Expr),
-    !.
+%!  latex_expression(-Expr, +MaxPri, -Pri)//
+
 latex_expression(Expr, MaxPri, Pri) -->
     prefix_op(Op, Pri, MaxPriRight),
     { Pri =< MaxPri
@@ -233,7 +233,8 @@ latex_expression(Expr, MaxPri, Pri) -->
 latex_expression(Expr, MaxPri, Pri) -->
     string(Tokens),
     infix_op(Op, MaxPriLeft, Pri, MaxPriRight),
-    { Pri =< MaxPri,
+    { debug(latex(op), 'Infix ~p; left ~p', [Op, Tokens]),
+      Pri =< MaxPri,
       phrase(latex_expression(Left, MaxPriLeft, _), Tokens)
     },
     latex_expression(Right, MaxPriRight, _),
@@ -245,6 +246,9 @@ latex_expression(L/R, MaxPri, 400) -->
       phrase(latex_expression(L), EL),
       phrase(latex_expression(R), ER)
     }.
+latex_expression(Expr, _, 0) -->
+    embraced_expression(Expr),
+    !.
 latex_expression(Expr, _, 0) -->
     latex_var(Expr),
     !.
