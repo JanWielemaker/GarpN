@@ -61,6 +61,11 @@ qrel2nrel(QRels, Left, [Diff := A - B|NRels]) :- % Diff = A-B
     !,
     exclude(is_prop(Diff), QRels1, QRels2),
     qrel2nrel(QRels2, Left, NRels).
+qrel2nrel(QRels, Left, [Mult := A * B|NRels]) :- % Mult = A*B
+    select(equal(mult(A,B), Mult), QRels, QRels1),
+    !,
+    exclude(is_prop(Mult), QRels1, QRels2),
+    qrel2nrel(QRels2, Left, NRels).
 qrel2nrel(QRels, Left, [NRel|NRels]) :-       % multiple prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, Prob),
