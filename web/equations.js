@@ -200,9 +200,10 @@ activatePlusButton(eql)
 
 function ml_errors(errors, eql)
 { eql = eql||document.getElementById("equations");
+  let sub=1
 
   for(e of errors)
-  { const eq = eql.children[e.line-1];
+  { const eq = eql.children[e.line-sub];
     const div = document.createElement("div");
 
     div.classList.add("ml-error");
@@ -211,5 +212,6 @@ function ml_errors(errors, eql)
     else
       div.textContent = e.message;
     eq.after(div);
+    sub--;
   }
 }
