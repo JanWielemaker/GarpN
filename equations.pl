@@ -461,6 +461,7 @@ ltx_args(variable,    Args) ==> ltx_nargs(1, Args).
 ltx_args(cdot,        Args) ==> {Args = []}.
 ltx_args(left,        Args) ==> ltx_nargs(1, Args).
 ltx_args(right,       Args) ==> ltx_nargs(1, Args).
+ltx_args(frac,        Args) ==> ltx_nargs(2, Args).
 ltx_args(placeholder, Args) ==> opt_arg(Name), curl_arg(Value),
 				{Args = [Name,Value]}.
 ltx_args(_,           Args) ==> curl_args(Args).
@@ -469,7 +470,8 @@ ltx_nargs(0, []) --> !.
 ltx_nargs(N, [H|T]) --> ltx_arg(H), {N1 is N-1}, ltx_nargs(N1, T).
 
 ltx_arg(Arg) --> curl_arg(Arg), !.
-ltx_arg(Arg) --> [C], { string_codes(Arg, [C]) }.
+ltx_arg([Num]) --> digit(D), !, { number_codes(Num, [D]) }.
+ltx_arg([Arg]) --> [C], { string_codes(Arg, [C]) }.
 
 curl_args([H|T]) -->
     peek('{'),
