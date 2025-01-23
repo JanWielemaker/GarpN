@@ -691,6 +691,35 @@ sum_(_P, V1, V2, V) :-
 sum_(N, _P, V1, V2, V) :-
     V is V1+N*V2.
 
+%!  init_derivatives(+Series, -DSeries, +IdMapping) is det.
+%
+%   Change the values for Series into a  term d(V,D1,D2,D3). If the keys
+%   are quantities, the simulation value is used to fill `V`. If it is a
+%   delta-term, we find the corresponding quantity and fill `D1`.
+
+init_derivatives(Series, DSeries, IdMapping) :-
+    Series = [H|_],
+    make_derivative_map(H, IdMapping, In, Out),
+    maplist(derivative_map(In, Out), Series, DSeries).
+
+make_derivative_map(Dict, IdMapping, In, Out) :-
+    dict_pairs(Dict, _, Pairs),
+    maplist(make_derivative_map_(IdMapping), Pairs, InPairs, OutPairs),
+    dict_pairs(In, _, InPairs),
+    dict_pairs(Out, _, OutPairs).
+
+make_derivative_map_(IdMapping, K-_, K-D0, Id-d(_,D0,_,_)) :-
+    sub_atom(K, B, _, A, 'Δ'),
+    sub_atom(K, 0, B, _, Before),
+    sub_atom(K, _, A, 0, After),
+    string_concat(Before, After, S),
+    term_string(IdTerm, S),
+    get_dict(Id, IdMapping, IdTerm),
+    !.
+make_derivative_map_(_IdMapping, K-_, K-V0, K-d(V0,_,_,_)).
+
+derivative_map(In, Out, DictIn, DictOut) :-
+    copy_term(In+Out, DictIn+DictOut).
 
 %!  add_derivative(+Series, -DSeries) is det.
 %
