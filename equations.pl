@@ -136,8 +136,7 @@ quantities(List, Options) :-
     pairs_values(Pairs, Values),
     maplist(quantity_string, Values, List0),
     append(List0,
-           [ "\\variable{t}",
-             "\\variable{Δt}"
+           [ "\\variable{t}"
            ], List).
 
 quantity_string(Q, S) :-

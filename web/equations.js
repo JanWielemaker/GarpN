@@ -94,16 +94,26 @@ function ml_update_menu(mf, quantities)
 { const menu = mf.menuItems.filter((i) => keep_items.indexOf(i.id) >= 0);
   quantities = quantities||state.quantities;
 
-  function insertItem(ltx) {
+  function insertQuantity(ltx) {
     return { label: () => insertLabel(ltx),
 	     onMenuSelect: () => mf.insert(ltx)
 	   };
+  }
+  function insertDerivative(ltx) {
+    const dltx = ltx
+	  .replace(/\\prop{/, "\\prop{Δ")
+	  .replace(/\\variable{/, "\\variable{Δ");
+    return insertQuantity(dltx);
   }
 
   menu.unshift(
     { type: "submenu",
       label: "Insert Quantity",
-      submenu: quantities.map((q) => insertItem(q))
+      submenu: quantities.map((q) => insertQuantity(q))
+    },
+    { type: "submenu",
+      label: "Insert Derivative",
+      submenu: quantities.map((q) => insertDerivative(q))
     },
     { type: "divider"
     });
