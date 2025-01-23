@@ -832,10 +832,10 @@ q_series(Source, QSeries, Options) :-
 
 nq_series(Series, QSeries, Options) :-
     deleted_unmatched(Series, Series1, Options),
-    add_derivatives(Series1, SeriesD, Options),
-    series_qualitative(SeriesD, QSeries0, Options),
-    simplify_qseries(QSeries0, QSeries1, Options),
-    opt_link_garp_states(QSeries1, QSeries, Options).
+    add_derivatives(Series1, Series2, Options),
+    series_qualitative(Series2, QSeries0, Options),
+    simplify_qseries(QSeries0, QSeries2, Options),
+    opt_link_garp_states(QSeries2, QSeries, Options).
 
 %!  deleted_unmatched(+AllSeries, -Series, +Options)
 %
@@ -854,11 +854,12 @@ delete_keys(Del, Dict0, Dict) :-
     dict_same_keys(Del, Free),
     select_dict(Free, Dict0, Dict).
 
-%!  add_derivatives(+Series0, -Series, +Options) is det.
+%!  add_derivatives(+Series, -Series1, +Options) is det.
 
-add_derivatives(Series0, Series, Options) :-
+add_derivatives(Series, Series1, Options) :-
     max_derivative_used(Options, MaxD),
-    add_derivatives_(MaxD, Series0, Series1),
+    foreach(between(0, MaxD, D),
+            add_derivative(D, Series)),
     (   option(match(Match), Options),
         Match._ \== []
     ->  maplist(strip_derivatives(Match), Series1, Series)
@@ -872,12 +873,9 @@ max_derivative_used(Options, D) :-
     append(Values, AllValues),
     max_list(AllValues, D).
 
-add_derivatives_(0, Series, Series) :-
-    !.
-add_derivatives_(N, Series0, Series) :-
-    add_derivative(Series0, Series1),
-    N2 is N - 1,
-    add_derivatives_(N2, Series1, Series).
+%!  strip_derivatives(+Match, +State0, -State) is det.
+%
+%   Map unneeded derivatives to a variable.
 
 strip_derivatives(Match, State0, State) :-
     mapdict(strip_derivatives_(Match), State0, State).
@@ -888,40 +886,24 @@ strip_derivatives_(Match, K, V0, V) :-
     keep_derivatives(Keep, V0, V).
 strip_derivatives_(_, _, V, V).
 
-keep_derivatives([0], D, V), atomic(D) =>
-    V = D.
-keep_derivatives([0], D, V) =>
-    arg(1, D, V).
-keep_derivatives([0,1], D, R) =>
-    R = d(V,D1),
-    arg(1, D, V),
-    arg(2, D, D1).
-keep_derivatives([1], D, R) =>
-    R = d(_,D1),
-    arg(2, D, D1).
-keep_derivatives([0,1,2], D, R) =>
-    R = d(V,D1,D2),
-    arg(1, D, V),
-    arg(2, D, D1),
-    arg(3, D, D2).
+keep_derivatives([0], d(V,_,_,_), R) =>
+    R = d(V,_,_,_).
+keep_derivatives([0,1], d(V,D1,_,_), R) =>
+    R = d(V,D1,_,_).
+keep_derivatives([1], d(_,D1,_,_), R) =>
+    R = d(_,D1,_,_).
+keep_derivatives([0,1,2], d(V,D1,D2,_), R) =>
+    R = d(V,D1,D2,_).
 keep_derivatives([0,1,2,3], D, R) =>
-    R = d(V,D1,D2,D3),
-    arg(1, D, V),
-    arg(2, D, D1),
-    arg(3, D, D2),
-    arg(4, D, D3).
+    R = D.
 keep_derivatives(List, D, R) =>
-    max_list(List, Max),
-    Arity is Max+1,
-    functor(R, d, Arity),
-    copy_derivatives(List, D, R).
+    R = d(_,_,_,_),
+    maplist(copy_arg(List), D, R).
 
-copy_derivatives([], _, _).
-copy_derivatives([H|T], D, R) :-
-    A is H+1,
-    arg(A, D, V),
-    arg(A, R, V),
-    copy_derivatives(T, D, R).
+copy_arg([], _, _).
+copy_arg(A, I, O) :-
+    arg(A, I, V),
+    arg(A, O, V).
 
 %!  simplify_qseries(+QSeries0, -QSeries, +Options) is det.
 %

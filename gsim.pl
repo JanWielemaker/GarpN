@@ -2,7 +2,7 @@
           [ read_model/5,          % +Source, -Formulas, -Constants, -State0, +Opts
             simulate/3,            % +ModelSrc, -Series, +Options
             init_derivatives/3,    % +Series, -DSeries, +IdMapping
-            add_derivative/2,      % +Series, -DSeries
+            add_derivative/2,      % +Nth, +Series
             read_model_to_terms/2, % ++Input, -Terms
             normal_number/1,       % @Term
             min_list_normal/2,     % +List, -Min

@@ -1037,7 +1037,8 @@ run_model(Request) :-
                 qspaces(QSpaces)
               ],
     latex_to_prolog_ex(MlSource, Equations),
-    call_time(simulate(terms(Equations), Series, Options), Time),
+    call_time(simulate(terms(Equations), Series0, Options), Time),
+    init_derivatives(Series0, Series, IdMapping),
     annotate_garp_states(Series, Shapes, Options),
     plotly_traces(Series, VTraces, DTraces, IdMapping),
     reply_htmx([ hr([]),
