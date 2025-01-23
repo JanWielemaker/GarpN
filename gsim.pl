@@ -6,7 +6,8 @@
             read_model_to_terms/2, % ++Input, -Terms
             normal_number/1,       % @Term
             min_list_normal/2,     % +List, -Min
-            max_list_normal/2      % +List, -Max
+            max_list_normal/2,     % +List, -Max
+            derivative_key/3       % +Key, -Quantity, +IdMapping
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -710,14 +711,19 @@ make_derivative_map(Dict, IdMapping, In, Out) :-
     dict_pairs(Out, _, OutPairs).
 
 make_derivative_map_(IdMapping, K-_, K-D0, Id-d(_,D0,_,_)) :-
-    sub_atom(K, B, _, A, 'Δ'),
-    sub_atom(K, 0, B, _, Before),
-    sub_atom(K, _, A, 0, After),
-    string_concat(Before, After, S),
-    term_string(IdTerm, S),
-    get_dict(Id, IdMapping, IdTerm),
+    derivative_key(K, Id, IdMapping),
     !.
 make_derivative_map_(_IdMapping, K-_, K-V0, K-d(V0,_,_,_)).
+
+%!  derivative_key(+Key, -Quantity, +IdMapping) is semidet
+
+derivative_key(Key, Quantity, IdMapping) :-
+    sub_atom(Key, B, _, A, 'Δ'),
+    sub_atom(Key, 0, B, _, Before),
+    sub_atom(Key, _, A, 0, After),
+    string_concat(Before, After, S),
+    term_string(IdTerm, S),
+    get_dict(Quantity, IdMapping, IdTerm).
 
 derivative_map(In, Out, DictIn, DictOut) :-
     copy_term(In+Out, DictIn+DictOut).

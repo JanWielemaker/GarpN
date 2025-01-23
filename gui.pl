@@ -494,7 +494,7 @@ analyze(Request) :-
 %   consider mapping this quantity to Garp.
 
 q_menu(Model, Source) -->
-    { nonvar(Source),                            % there is no model
+    { nonvar(Source),                            % there is a model
       id_mapping(Model, IdMapping),
       catch(read_model(Source, Formulas, _Constants, _State0,
                        [ id_mapping(IdMapping) ]),
@@ -502,8 +502,10 @@ q_menu(Model, Source) -->
     },
     (   {var(Ball)}
     ->  { dict_keys(Formulas, Keys),
-          delete(Keys, t, Quantities0),
-          order_keys(IdMapping, Quantities0, Quantities)
+          maplist(key_quantity(IdMapping), Keys, Quantities0),
+          sort(Quantities0, Quantities1),
+          delete(Quantities1, t, Quantities2),
+          order_keys(IdMapping, Quantities2, Quantities)
         },
         html(table(class(quantities),
                    [ tr([ th([class(quantity), rowspan(2)], 'Quantity'),
@@ -516,6 +518,12 @@ q_menu(Model, Source) -->
     ).
 q_menu(_, _) -->
     [].
+
+key_quantity(IdMapping, Key, Quantity) :-
+    derivative_key(Key, Quantity, IdMapping),
+    !.
+key_quantity(_, Key, Key).
+
 
 q_control(IdMapping, Key) -->
     html(tr(class('quantity-link'),
