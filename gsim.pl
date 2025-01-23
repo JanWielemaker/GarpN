@@ -342,8 +342,11 @@ derived_initial_state(Formulas, Constants, State0, State, Options) :-
     ->  true
     ;   formulas_needs_init(Formulas, NeedsInit),
         ord_intersection(Unresolved, NeedsInit, Init),
-        maplist(q_term_id(Options), InitTerms, Init),
-        throw(model_error(no_initial_values(InitTerms)))
+        (   Init == []
+        ->  true
+        ;   maplist(q_term_id(Options), InitTerms, Init),
+            throw(model_error(no_initial_values(InitTerms)))
+        )
     ).
 
 bind_placeholder(placeholder(_Id, PValue), Value) :-
