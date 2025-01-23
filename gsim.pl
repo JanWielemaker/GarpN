@@ -1,11 +1,12 @@
 :- module(gsim,
-          [ read_model/5,         % +Source, -Formulas, -Constants, -State0, +Opts
-            simulate/3,           % +ModelSrc, -Series, +Options
-            add_derivative/2,     % +Series, -DSeries
+          [ read_model/5,          % +Source, -Formulas, -Constants, -State0, +Opts
+            simulate/3,            % +ModelSrc, -Series, +Options
+            init_derivatives/3,    % +Series, -DSeries, +IdMapping
+            add_derivative/2,      % +Series, -DSeries
             read_model_to_terms/2, % ++Input, -Terms
             normal_number/1,       % @Term
-            min_list_normal/2,
-            max_list_normal/2
+            min_list_normal/2,     % +List, -Min
+            max_list_normal/2      % +List, -Max
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -725,7 +726,8 @@ derivative_map(In, Out, DictIn, DictOut) :-
 %
 %   Materialize the Nth derivative in Series. Series   is  a dict Key ->
 %   d(V,D1,D2,D3).  Nth1  is   0..3.   The    logic   both   allows  for
-%   differentiation and integration.
+%   differentiation and integration. Initially, a combination of the 0th
+%   (value) and 1st derivative may be filled.
 
 add_derivative(_, []).
 add_derivative(Nth, [H1|T1]) :-
@@ -736,6 +738,10 @@ add_derivative(Nth, [H1|T1]) :-
 add_derivative_1(Nth, H1, H2) :-
     mapdict(add_derivative_k(Nth), H1, H2).
 
+add_derivative_k(Nth, _K, _A1, A2) :-
+    arg(Nth, A2, V),
+    nonvar(V),
+    !.
 add_derivative_k(Nth, _K, A1, A2) :-
     P is Nth-1,
     P > 0,
@@ -752,49 +758,6 @@ add_derivative_k(Nth, _K, A1, A2) :-
     !,
     I is V1+V2,
     arg(Nth, A2, I).
-
-
-
-add_derivative([], []).
-add_derivative(L, D) :-
-    L = [H|_],
-    nth_derivative(H, N),
-    derivative(L, N, D).
-
-derivative([H1,H2|T0], N, [DH|T]) :-
-    !,
-    derivative_1(H1, H2, N, DH),
-    derivative([H2|T0], N, T).
-derivative([_], _, []).
-
-
-nth_derivative(S, N), get_dict(K, S, T), K \== t =>
-    nth_derivative_(T, N).
-
-nth_derivative_(d(_,_), D)  => D = 1.
-nth_derivative_(d(_,_,_), D) => D = 2.
-nth_derivative_(_V, D) => D = 0.
-
-derivative_1(D1, D2, N, D) :-
-    mapdict(derivative_v(N, D2), D1, D).
-
-derivative_v(_, _, t, T, R) =>
-    R = T.
-derivative_v(1, Dict, K, d(V,D1), R) =>
-    R = d(V,D1,D2),
-    get_dict(K, Dict, d(_,D1b)),
-    v_minus(D1b, D1, D2).
-derivative_v(2, Dict, K, d(V,D1,D2), R) =>
-    R = d(V,D1,D2,D3),
-    get_dict(K, Dict, d(_,_,D2b)),
-    v_minus(D2b, D2, D3).
-derivative_v(0, Dict, K, V, R) =>
-    R = d(V,D1),
-    get_dict(K, Dict, Vb),
-    v_minus(Vb, V, D1).
-
-v_minus(V1, V2, D), normal_number(V1), normal_number(V2) => D is V1-V2.
-v_minus(_, _, _) => true.
 
 %!  normal_number(@Term) is semidet.
 %
