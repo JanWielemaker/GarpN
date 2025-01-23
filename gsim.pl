@@ -721,10 +721,39 @@ make_derivative_map_(_IdMapping, K-_, K-V0, K-d(V0,_,_,_)).
 derivative_map(In, Out, DictIn, DictOut) :-
     copy_term(In+Out, DictIn+DictOut).
 
-%!  add_derivative(+Series, -DSeries) is det.
+%!  add_derivative(+Nth, +Series) is det.
 %
-%   Add the derivatives to a Series by replacing the value with a term
-%   d(V,D1,...).
+%   Materialize the Nth derivative in Series. Series   is  a dict Key ->
+%   d(V,D1,D2,D3).  Nth1  is   0..3.   The    logic   both   allows  for
+%   differentiation and integration.
+
+add_derivative(_, []).
+add_derivative(Nth, [H1|T1]) :-
+    T1 = [H2|_],
+    add_derivative_1(Nth, H1, H2),
+    add_derivative(Nth, T1).
+
+add_derivative_1(Nth, H1, H2) :-
+    mapdict(add_derivative_k(Nth), H1, H2).
+
+add_derivative_k(Nth, _K, A1, A2) :-
+    P is Nth-1,
+    P > 0,
+    arg(P, A1, V1),
+    arg(P, A2, V2),
+    normal_number(V1), normal_number(V2),
+    !,
+    D is V2-V1,
+    arg(Nth, A2, D).
+add_derivative_k(Nth, _K, A1, A2) :-
+    N is Nth+1,
+    arg(Nth, A1, V1), normal_number(V1),
+    arg(N, A2, V2),   normal_number(V2),
+    !,
+    I is V1+V2,
+    arg(Nth, A2, I).
+
+
 
 add_derivative([], []).
 add_derivative(L, D) :-
