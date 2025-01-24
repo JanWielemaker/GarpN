@@ -1128,6 +1128,54 @@ plot(Target, Title, Traces, Shapes) -->
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
+%!  select_traces(+Series, -Selected, +IdMapping) is det.
+%
+%   Find the traces we want to display.  Selected is a list of one of
+%   `Key`, d1(Key), d2(Key) or d3(Key).
+
+select_traces(Series, Traces, IdMapping) :-
+    Series = [First|_],
+    dict_keys(First, Keys0),
+    delete(Keys0, t, Keys1),
+    order_keys(IdMapping, Keys1, Keys),
+    key_traces(Keys, Series, Traces).
+
+key_traces([], _, []).
+key_traces([H|T], Series, Traces) :-
+    key1_traces(H, 0, Series, Traces, TTail),
+    key_traces(T, Series, TTail).
+
+key1_traces(Key, D, Series, Traces, Tail) :-
+    (   series_has_values(Key, D, Series)
+    ->  mkd(Key, D, H),
+        Traces = [H|T],
+        Found = true
+    ;   Traces = T,
+        Found = false
+    ),
+    (   d_next(D, D1, Found)
+    ->  key1_traces(Key, D1, Series, T, Tail)
+    ;   T = Tail
+    ).
+
+series_has_values(Key, D, Series) :-
+    Arg is D+1,
+    member(Entry, Series),
+    get_dict(Key, Entry, DA),
+    arg(Arg, DA, Value),
+    nonvar(Value),                      % Speedup
+    normal_number(Value),
+    !.
+
+mkd(Key, 0, Key).
+mkd(Key, 1, d1(Key)).
+mkd(Key, 2, d2(Key)).
+mkd(Key, 3, d3(Key)).
+
+d_next(0, 1, _).
+d_next(1, 2, true).
+d_next(2, 3, true).
+
 %!  plotly_traces(+Series, -Traces, +IdMapping) is det.
 %
 %   Generate the Plotly traces from Series.
@@ -1137,21 +1185,30 @@ plot(Target, Title, Traces, Shapes) -->
 %   non-normal floats.
 
 plotly_traces(Series, Traces, IdMapping) :-
-    Series = [First|_],
-    dict_keys(First, Keys0),
-    delete(Keys0, t, Keys1),
-    order_keys(IdMapping, Keys1, Keys),
-    maplist(range(Series), Keys, Ranges),
+    select_traces(Series, Selected, IdMapping),
+    plotly_traces(Series, Selected, Traces, IdMapping).
+
+plotly_traces(Series, Selected, Traces, IdMapping) :-
+    maplist(range(Series), Selected, Ranges),
     pairs_keys_values(Ranges, Mins, Maxs),
     min_list_normal(Mins, Min),
     max_list_normal(Maxs, Max),
     maplist(rescale(Min-Max), Ranges, Scales),
-    maplist(serie(x-y, Series, IdMapping), Keys, Scales, Traces).
+    maplist(serie(x-y, Series, IdMapping), Selected, Scales, Traces).
 
 range(Series, Key, Min-Max) :-
-    maplist(get_dict(Key), Series, Ys),
+    maplist(get_value(Key), Series, Ys),
     min_list_normal(Ys, Min),
     max_list_normal(Ys, Max).
+
+get_value(Key, Dict, Value), atom(Key) =>
+    get_dict(Key, Dict, d(Value,_,_,_)).
+get_value(d1(Key), Dict, Value), atom(Key) =>
+    get_dict(Key, Dict, d(_,Value,_,_)).
+get_value(d2(Key), Dict, Value), atom(Key) =>
+    get_dict(Key, Dict, d(_,_,Value,_)).
+get_value(d3(Key), Dict, Value), atom(Key) =>
+    get_dict(Key, Dict, d(_,_,_,Value)).
 
 rescale(_, Min-Max, Scale), Min =:= 0, Max =:= 0 =>
     Scale = 1.
@@ -1185,29 +1242,43 @@ scale(X) :-                             % 1, 5, 10, 50, ...
     ;   X is 5*10^S
     ).
 
-%!  serie(+Axis, +Series, +IdMapping, +Key, +Scale, -Trace)
+%!  serie(+Axis, +Series, +IdMapping, +DKey, +Scale, -Trace) is det.
+%
+%   @arg DKey is a plain Key, d1(Key), d2(Key) or d3(Key)
 
-serie(Axis, Series, IdMapping, Key, Scale, Trace) :-
+serie(Axis, Series, IdMapping, DKey, Scale, Trace) :-
     Trace0 = trace{x:Times, y:Values, mode:lines, name:Label},
-    serie_label(IdMapping, Key, Scale, Label),
-    convlist(tv(Key, Scale), Series, TVs),
+    serie_label(IdMapping, DKey, Scale, Label),
+    convlist(tv(DKey, Scale), Series, TVs),
     pairs_keys_values(TVs, Times, Values),
     set_axis(Axis, Trace0, Trace).
 
-serie_label(IdMapping, Key, Scale, Label) :-
-    key_label(IdMapping, Key, Label0),
+serie_label(IdMapping, DKey, Scale, Label) :-
+    dkey_label(IdMapping, DKey, Label0),
     (   Scale =:= 1
     ->  Label = Label0
     ;   format(string(Label), '~w (*~w)', [Label0, Scale])
     ).
 
+dkey_label(IdMapping, DKey, Label), atom(DKey) =>
+    key_label(IdMapping, DKey, Label).
+dkey_label(IdMapping, d1(Key), Label) =>
+    key_label(IdMapping, Key, Label0),
+    atom_concat('Δ', Label0, Label).
+dkey_label(IdMapping, d2(Key), Label) =>
+    key_label(IdMapping, Key, Label0),
+    atom_concat('Δ²', Label0, Label).
+dkey_label(IdMapping, d3(Key), Label) =>
+    key_label(IdMapping, Key, Label0),
+    atom_concat('Δ³', Label0, Label).
+
 set_axis(x-y, Trace, Trace) :- !.
 set_axis(X-Y, Trace0, Trace) :-
     Trace = Trace0.put(_{xaxis:X, yaxis:Y}).
 
-tv(Key, Scale, State, T-V) :-
-    get_dict(t, State, T),
-    get_dict(Key, State, V0),
+tv(DKey, Scale, State, T-V) :-
+    get_dict(t, State, d(T,_,_,_)),
+    get_value(DKey, State, V0),
     normal_number(V0),
     V is V0*Scale.
 
