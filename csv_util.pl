@@ -13,6 +13,7 @@
 :- use_module(library(terms)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
+:- use_module(library(dcg/high_order)).
 
 %!  key_label(+IdMapping, +Key, -Label) is det.
 
@@ -50,17 +51,21 @@ key_obj_attr(IdMapping, Key, Obj, Attr),
 key_obj_attr(_, Key, _Obj, Attr) =>
     Attr = Key.
 
-%!  series_key_derivative(+Series, +Key, -KerDer:pair) is det.
+%!  series_key_derivative(+Series, +Key, -KerDer:integer) is det.
 %!  key_state_derivative(+Key, +State, -Der:nonneg) is det.
 %
 %   Determine the derivative representation for Key in State or a Series
 %   of states. The derivative is 0 if  this   is  a  plain value, 1 if a
 %   value and first derivative are combined on Key, etc.
 
-series_key_derivative(States, Key, Key-Der) :-
+series_key_derivative(States, Key, Der) :-
     maplist(key_state_derivative(Key), States, Ders),
     max_list(Ders, Der).
 
+key_state_derivative(garp_states, _, 0) :-
+    !.
+key_state_derivative(t, _, 0) :-
+    !.
 key_state_derivative(Key, State, Der) :-
     d_derivative(State.get(Key), Der).
 
@@ -77,8 +82,8 @@ d_derivative(d(_,D1,D2,D3), Der) :-
 %   multiple columns. Possibly missing cells are   filled with a copy of
 %   Empty.
 %
-%   @arg KeysDers is a list of pairs Key-Der, where Der is the
-%   highest derivative shown or 0 if this is just a plain value.
+%   @arg KeysDers is a list of pairs Key-Ders, where Der is the
+%   list of derivatives to show.
 %   @arg Row is a list of `K-V` pairs, where `K` is a key or a term
 %   der(K,N), with `N>0`.
 
@@ -87,35 +92,35 @@ state_row(KeysDers, State, Empty, Row) :-
 
 state_row([], _, _) -->
     [].
-state_row([K-D|T], State, Empty) -->
-    state_cell(K, D, State.get(K), Empty),
-    !,
-    state_row(T, State, Empty).
-state_row([K-D|T], State, Empty) -->
-    { copy_term(Empty, Cell) },
-    state_cell(K, D, Cell, Empty),
+state_row([K-Ders|T], State, Empty) -->
+    sequence(der_column(K, State, Empty), Ders),
     state_row(T, State, Empty).
 
-state_cell(K, 0, V, _Empty) -->
-    !,
-    [K-V].
-state_cell(K, D, V, Empty) -->
-    der_columns(0, D, K, V, Empty).
+der_column(K, State, Empty, 0) ==>
+    { (   state_value(K, State, Value)
+      ->  true
+      ;   copy_term(Empty, Value)
+      )
+    },
+    [K-Value].
+der_column(K, State, Empty, Der) ==>
+    { I is Der+1,
+      (   D = State.get(K),
+          arg(I, D, Value),
+          nonvar(Value)
+      ->  true
+      ;   copy_term(Empty, Value)
+      )
+    },
+    [der(K,Der)-Value].
 
-der_columns(N,D,_,_,_) -->
-    { N > D },
-    !.
-der_columns(0,D,K,V, Empty) -->
-    !,
-    { val_or_der(0, V, H, Empty) },
-    [K-H],
-    der_columns(1, D, K, V, Empty).
-der_columns(N,D,K,V, Empty) -->
-    !,
-    { val_or_der(N, V, H, Empty) },
-    [der(K,N)-H],
-    {N1 is N+1},
-    der_columns(N1,D,K,V, Empty).
+state_value(Key, State, Value) :-
+    V0 = State.get(Key),
+    (   V0 = d(Value, _, _, _)
+    ->  nonvar(Value)
+    ;   Value = V0
+    ).
+
 
 %!  state_trace_value(+KeyDer, +Empty, +State, -Value) is det.
 %

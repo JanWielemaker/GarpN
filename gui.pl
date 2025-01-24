@@ -511,7 +511,7 @@ q_menu(Model, Source) -->
                    [ tr([ th([class(quantity), rowspan(2)], 'Quantity'),
                           th([colspan(3)], 'Link to Qualitative states')
                         ]),
-                     tr([\derivative_headers(0,2)]),
+                     tr([\sequence(derivative_header, [0,1,2])]),
                      \sequence(q_control(IdMapping), Quantities)
                    ]))
     ;   model_issues(Ball)
@@ -780,8 +780,11 @@ state_table(States, Options) -->
           sort(AllKeys, Keys0),
           order_keys(IdMapping, Keys0, Keys)
       ),
-      maplist(series_key_derivative(StatesPlain), Keys, KeyDers),
-      dict_pairs(DerDict, #, KeyDers),
+      (   option(match(DerDict), Options)
+      ->  true
+      ;   key_derivatives(StatesPlain, Keys, DerDict)
+      ),
+      maplist(key_ders(DerDict), Keys, KeyDers),
       maplist(key_obj_attr(IdMapping), Keys, Objs, _Attrs),
       obj_colspans(Objs, KeyDers, ObjSpans)
     },
@@ -791,6 +794,17 @@ state_table(States, Options) -->
                  tr(\sequence(state_header(2, DerDict, IdMapping), Keys))
                | \state_rows(States, KeyDers, Options)
                ])).
+
+key_ders(DerDict, Key, Key-Ders) :-
+    Ders = DerDict.get(Key),
+    !.
+key_ders(_, Key, Key-[0]).
+
+key_derivatives(StatesPlain, Keys, DerDict) :-
+     maplist(series_key_derivative(StatesPlain), Keys, KeyMaxDers),
+     maplist(numlist(0), KeyMaxDers, KeyDers),
+     pairs_keys_values(Pairs, Keys, KeyDers),
+     dict_pairs(DerDict, #, Pairs).
 
 %!  plain_rows(+Rows, -Plain) is det.
 %
@@ -813,13 +827,14 @@ plain_rows(Row) -->
     [Row].
 
 obj_colspans([], _, []).
-obj_colspans([O|OT], [_Key-Der|KeyDers], [O-Colspan|CST]) :-
-    Colspan0 is Der+1,
+obj_colspans([O|OT], [_Key-Ders|KeyDers], [O-Colspan|CST]) :-
+    length(Ders, Colspan0),
     obj_colspan(O, OT, OT1, KeyDers, KeyDers1, Colspan0, Colspan),
     obj_colspans(OT1, KeyDers1, CST).
 
-obj_colspan(O, [O|OT], OT1, [_Key-Der|KeyDers], KeyDers1, Colspan0, Colspan) =>
-    Colspan1 is Colspan0+Der+1,
+obj_colspan(O, [O|OT], OT1, [_Key-Ders|KeyDers], KeyDers1, Colspan0, Colspan) =>
+    length(Ders, New),
+    Colspan1 is Colspan0 + New,
     obj_colspan(O, OT, OT1, KeyDers, KeyDers1, Colspan1, Colspan).
 obj_colspan(_, OT, OT1, KeyDers, KeyDers1, Colspan0, Colspan) =>
     OT1 = OT,
@@ -840,12 +855,12 @@ obj_header(Obj-AttrCount) -->
 %   Emit the Nth header row for Key
 
 state_header(Nth, DerDict, IdMapping, Key) -->
-    { Der = DerDict.get(Key,0),
-      Der > 0
+    { Ders = DerDict.get(Key,[]),
+      Ders \== []
     },
     !,
-    (   {Nth == 1}
-    ->  { Cols is Der+1,
+    (   {Nth == 1}                         % 1st or 2nd header line
+    ->  { length(Ders, Cols),
           key_obj_attr(IdMapping, Key, Obj, Attr),
           (   var(Obj)
           ->  key_label(IdMapping, Key, Label),
@@ -855,7 +870,7 @@ state_header(Nth, DerDict, IdMapping, Key) -->
           )
         },
         html(th([colspan(Cols)|Extra], Label))
-    ;   derivative_headers(0, Der)
+    ;   sequence(derivative_header, Ders)
     ).
 state_header(2, _Rows, IdMapping, Key) -->
     !,
@@ -864,19 +879,12 @@ state_header(2, _Rows, IdMapping, Key) -->
 state_header(1, _Rows, _IdMapping, _Key) -->
     html(th([])).
 
-derivative_headers(Nth, Der) -->
-    { Nth > Der },
-    !.
-derivative_headers(0, Der) -->
-    !,
-    th_label(value),
-    derivative_headers(1, Der).
-derivative_headers(Nth, Der) -->
-    th_label(d(Nth)),
-    {Nth1 is Nth+1},
-    derivative_headers(Nth1, Der).
+derivative_header(0) ==>
+    th_label(value).
+derivative_header(Der) ==>
+    th_label(d(Der)).
 
-%!  state_rows(+Rows, +KeysDers:list(pair(Key-Der)), +Options)// is det.
+%!  state_rows(+Rows, +KeysDers:list(pair(Key-Ders)), +Options)// is det.
 
 state_rows([], _, _) -->
     [].
