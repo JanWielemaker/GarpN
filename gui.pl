@@ -708,7 +708,11 @@ not_linked(State) -->
 timed(Time, State) -->
     [State],
     peek(Next),
-    { State.t =< Time, Next.t >= Time }.
+    { get_dict(t, State, d(TState,_,_,_)),
+      TState =< Time,
+      get_dict(t, Next, d(TNext,_,_,_)),
+      TNext >= Time
+    }.
 
 ... --> [] ; [_], ... .
 peek(X), [X] --> [X].

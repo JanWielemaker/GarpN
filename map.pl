@@ -810,12 +810,13 @@ matching_state(State, _Id-GarpState) :-
 
 q_series(Source, QSeries, Options) :-
     option(model(Model), Options, engine),
-    id_mapping(Model, Mapping),
-    simulate(Source, Series,
+    id_mapping(Model, IdMapping),
+    simulate(Source, Series0,
              [ track(all),
-               id_mapping(Mapping)
+               id_mapping(IdMapping)
              | Options
              ]),
+    init_derivatives(Series0, Series, IdMapping),
     nq_series(Series, QSeries, Options).
 
 %!  nq_series(+Series, -QSeries, +Options) is det.
