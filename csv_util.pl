@@ -11,6 +11,8 @@
           ]).
 :- use_module(library(pairs)).
 :- use_module(library(terms)).
+:- use_module(library(apply)).
+:- use_module(library(lists)).
 
 %!  key_label(+IdMapping, +Key, -Label) is det.
 
@@ -60,11 +62,13 @@ series_key_derivative(States, Key, Key-Der) :-
     max_list(Ders, Der).
 
 key_state_derivative(Key, State, Der) :-
-    (   Value = State.get(Key),
-        compound(Value),
-        compound_name_arity(Value, d, Arity)
-    ->  Der is Arity-1
-    ;   Der = 0
+    d_derivative(State.get(Key), Der).
+
+d_derivative(d(_,D1,D2,D3), Der) :-
+    (   nonvar(D3) -> Der = 3
+    ;   nonvar(D2) -> Der = 2
+    ;   nonvar(D1) -> Der = 1
+    ;                 Der = 0
     ).
 
 %!  state_row(+KeysDers, +State:dict, +Empty, -Row:list)
