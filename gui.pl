@@ -89,7 +89,7 @@ home -->
                                     section(class(columns),
                                             [ div([class(left)],
                                                   [ div([id(quantity_controls)],
-                                                        \q_menu(Model, Source))
+                                                        \q_menu(Model, Source, []))
                                                   ]),
                                               div([class(right)],
                                                   \right_controls(Model))
@@ -308,7 +308,7 @@ set_model(Model) :-
     ;   Source = _,
         QSpaces = []
     ),
-    set_model(Model, Source, [qspaces(QSpaces)]).
+    set_model(Model, Source, [saved_qspaces(QSpaces)]).
 
 is_qspace(qspace(_Q,_Values)) => true.
 is_qspace(_) => fail.
@@ -323,7 +323,7 @@ is_qspace(_) => fail.
 set_model(Model, Source, Options) :-
     flush_dynalearn_model(Model),
     reply_htmx(
-        [ \q_menu(Model, Source),
+        [ \q_menu(Model, Source, Options),
           div([id('ml-model'), 'hx-swap-oob'(true)],
               \mathlive_model(Model, Source, Options)),
           div([id('qspace-controls'), 'hx-swap-oob'(true)],
@@ -482,18 +482,23 @@ analyze(Request) :-
     http_read_json_dict(Request, Data, []),
     _{model:ModelS, ml_data:MlData} :< Data,
     atom_string(Model, ModelS),
+    (   JQSpaces = Data.get(qspaces)
+    ->  qspaces(Model, JQSpaces, QSpaces),
+        Options = [qspaces(QSpaces)]
+    ;   Options = []
+    ),
     latex_to_prolog_ex(MlData, Prolog),
-    reply_htmx([ \q_menu(Model, terms(Prolog)),
+    reply_htmx([ \q_menu(Model, terms(Prolog), Options),
                  \js_script({|javascript(Model,Source)||
                              setModel(Model,Source)|})
                ]).
 
-%!  q_menu(+Model, +Source)// is det.
+%!  q_menu(+Model, +Source, +Options)// is det.
 %
 %   Emit the found quantities with a menu that asks whether or not to
 %   consider mapping this quantity to Garp.
 
-q_menu(Model, Source) -->
+q_menu(Model, Source, Options) -->
     { nonvar(Source),                            % there is a model
       id_mapping(Model, IdMapping),
       catch(read_model(Source, Formulas, _Constants, _State0,
@@ -512,11 +517,11 @@ q_menu(Model, Source) -->
                           th([colspan(3)], 'Link to Qualitative states')
                         ]),
                      tr([\sequence(derivative_header, [0,1,2])]),
-                     \sequence(q_control(IdMapping), Quantities)
+                     \sequence(q_control(Model, IdMapping, Options), Quantities)
                    ]))
     ;   model_issues(Ball)
     ).
-q_menu(_, _) -->
+q_menu(_, _, _) -->
     [].
 
 key_quantity(IdMapping, Key, Quantity) :-
@@ -525,10 +530,18 @@ key_quantity(IdMapping, Key, Quantity) :-
 key_quantity(_, Key, Key).
 
 
-q_control(IdMapping, Key) -->
+q_control(Model, IdMapping, Options, Key) -->
+    { (   option(qspaces(QSpaces), Options),
+          QSpace = QSpaces.get(Key)
+      ->  true
+      ;   m_qspace(Model, Key, _QName, QSpace)
+      ->  true
+      ;   QSpace = []
+      )
+    },
     html(tr(class('quantity-link'),
             [ th(class([quantity,name]), \key_label(IdMapping,Key))
-            | \derivatives_select(Key)
+            | \derivatives_select(Key, QSpace)
             ])).
 
 key_label(IdMapping, Key) -->
@@ -545,12 +558,17 @@ key_label(IdMapping, Key) -->
     { key_label(IdMapping, Key, Label) },
     html(span(class('q-plain'), Label)).
 
-derivatives_select(Name) -->
-    { atom_concat('__v_', Name,  NValue),
+derivatives_select(Name, QSpace) -->
+    { (   QSpace = [Interval],
+          atom(Interval)
+      ->  VOpts = []
+      ;   VOpts = [checked]
+      ),
+      atom_concat('__v_', Name,  NValue),
       atom_concat('__d1_', Name, ND1),
       atom_concat('__d2_', Name, ND2)
     },
-    html([ td(class('link'), input([type(checkbox), name(NValue), checked])),
+    html([ td(class('link'), input([type(checkbox), name(NValue) | VOpts])),
            td(class('link'), input([type(checkbox), name(ND1), checked])),
            td(class('link'), input([type(checkbox), name(ND2)]))
          ]).
@@ -583,7 +601,7 @@ incomplete_qspace(Model, QspaceId, Values) :-
     ).
 
 qspace_control(IdMapping, Options, QspaceId-Values) -->
-    { (   option(qspaces(QSpaces), Options),
+    { (   option(saved_qspaces(QSpaces), Options),
           Q = IdMapping.get(QspaceId),
           memberchk(qspace(Q, Savedvalues), QSpaces)
       ->  true
