@@ -29,6 +29,9 @@
 :- use_module(model).
 :- if(current_prolog_flag(dynalearn, true)).
 :- use_module(dynalearn).
+:- use_module(library(error)).
+:- use_module(library(listing)).
+:- use_module(library(terms)).
 
 :- endif.
 
@@ -1473,12 +1476,18 @@ download_csv(SHA1, _Request) :-
 
 download_map(SHA1, _Request) :-
     saved(SHA1, Model, Options),
-    q_series(string(Model), QSeries, [link_garp_states(true)|Options]),
+    q_series(Model, QSeries, [link_garp_states(true)|Options]),
     option(id_mapping(IdMapping), Options, _{}),
     q_series_table(QSeries, Table, IdMapping),
+    mapsubterms(csv_map, Table, CSVTable),
     format('Content-type: text/csv~n~n'),
-    csv_write_stream(current_output, Table,
+    csv_write_stream(current_output, CSVTable,
                      [ separator(0',)]).
+
+csv_map(point(zero), 0) :-
+    !.
+csv_map(point(Name), String) :-
+    format(string(String), '\u25CF~w', [Name]).
 
 %!  download_garp(+SHA1, +Request) is det.
 %
@@ -1493,8 +1502,9 @@ download_garp(SHA1, _Request) :-
     maplist(state_into_dict, Pairs, Data),
     option(id_mapping(IdMapping), Options, _{}),
     q_series_table(Data, Table, IdMapping),
+    mapsubterms(csv_map, Table, CSVTable),
     format('Content-type: text/csv~n~n'),
-    csv_write_stream(current_output, Table,
+    csv_write_stream(current_output, CSVTable,
                      [ separator(0',)]).
 
 state_into_dict(State-Dict0, Dict) :-
