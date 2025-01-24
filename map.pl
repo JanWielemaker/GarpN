@@ -862,8 +862,8 @@ add_derivatives(Series, Series1, Options) :-
             add_derivative(D, Series)),
     (   option(match(Match), Options),
         Match._ \== []
-    ->  maplist(strip_derivatives(Match), Series1, Series)
-    ;   Series = Series1
+    ->  maplist(strip_derivatives(Match), Series, Series1)
+    ;   Series1 = Series
     ).
 
 max_derivative_used(Options, D) :-
@@ -958,32 +958,22 @@ insert_point(S1, S2, Si, QSpaces) :-
 %!  insert_value(+State2, QSpaces, -Done, +Q, +V1, -Vi) is det.
 
 :- det(insert_value/6).
-insert_value(S2, _, _, t, V1, Vi) :-
-    !,
-    get_dict(t, S2, V2),
-    Vi is (V1+V2)/2.
 insert_value(S2, QSpaces, Done, Q, V1, Vi) :-
     get_dict(Q, S2, V2),
     insert_value_(Q, QSpaces, V1, V2, Vi, Done).
 
+insert_value_(t, _, d(T1,D1,_,_), d(T2,D2,_,_), R, _) =>
+    R = d(Ti,Di,_,_),
+    normal_mid(T1, T2, Ti),
+    normal_mid(D1, D2, Di).   % time D is recomputed and may vary a little.
 insert_value_(Q, QSpaces, d(V1,D11,D12,D13), d(V2,D21,D22,D23), R, Done) =>
     R = d(Vi,D1i,D2i,D3i),
     insert_value_v(Q, QSpaces, V1, V2, Vi, Done),
     insert_value_d(D11, D21, D1i, Done),
     insert_value_d(D12, D22, D2i, Done),
     insert_value_d(D13, D23, D3i, Done).
-insert_value_(Q, QSpaces, d(V1,D11,D12), d(V2,D21,D22), R, Done) =>
-    R = d(Vi, D1i, D2i),
-    insert_value_v(Q, QSpaces, V1, V2, Vi, Done),
-    insert_value_d(D11, D21, D1i, Done),
-    insert_value_d(D12, D22, D2i, Done).
-insert_value_(Q, QSpaces, d(V1,D11), d(V2,D21), R, Done) =>
-    R = d(Vi, D1i),
-    insert_value_v(Q, QSpaces, V1, V2, Vi, Done),
-    insert_value_d(D11, D21, D1i, Done).
-insert_value_(Q, QSpaces, V1, V2, Vi, Done) =>
-    insert_value_v(Q, QSpaces, V1, V2, Vi, Done).
 
+% TODO: Generalize over quantity spaces!
 insert_value_d(V, V, Vi, _Done) => Vi = V.
 insert_value_d(min, plus, Vi, Done) => Vi = zero, Done = true.
 insert_value_d(plus, min, Vi, Done) => Vi = zero, Done = true.

@@ -7,7 +7,8 @@
             normal_number/1,       % @Term
             min_list_normal/2,     % +List, -Min
             max_list_normal/2,     % +List, -Max
-            derivative_key/3       % +Key, -Quantity, +IdMapping
+            derivative_key/3,      % +Key, -Quantity, +IdMapping
+            normal_mid/3           % +N1, +N2, -Ni
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -698,6 +699,9 @@ sum_(N, _P, V1, V2, V) :-
 %   Change the values for Series into a  term d(V,D1,D2,D3). If the keys
 %   are quantities, the simulation value is used to fill `V`. If it is a
 %   delta-term, we find the corresponding quantity and fill `D1`.
+%
+%   Note that we may have both the value and derivative. In that case we
+%   need to combine both into one.
 
 init_derivatives(Series, DSeries, IdMapping) :-
     Series = [H|_],
@@ -708,12 +712,21 @@ make_derivative_map(Dict, IdMapping, In, Out) :-
     dict_pairs(Dict, _, Pairs),
     maplist(make_derivative_map_(IdMapping), Pairs, InPairs, OutPairs),
     dict_pairs(In, _, InPairs),
-    dict_pairs(Out, _, OutPairs).
+    keysort(OutPairs, OutPairs1),                  % we may have value and
+    join_pairs(OutPairs1, OutPairs2),              % derivative
+    dict_pairs(Out, _, OutPairs2).
 
 make_derivative_map_(IdMapping, K-_, K-D0, Id-d(_,D0,_,_)) :-
     derivative_key(K, Id, IdMapping),
     !.
 make_derivative_map_(_IdMapping, K-_, K-V0, K-d(V0,_,_,_)).
+
+join_pairs([], []).
+join_pairs([K-V,K-V|T0], Pairs) :-
+    !,
+    join_pairs([K-V|T0], Pairs).
+join_pairs([H|T0], [H|T]) :-
+    join_pairs(T0, T).
 
 %!  derivative_key(+Key, -Quantity, +IdMapping) is semidet
 
@@ -735,11 +748,15 @@ derivative_map(In, Out, DictIn, DictOut) :-
 %   differentiation and integration. Initially, a combination of the 0th
 %   (value) and 1st derivative may be filled.
 
-add_derivative(_, []).
-add_derivative(Nth, [H1|T1]) :-
+add_derivative(_, []) :-
+    !.
+add_derivative(_, [_]) :-
+    !.
+add_derivative(Nth0, [H1|T1]) :-
     T1 = [H2|_],
+    Nth is Nth0+1,
     add_derivative_1(Nth, H1, H2),
-    add_derivative(Nth, T1).
+    add_derivative(Nth0, T1).
 
 add_derivative_1(Nth, H1, H2) :-
     mapdict(add_derivative_k(Nth), H1, H2).
@@ -764,6 +781,7 @@ add_derivative_k(Nth, _K, A1, A2) :-
     !,
     I is V1+V2,
     arg(Nth, A2, I).
+add_derivative_k(_Nth, _K, _A1, _A2).
 
 %!  normal_number(@Term) is semidet.
 %
@@ -796,3 +814,14 @@ max_list_normal(Nums, Max) :-
     ->  Max = Max0
     ;   Max = 0.0
     ).
+
+%!  normal_mid(+N1, +N2, -Ni) is det.
+%
+%   Compute the mid point between two numbers that may be abnormal.
+
+normal_mid(N1, N2, Ni) :-
+    normal_number(N1),
+    normal_number(N2),
+    !,
+    Ni is (N1+N2)/2.
+normal_mid(_, _, _).
