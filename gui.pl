@@ -1048,7 +1048,7 @@ run_model(Request) :-
     call_time(simulate(terms(Equations), Series0, Options), Time),
     init_derivatives(Series0, Series, IdMapping),
     annotate_garp_states(Series, Shapes, Options),
-    plotly_traces(Series, VTraces, DTraces, IdMapping),
+    plotly_traces(Series, Traces, IdMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
                  div([ id(plot),
@@ -1059,7 +1059,7 @@ run_model(Request) :-
                      ],
                      [ \rulers(ShowRulers),
                        div([id(plotly),class(plotly)], []),
-                       \traces(VTraces, DTraces, Shapes),
+                       \plot(plotly, null, Traces, Shapes),
                        \js_script({|javascript||initShapes("plotly")|})
                      ]),
                  div([id('mapping-table'),class(narrow)], [&(nbsp)]),
@@ -1106,34 +1106,37 @@ jqspace(Dict, QSpace-Points) :-
      ).
 
 
-%!  traces(+VTraces, +DTraces, +Shapes)//
+%!  plot(+Target, +Title, +Traces, +Shapes)//
 %
-%   Emit the value and derivative series using plotly.
-%   @tbd We no longer distinquish values and derivatives here.
-
-traces(VTraces, DTraces, Shapes) -->
-    { append(VTraces, DTraces, Traces)
-    },
-    plot(plotly, "Number of", Traces, Shapes).
+%   Emit the JavaScript that  realizes  the   Plotly  plot  holding  all
+%   quantities  and  derivatives  and  the    mapping   shapes  to  Garp
+%   qualitative states.
+%
+%   @arg Target is the id of the target `div` element
+%   @arg Title is the title for the entire plot or `null`
+%   @arg Traces is a list of `trace` dicts, each representing a single
+%   quantity or derivative.
 
 plot(Target, Title, Traces, Shapes) -->
     js_script({|javascript(Target,Title,Traces,Shapes)||
                data = Traces;
-               layout = { // title: Title,
+               layout = { title: Title,
                           shapes: Shapes,
                           margin: { t: 30, b: 25 },
-                          hovermode: "x",
-                          /* grid: { rows: 1,
-                                  columns: 1,
-                                  pattern: 'independent',
-                                  roworder: 'top to bottom'
-                                },
-                          xaxis2: { matches: 'x' } */
+                          hovermode: "x"
                         };
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
-plotly_traces(Series, Traces, [], IdMapping) :-
+%!  plotly_traces(+Series, -Traces, +IdMapping) is det.
+%
+%   Generate the Plotly traces from Series.
+%
+%   @arg Series is a list of dicts.  Each   dict  maps keys on to a term
+%   d(V,D1,D2,D3),  where  any  of  these  may  be  unbound  or  contain
+%   non-normal floats.
+
+plotly_traces(Series, Traces, IdMapping) :-
     Series = [First|_],
     dict_keys(First, Keys0),
     delete(Keys0, t, Keys1),
