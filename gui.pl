@@ -1092,7 +1092,7 @@ run_model(Request) :-
                      ],
                      [ \rulers(ShowRulers),
                        div([id(plotly),class(plotly)], []),
-                       \plot(plotly, null, Traces, Shapes),
+                       \plot(plotly, @(null), Traces, Shapes),
                        \js_script({|javascript||initShapes("plotly")|})
                      ]),
                  div([id('mapping-table'),class(narrow)], [&(nbsp)]),
