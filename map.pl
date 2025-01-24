@@ -381,7 +381,7 @@ stable_from(Series, Asymptotes, Time, Options) :-
     maplist(zero_from(Series, Options), Asymptotes, Nths),
     max_list(Nths, Nth),
     nth0(Nth, Series, State),
-    Time = State.t.
+    d(Time,_,_,_) = State.t.
 
 zero_from(Series, Options, asymptote(K,D,How), Nth) :-
     maplist(state_trace_value(K-D, _Empty), Series, Values),
@@ -614,8 +614,10 @@ stable_min_derivatives_([H|T0], [H|T]) :-
 %   considering that all quantities in  Asymptotes are considered `zero`
 %   after Time.
 
+:- det(state_qualitative_a/5).
 state_qualitative_a(Asymptotes, Time, QSpaces, Dict, QDict) :-
-    (   Dict.t >= Time
+    d(DictTime,_,_,_) = Dict.t,
+    (   DictTime >= Time
     ->  mapdict(to_qualitative_z(Asymptotes, QSpaces), Dict, QDict)
     ;   mapdict(to_qualitative(QSpaces), Dict, QDict)
     ).
