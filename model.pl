@@ -149,9 +149,9 @@ drel(Q, DQ) =>
 %   @tbd include quantity spaces into the picture
 
 qrel_nrel(q, [inf_pos_by(I,D)], [I := I + D*'Δt']).
-qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := d(D)]).
+qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := D*'Δt']).
 qrel_nrel(q, [inf_neg_by(I,D)], [I := I - D*'Δt']).
-qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := -d(D)]).
+qrel_nrel(d, [inf_neg_by(I,D)], [d(I) := -(D*'Δt')]).
 qrel_nrel(q, [prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := c*d(Infl)]).
 qrel_nrel(q, [prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
