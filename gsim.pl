@@ -338,8 +338,12 @@ derived_initial_state(Formulas, Constants, State0, State, Options) :-
     sort(Missing0, Missing),
     dt_expression(Formulas, DTExpr0),
     copy_term(DTExpr0, DTExpr),
-    0 = DTExpr._DTKey,
-    derived_initials(Missing, Unresolved, Formulas, DTExpr, Constants,
+    0 = DTExpr.DTKey,
+    (   del_dict(DTKey, Constants, _, Constants1)
+    ->  true
+    ;   Constants1 = Constants
+    ),
+    derived_initials(Missing, Unresolved, Formulas, DTExpr, Constants1,
                      State0, State),
     (   Unresolved == []
     ->  true
