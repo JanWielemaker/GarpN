@@ -1,5 +1,5 @@
 :- module(model,
-          [ init_model/2,               % +Model, -Equations
+          [ init_model/3,               % +Model, -Equations, +Options
             is_placeholder/1,           % @Term
             is_placeholder/2,           % @Term, -Type
             default_nrels/1             % -NRels:list
@@ -12,18 +12,19 @@
 :- use_module(gsim).
 :- use_module(library(apply)).
 :- use_module(library(aggregate)).
+:- use_module(library(option)).
 
 /** <module> Propose a (partial) numeric model from Garp
 
 */
 
-%!  init_model(+Model, -Equations)
+%!  init_model(+Model, -Equations, +Options) is det.
 
-init_model(Model, Equations) :-
+init_model(Model, Equations, Options) :-
     findall(QRel, q_rel(Model, QRel), QRels), % Use relations
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
-    qrel2nrel(Rels, NRels),
+    qrel2nrel(Rels, NRels, Options),
     init_nrels(Model, NRels, Init),           % Use input scenario
     default_nrels(DefNRels),                  % Defaults (time)
     append([NRels,DefNRels,Init], Eql0),
@@ -33,13 +34,13 @@ init_model(Model, Equations) :-
     append(Eql2, ConstEql, Equations1),
     add_model_init(Model, Equations1, Equations).
 
-qrel2nrel(QRels, NRels) :-
+qrel2nrel(QRels, NRels, Options) :-
     aggregate_all(min(NLeft, NRels-Left),
-                  qrel2nrel(QRels, Left, NRels, NLeft),
+                  qrel2nrel(QRels, Left, NRels, NLeft, Options),
                   min(_, NRels-Left)),
     maplist(rel_unknown, Left).
 
-%!  qrel2nrel(+QRels, -Left, -NRels, -NLeft) is multi.
+%!  qrel2nrel(+QRels, -Left, -NRels, -NLeft, +Options) is multi.
 %
 %   True when NRels are the  numeric   relations  for QRels. Enumeration
 %   stops if we find an element that   leaves  nothing unmapped. Is this
@@ -48,55 +49,97 @@ qrel2nrel(QRels, NRels) :-
 %   @arg Left are unmapped QRels elements.
 %   @arg NLeft is the length of Left.
 
-qrel2nrel(QRels, Left, NRels, NLeft) :-
-    qrel2nrel(QRels, Left, NRels),
+qrel2nrel(QRels, Left, NRels, NLeft, Options) :-
+    (   option(mode(derivatives), Options)
+    ->  qrel2nrel(d, QRels, Left, NRels)
+    ;   qrel2nrel(q, QRels, Left, NRels)
+    ),
     length(Left, NLeft),
     (   NLeft =:= 0
     ->  !
     ;   true
     ).
 
-qrel2nrel(QRels, Left, [Diff := A - B|NRels]) :- % Diff = A-B
+qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Diff = A-B
     select(equal(min(A,B), Diff), QRels, QRels1),
     !,
+    mkrel(DQ, Diff := A - B, NRel),
     exclude(is_prop(Diff), QRels1, QRels2),
-    qrel2nrel(QRels2, Left, NRels).
-qrel2nrel(QRels, Left, [Sum := A + B|NRels]) :- % Sum = A-B
+    qrel2nrel(DQ, QRels2, Left, NRels).
+qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Sum = A-B
     select(equal(plus(A,B), Sum), QRels, QRels1),
     !,
+    mkrel(DQ,
+          Sum := A + B,
+          d(Sum) := d(A) + d(B),
+          NRel),
     exclude(is_prop(Sum), QRels1, QRels2),
-    qrel2nrel(QRels2, Left, NRels).
-qrel2nrel(QRels, Left, [Mult := A * B|NRels]) :- % Mult = A*B
+    qrel2nrel(DQ, QRels2, Left, NRels).
+qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Mult = A*B
     select(equal(mult(A,B), Mult), QRels, QRels1),
     !,
+    mkrel(DQ,
+          Mult := A * B,
+          d(Mult) := d(A) * d(B),
+          NRel),
     exclude(is_prop(Mult), QRels1, QRels2),
-    qrel2nrel(QRels2, Left, NRels).
-qrel2nrel(QRels, Left, [Div := A / B|NRels]) :- % Div = A/B
+    qrel2nrel(DQ, QRels2, Left, NRels).
+qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Div = A/B
     select(equal(diw(A,B), Div), QRels, QRels1),
     !,
+    mkrel(DQ,
+          Div := A / B,
+          d(Div) := d(A) / d(B),
+          NRel),
     exclude(is_prop(Div), QRels1, QRels2),
-    qrel2nrel(QRels2, Left, NRels).
-qrel2nrel(QRels, Left, [NRel|NRels]) :-       % multiple prop on a target
+    qrel2nrel(DQ, QRels2, Left, NRels).
+qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :-       % multiple prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, Prob),
     partition(is_prop(Dep), QRels1, Props, QRels2),
     Props \== [],
-    prop_nrel([Prob|Props], NRel),
-    qrel2nrel(QRels2, Left, NRels).
-qrel2nrel(QRels, Left, [NRel|NRels]) :-       % multiple integrals on a target
+    prop_nrel([Prob|Props], NRel0),
+    mkrel(DQ, NRel0, NRel),
+    qrel2nrel(DQ, QRels2, Left, NRels).
+qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :-       % multiple integrals on a target
     select(Integral, QRels, QRels1),
     is_inf_by(Dep, Integral),
     partition(is_inf_by(Dep), QRels1, Integrals, QRels2),
     Integrals \== [],
-    inf_by_nrel([Integral|Integrals], NRel),
-    qrel2nrel(QRels2, Left, NRels).
-qrel2nrel(QRels, Left, NRels) :-
-    qrel_nrel(Q, N),
+    inf_by_nrel(DQ, [Integral|Integrals], NRel),
+    qrel2nrel(DQ, QRels2, Left, NRels).
+qrel2nrel(DQ, QRels, Left, NRels) :-
+    qrel_nrel(DQ, Q, NRel),
     select_graph(Q, QRels, QRels1),
     !,
-    append(N, NRels1, NRels),
-    qrel2nrel(QRels1, Left, NRels1).
-qrel2nrel(Left, Left, []).
+    append(NRel, NRels1, NRels),
+    qrel2nrel(DQ, QRels1, Left, NRels1).
+qrel2nrel(_DQ, Left, Left, []).
+
+mkrel(q, NRel, _, NRel).
+mkrel(d, _, DRel, DRel) :-
+
+mkrel(q, NRel, NRel).
+mkrel(d, NRel, DRel) :-
+    drel(NRel, DRel).
+
+drel(A := B, d(A) :- DB) =>
+    drel(B, DB).
+drel(-A, -DA) =>
+    drel(A, DA).
+drel(A - B, DA - DB) =>
+    drel(A, DA),
+    drel(B, DB).
+drel(A + B, DA + DB) =>
+    drel(A, DA),
+    drel(B, DB).
+drel(A * B, DA * DB) =>
+    drel(A, DA),
+    drel(B, DB).
+drel(c, C) =>
+    C = c.
+drel(Q, DQ) =>
+    DQ = d(Q).
 
 %!  qrel_nrel(+QRel:list, -NRel:list) is multi.
 %
@@ -105,20 +148,24 @@ qrel2nrel(Left, Left, []).
 %
 %   @tbd include quantity spaces into the picture
 
-qrel_nrel([inf_pos_by(I,D)], [I := I + D*'Δt']).
-qrel_nrel([inf_neg_by(I,D)], [I := I - D*'Δt']).
-qrel_nrel([prop_pos(Dep,Infl)], [Dep := c*Infl]).
-qrel_nrel([prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
-qrel_nrel([exogenous(Dep,Class)], [Dep := Expr]) :-
+qrel_nrel(q, [inf_pos_by(I,D)], [I := I + D*'Δt']).
+qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := d(D)]).
+qrel_nrel(q, [inf_neg_by(I,D)], [I := I - D*'Δt']).
+qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := -d(D)]).
+qrel_nrel(q, [prop_pos(Dep,Infl)], [Dep := c*Infl]).
+qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := c*d(Infl)]).
+qrel_nrel(q, [prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
+qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := -(c*d(Infl))]).
+qrel_nrel(_DQ, [exogenous(Dep,Class)], [Dep := Expr]) :- % TBD: q/d
     freeze(Class, exogenous_equation(Class, Expr)).
 % Correspondences typically cannot be used to create
 % equations.  They should be used during the simulation
 % to verify all constraints are satisfied.
-qrel_nrel([dir_q_correspondence(_,_)], []).
-qrel_nrel([q_correspondence(_,_)], []).
-qrel_nrel([equal(_,_)], []).
-qrel_nrel([smaller(_,_)], []).
-qrel_nrel([greater(_,_)], []).
+qrel_nrel(_, [dir_q_correspondence(_,_)], []).
+qrel_nrel(_, [q_correspondence(_,_)], []).
+qrel_nrel(_, [equal(_,_)], []).
+qrel_nrel(_, [smaller(_,_)], []).
+qrel_nrel(_, [greater(_,_)], []).
 
 is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
@@ -155,12 +202,15 @@ join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
 is_inf_by(Dep, inf_pos_by(Dep, _)).
 is_inf_by(Dep, inf_neg_by(Dep, _)).
 
-inf_by_nrel(Integrals, Dep := Expr) :-
+inf_by_nrel(DQ, Integrals, Dep := Expr) :-
     Integrals = [H|_],
     is_inf_by(Dep, H),
     maplist(one_inf_by, Integrals, Parts),
     sum_expressions(Parts, Sum),
-    sum_expressions([Sum*'Δt', Dep], Expr).
+    (   DQ == q
+    ->  sum_expressions([Sum*'Δt', Dep], Expr)
+    ;   Expr = Sum
+    ).
 
 one_inf_by(inf_pos_by(_, D), Expr) => Expr = c*D.
 one_inf_by(inf_neg_by(_, D), Expr) => Expr = -(c*D).
