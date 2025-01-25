@@ -155,7 +155,7 @@ qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := -d(D)]).
 qrel_nrel(q, [prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := c*d(Infl)]).
 qrel_nrel(q, [prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
-qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := -(c*d(Infl))]).
+qrel_nrel(d, [prop_neg(Dep,Infl)], [d(Dep) := -(c*d(Infl))]).
 qrel_nrel(_DQ, [exogenous(Dep,Class)], [Dep := Expr]) :- % TBD: q/d
     freeze(Class, exogenous_equation(Class, Expr)).
 % Correspondences typically cannot be used to create
@@ -223,22 +223,44 @@ default_nrels([ t := t + 'Δt',
                 'Δt' := placeholder(constant,0.1)
               ]).
 
+%!  id_to_term(+IdMapping, +IdTerm, -Term, +S0, -S) is det.
+
 id_to_term(_Mapping, c, Term, S0, S) =>
     length(S0, N0),
     N is N0+1,
     atom_concat(c,N,Term),
     S = [(Term := placeholder(constant,_))|S0].
+id_to_term(Mapping, d(Id), Term, S0, S), atom(Id) =>
+    S = S0,
+    Term0 = Mapping.get(Id,Id),
+    d_term(Term0, Term).
 id_to_term(Mapping, Id, Term, S0, S), atom(Id) =>
     S = S0,
     Term = Mapping.get(Id,Id).
 id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
     fail.
 
+%!  d_term(+Term, -DTerm) is det.
+%
+%   Translate a term that identifies a quantity (Attr(Entity)) into a an
+%   identifier for its 1st derivative by prepenting   the  name with a Δ
+%   symbol.
+
+d_term(Term, DTerm), atom(Term) =>
+    atom_concat('Δ', Term, DTerm).
+d_term(Term, DTerm), compound(Term) =>
+    compound_name_arguments(Term, Name, Args),
+    atom_concat('Δ', Name, DName),
+    compound_name_arguments(DTerm, DName, Args).
+
 %!  init_nrels(+Model, +NRels, -Init) is det.
 %
 %   Use the input state (scenario)   to create initialization equations.
 %   We create an initialization for each   quantity defined in the input
 %   state, unless the quantity is defined by an exogenous steady input.
+%
+%   @tbd: This assumes only initial  values   on  quantities, __not__ on
+%   derivatives.
 
 init_nrels(Model, NRels, Init) :-
     q_input_state(Model, Input),
