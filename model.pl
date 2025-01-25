@@ -25,9 +25,10 @@ init_model(Model, Equations, Options) :-
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
     qrel2nrel(Rels, NRels, Options),
+    intergrals(Model, IRels, Options),
     init_nrels(Model, NRels, Init),           % Use input scenario
     default_nrels(DefNRels),                  % Defaults (time)
-    append([NRels,DefNRels,Init], Eql0),
+    append([NRels,IRels,DefNRels,Init], Eql0),
     simplify_model(Eql0, Eql1),
     id_mapping(Model, Mapping),
     foldsubterms(id_to_term(Mapping), Eql1, Eql2, [], ConstEql),
@@ -215,6 +216,24 @@ inf_by_nrel(DQ, Integrals, Dep := Expr) :-
 one_inf_by(inf_pos_by(_, D), Expr) => Expr = c*D.
 one_inf_by(inf_neg_by(_, D), Expr) => Expr = -(c*D).
 
+%!  intergrals(+Model, -IRels, +Options) is det.
+%
+%   Create integration relations for all quantifies  that have a defined
+%   quantity space.
+
+intergrals(_Model, IRels, Options),
+    option(mode(quantities), Options) =>
+    IRels = [].
+intergrals(Model, IRels, Options),
+    option(mode(derivatives), Options) =>
+    findall(Q, qspace_with_points(Model, Q), Qs),
+    maplist(integral, Qs, IRels).
+
+qspace_with_points(Model, Q) :-
+    m_qspace(Model, Q, _QSpaceName, Values),
+    memberchk(point(_), Values).
+
+integral(Q, Q := Q + d(Q)).
 
 %!  default_nrels(-NRels:list) is det.
 
