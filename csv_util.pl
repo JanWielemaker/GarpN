@@ -59,7 +59,8 @@ key_obj_attr(_, Key, _Obj, Attr) =>
 %   value and first derivative are combined on Key, etc.
 
 series_key_derivative(States, Key, Der) :-
-    maplist(key_state_derivative(Key), States, Ders),
+    sample(States, Sample),
+    maplist(key_state_derivative(Key), Sample, Ders),
     max_list(Ders, Der).
 
 key_state_derivative(garp_states, _, 0) :-
@@ -75,6 +76,24 @@ d_derivative(d(_,D1,D2,D3), Der) :-
     ;   nonvar(D1) -> Der = 1
     ;                 Der = 0
     ).
+
+sample(Series, Sample) :-
+    length(Series, Len),
+    (   Len < 100
+    ->  Sample = Series
+    ;   Nth is Len/10,
+        sample(0, Nth, Series, Sample)
+    ).
+
+sample(_, _, [Last], [Last]) :-
+    !.
+sample(I, Nth, [H|T0], Sample) :-
+    (   I mod Nth =:= 0
+    ->  Sample = [H|ST]
+    ;   Sample = ST
+    ),
+    I2 is I+1,
+    sample(I2, Nth, T0, ST).
 
 %!  state_row(+KeysDers, +State:dict, +Empty, -Row:list)
 %

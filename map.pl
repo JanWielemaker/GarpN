@@ -350,11 +350,8 @@ asymptotes(Series, Asymptotes, Options) :-
     Series = [First|_],
     dict_keys(First, Keys0),
     delete(Keys0, t, Keys),
-    maplist(key_state_derivative_r(First), Keys, Ders),
+    maplist(series_key_derivative(Series), Keys, Ders),
     asymptotes(Keys, Ders, Series, Asymptotes, Options).
-
-key_state_derivative_r(State, Key, Der) :-
-    key_state_derivative(Key, State, Der).
 
 asymptotes([], _, _, [], _).
 asymptotes([K|KT], [D|DT], Series, Asymptotes, Options) :-
@@ -385,8 +382,8 @@ stable_from(Series, Asymptotes, Time, Options) :-
 
 zero_from(Series, Options, asymptote(K,D,How), Nth) :-
     maplist(state_trace_value(K-D, _Empty), Series, Values),
-    min_list(Values, Min),
-    max_list(Values, Max),
+    min_list_normal(Values, Min),
+    max_list_normal(Values, Max),
     option(fraction(Frac), Options, 20),
     skip_leadin(Values, Skipped, Consider, Options),
     zero_from(How, Min, Max, Consider, Nth0, Frac),
