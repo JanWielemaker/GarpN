@@ -164,8 +164,8 @@ qrel_nrel(q, [prop_pos(Dep,Infl)], [Dep := c*Infl]).
 qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := c*d(Infl)]).
 qrel_nrel(q, [prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
 qrel_nrel(d, [prop_neg(Dep,Infl)], [d(Dep) := -(c*d(Infl))]).
-qrel_nrel(_DQ, [exogenous(Dep,Class)], [Dep := Expr]) :- % TBD: q/d
-    freeze(Class, exogenous_equation(Class, Expr)).
+qrel_nrel(DQ, [exogenous(Dep,Class)], RRels) :-
+    freeze(Class, exogenous_equation(Class, DQ, Dep, RRels)).
 % Correspondences typically cannot be used to create
 % equations.  They should be used during the simulation
 % to verify all constraints are satisfied.
@@ -200,7 +200,6 @@ seq_to_sum([H|T], Sum) =>
 
 one_prop(prop_pos(_, Infl),   Expr) => Expr = c*Infl.
 one_prop(prop_neg(_, Infl),   Expr) => Expr = -(c*Infl).
-%one_prop(exogenous(_, Class), Expr) => exogenous_equation(Class, Expr).
 
 join_sum(-(Expr), Sum0, Sum) => Sum = Sum0-Expr.
 join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
@@ -304,22 +303,24 @@ init_nrel(NRels, Id-_, _), memberchk(Id:=c, NRels) =>
 init_nrel(_NRels, Id-_QVal, Init) =>
     Init = (Id := placeholder(init, _)).
 
-%!  exogenous_equation(+Class, -Equation) is det.
+%!  exogenous_equation(+Class, +DQ, ?Q, -Equations) is det.
 
-exogenous_equation(exogenous_steady, Eq) =>
-    Eq = (c).
-exogenous_equation(exogenous_increasing, Eq) =>
-    Eq = c+c*t.
-exogenous_equation(exogenous_decreasing, Eq) =>
-    Eq = c-(c*t).
-exogenous_equation(exogenous_sinus, Eq) =>
-    Eq = (c*sin(c+c*t)).
-exogenous_equation(exogenous_pos_parabola, Eq) =>
-    Eq = (c-c*t^2).
-exogenous_equation(exogenous_pos_parabola, Eq) =>
-    Eq = (c+c*t^2).
-exogenous_equation(exogenous_free, Eq) =>
-    Eq = (c*random).
+exogenous_equation(exogenous_steady, q, Q, NRel) =>
+    NRel = [Q := c].
+exogenous_equation(exogenous_steady, d, Q, NRel) =>
+    NRel = [Q := c, d(Q) := 0].
+exogenous_equation(exogenous_increasing, _DQ, Q, NRel) =>
+    NRel = [Q := c+c*t].
+exogenous_equation(exogenous_decreasing, _DQ, Q, NRel) =>
+    NRel = [Q := c-(c*t)].
+exogenous_equation(exogenous_sinus, _DQ, Q, NRel) =>
+    NRel = [Q := (c*sin(c+c*t))].
+exogenous_equation(exogenous_pos_parabola, _DQ, Q, NRel) =>
+    NRel = [Q := (c-c*t^2)].
+exogenous_equation(exogenous_pos_parabola, _DQ, Q, NRel) =>
+    NRel = [Q := (c+c*t^2)].
+exogenous_equation(exogenous_free, _DQ, Q, NRel) =>
+    NRel = [Q := (c*random)].
 
 %!  add_model_init(+EquationsIn, -EquationsOut) is det.
 %
