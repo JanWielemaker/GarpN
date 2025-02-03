@@ -81,7 +81,7 @@ sample(Series, Sample) :-
     length(Series, Len),
     (   Len < 100
     ->  Sample = Series
-    ;   Nth is Len/10,
+    ;   Nth is Len//10,
         sample(0, Nth, Series, Sample)
     ).
 
