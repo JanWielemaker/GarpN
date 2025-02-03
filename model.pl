@@ -124,17 +124,22 @@ mkrel(q, NRel, NRel).
 mkrel(d, NRel, DRel) :-
     drel(NRel, DRel).
 
-drel(A := B, d(A) :- DB) =>
+drel(A := B, Rel) =>
+    Rel = (d(A) := DB),
     drel(B, DB).
-drel(-A, -DA) =>
+drel(-A, Rel) =>
+    Rel = -DA,
     drel(A, DA).
-drel(A - B, DA - DB) =>
+drel(A - B, Rel) =>
+    Rel = DA - DB,
     drel(A, DA),
     drel(B, DB).
-drel(A + B, DA + DB) =>
+drel(A + B, Rel) =>
+    Rel = DA + DB,
     drel(A, DA),
     drel(B, DB).
-drel(A * B, DA * DB) =>
+drel(A * B, Rel) =>
+    Rel = DA * DB,
     drel(A, DA),
     drel(B, DB).
 drel(c, C) =>
