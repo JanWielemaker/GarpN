@@ -386,27 +386,52 @@ select_graph([H|T], Set0, Set) :-
 %   constant.
 
 simplify_model(Eql0, Eql) :-
-    simplify_graph(In, Out),
+    remove_constant_zero(Eql0, Eql1),
+    simplify_zero_init(Eql1, Eql).
+
+simplify_zero_init(Eql0, Eql) :-
+    simplify_init_graph(In, Out),
     select_graph(In, Eql0, Eql1),
     !,
     append(Out, Eql1, Eql2),
-    simplify_model(Eql2, Eql).
-simplify_model(Eql, Eql).
+    simplify_zero_init(Eql2, Eql).
+simplify_zero_init(Eql, Eql).
 
-simplify_graph([ Q := c + X*t,
-                 Q := 0
-               ],
-               [ Q := X*t,
-                 Q := 0
-               ]).
-simplify_graph([ Q := c - X*t,
-                 Q := 0
-               ],
-               [ Q := X*t,
-                 Q := 0
-               ]).
+simplify_init_graph([ Q := c + X*t,
+                      Q := 0
+                    ],
+                    [ Q := X*t,
+                      Q := 0
+                    ]).
+simplify_init_graph([ Q := c - X*t,
+                      Q := 0
+                    ],
+                    [ Q := X*t,
+                      Q := 0
+                    ]).
 
+remove_constant_zero(Eql0, Eql) :-
+    select(Q := 0, Eql0, Eql1),
+    \+ memberchk(Q := _, Eql1),
+    !,
+    mapsubterms(replace(Q, 0), Eql1, Eql2),
+    maplist(simplify_rel, Eql2, Eql3),
+    remove_constant_zero(Eql3, Eql).
+remove_constant_zero(Eql, Eql).
 
+replace(F, T, F, T).
+
+simplify_rel(Q := Expr0, Q := Expr) :-
+    simplify_expr(Expr0, Expr).
+
+simplify_expr(A+0, Expr) => Expr = A.
+simplify_expr(A-0, Expr) => Expr = A.
+simplify_expr(0+A, Expr) => Expr = A.
+simplify_expr(0-A, Expr) => Expr = A.
+simplify_expr(_*0, Expr) => Expr = 0.
+simplify_expr(0*_, Expr) => Expr = 0.
+simplify_expr(0/_, Expr) => Expr = 0.
+simplify_expr(Exp, Expr) => Expr = Exp.
 
 %!  is_placeholder(@Term) is semidet.
 %!  is_placeholder(@Term, -Type) is semidet.
