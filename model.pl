@@ -387,7 +387,8 @@ select_graph([H|T], Set0, Set) :-
 
 simplify_model(Eql0, Eql) :-
     remove_constant_zero(Eql0, Eql1),
-    simplify_zero_init(Eql1, Eql).
+    simplify_zero_init(Eql1, Eql2),
+    exclude(identity_rel, Eql2, Eql).
 
 simplify_zero_init(Eql0, Eql) :-
     simplify_init_graph(In, Out),
@@ -432,6 +433,8 @@ simplify_expr(_*0, Expr) => Expr = 0.
 simplify_expr(0*_, Expr) => Expr = 0.
 simplify_expr(0/_, Expr) => Expr = 0.
 simplify_expr(Exp, Expr) => Expr = Exp.
+
+identity_rel(Q := Q).
 
 %!  is_placeholder(@Term) is semidet.
 %!  is_placeholder(@Term, -Type) is semidet.
