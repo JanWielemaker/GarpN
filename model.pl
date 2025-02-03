@@ -286,8 +286,10 @@ init_nrels(Model, NRels, Init) :-
     dict_pairs(Input, _, Pairs),
     convlist(init_nrel(NRels), Pairs, Init).
 
-init_nrel(_NRels, Id-zero, Init) =>
+init_nrel(_NRels, Id-d(zero,_,_,_), Init) =>
     Init = (Id := 0).
+init_nrel(_NRels, Id-d(_,zero,_,_), Init) =>
+    Init = (d(Id) := 0).
 init_nrel(NRels, Id-_, _), memberchk(Id:=c, NRels) =>
     fail.
 init_nrel(_NRels, Id-_QVal, Init) =>

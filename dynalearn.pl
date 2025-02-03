@@ -222,7 +222,7 @@ import_input_state(Terms, InputState) :-
     maplist(value_pair, Values, Pairs),
     dict_pairs(InputState, _, Pairs).
 
-value_pair(value(Q, _, Value, _), Q-Value).
+value_pair(value(Q, _, Value, D1), Q-d(Value,D1,_,_)).
 
 %!  import_exogenous(+Terms, -Exogenous) is det.
 %
