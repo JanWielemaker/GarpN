@@ -139,6 +139,8 @@ drel(A * B, DA * DB) =>
     drel(B, DB).
 drel(c, C) =>
     C = c.
+drel(c(N), C) =>
+    C = c(N).
 drel(Q, DQ) =>
     DQ = d(Q).
 
@@ -213,8 +215,8 @@ inf_by_nrel(DQ, Integrals, Dep := Expr) :-
     ;   Expr = Sum
     ).
 
-one_inf_by(inf_pos_by(_, D), Expr) => Expr = c*D.
-one_inf_by(inf_neg_by(_, D), Expr) => Expr = -(c*D).
+one_inf_by(inf_pos_by(_, D), Expr) => Expr = c(1)*D.
+one_inf_by(inf_neg_by(_, D), Expr) => Expr = -(c(1)*D).
 
 %!  intergrals(+Model, -IRels, +Options) is det.
 %
@@ -244,11 +246,13 @@ default_nrels([ t := t + 'Δt',
 
 %!  id_to_term(+IdMapping, +IdTerm, -Term, +S0, -S) is det.
 
-id_to_term(_Mapping, c, Term, S0, S) =>
+id_to_term(Mapping, c, Term, S0, S) =>
+    id_to_term(Mapping, c(_), Term, S0, S).
+id_to_term(_Mapping, c(Value), Term, S0, S) =>
     length(S0, N0),
     N is N0+1,
     atom_concat(c,N,Term),
-    S = [(Term := placeholder(constant,_))|S0].
+    S = [(Term := placeholder(constant,Value))|S0].
 id_to_term(Mapping, d(Id), Term, S0, S), atom(Id) =>
     S = S0,
     Term0 = Mapping.get(Id,Id),
