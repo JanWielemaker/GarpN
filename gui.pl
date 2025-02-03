@@ -1047,9 +1047,9 @@ th_label(Key) -->
     { h_label(Key, Label) },
     html(th(Label)).
 
-h_label(d(1), '\U0001D4ED¹').
-h_label(d(2), '\U0001D4ED²').
-h_label(d(3), '\U0001D4ED³').
+h_label(d(1), 'Δ').
+h_label(d(2), 'Δ²').
+h_label(d(3), 'Δ³').
 h_label(value, '\U0001D4E5').
 
 v_label(plus) --> html(span(class(plus), '\u25B2')).
