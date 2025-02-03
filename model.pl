@@ -292,16 +292,24 @@ d_term(Term, DTerm), compound(Term) =>
 init_nrels(Model, NRels, Init) :-
     q_input_state(Model, Input),
     dict_pairs(Input, _, Pairs),
-    convlist(init_nrel(NRels), Pairs, Init).
+    convlist(init_nrel(NRels), Pairs, Inits),
+    append(Inits, Init).
 
-init_nrel(_NRels, Id-d(zero,_,_,_), Init) =>
-    Init = (Id := 0).
-init_nrel(_NRels, Id-d(_,zero,_,_), Init) =>
-    Init = (d(Id) := 0).
 init_nrel(NRels, Id-_, _), memberchk(Id:=c, NRels) =>
     fail.
-init_nrel(_NRels, Id-_QVal, Init) =>
-    Init = (Id := placeholder(init, _)).
+init_nrel(_NRels, Id-d(Q,D1,_,_), Init) =>
+    phrase(init_nrel(Id, Q, D1), Init).
+
+init_nrel(Id, Q, D) -->
+    init_v(Id, Q),
+    init_d(Id, D).
+
+init_v(Id, point(zero))  ==> [Id := 0].
+init_v(Id, Q), nonvar(Q) ==> [Id := placeholder(init, _)].
+init_v(_, _)             ==> [].
+init_d(Id, zero)         ==> [d(Id) := 0].
+init_d(Id, D), nonvar(D) ==> [d(Id) := placeholder(init, _)].
+init_d(_, _)             ==> [].
 
 %!  exogenous_equation(+Class, +DQ, ?Q, -Equations) is det.
 
