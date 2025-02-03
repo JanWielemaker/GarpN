@@ -118,7 +118,7 @@ qrel2nrel(DQ, QRels, Left, NRels) :-
 qrel2nrel(_DQ, Left, Left, []).
 
 mkrel(q, NRel, _, NRel).
-mkrel(d, _, DRel, DRel) :-
+mkrel(d, _, DRel, DRel).
 
 mkrel(q, NRel, NRel).
 mkrel(d, NRel, DRel) :-
