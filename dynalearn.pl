@@ -57,7 +57,7 @@ dynalearn_model_nc(Id, #{ results: Simulation,
     prolog_model(Model0, Terms, IdMapping, QSpaceMapping),
     import_qrels(Terms, QRels),
     import_qspaces(Terms, QSpaces),
-    import_input_state(Terms, InputState),
+    import_input_state(Terms, QSpaces, InputState),
     import_exogenous(Terms, Exogenous),
     import_simulation(Model0, QSpaceMapping, Simulation).
 
@@ -215,14 +215,24 @@ import_qspace(QSpaceIn, Param, Result) :-
 %
 %
 
-:- det(import_input_state/2).
-import_input_state(Terms, InputState) :-
+:- det(import_input_state/3).
+import_input_state(Terms, QSpaces, InputState) :-
     smd(Terms, SMD),
     arg(4, SMD, par_values(Values)),
-    maplist(value_pair, Values, Pairs),
+    maplist(value_pair(QSpaces), Values, Pairs),
     dict_pairs(InputState, _, Pairs).
 
-value_pair(value(Q, _, Value, D1), Q-d(Value,D1,_,_)).
+value_pair(QSpaces, value(Q, _, Value, D1), Q-d(QValue,D1,_,_)) :-
+    (   nonvar(Value)
+    ->  (   member(QSpace, QSpaces),
+            arg(1, QSpace, Q),
+            arg(3, QSpace, QValues),
+            member(point(Value), QValues)
+        ->  QValue = point(Value)
+        ;   QValue = Value
+        )
+    ;   true
+    ).
 
 %!  import_exogenous(+Terms, -Exogenous) is det.
 %
