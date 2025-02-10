@@ -105,3 +105,52 @@ function get_qspaces(elem)
 function get_jqspaces(elem)
 { return JSON.stringify(get_qspaces(elem));
 }
+
+/**
+ * Used to deal with (=) (Equal)  relations in the model.  We find the
+ * input  elements, disable  the 2nd  and  add an  event handler  that
+ * propagates the first to the second.
+ */
+
+function set_qspace_equalities(data) {
+  const controls = document.getElementById("qspace-controls");
+
+  function nth_child(elem) {
+    let i=0;
+    while((elem=elem.previousSibling)!=null)
+      ++i;
+    return i;
+  }
+
+  function qspace_input(qspace, pt) {
+    const control = controls.querySelector("#"+qspace);
+    if ( control )
+    { const el = control.querySelector("[name='"+pt+"']");
+      if ( el )
+	return { elem: el, index: nth_child(control) };
+    }
+  }
+
+  function propagate(el1, el2) {
+    for(ev of ["change", "keydown", "paste", "input"]) {
+      el1.addEventListener(ev, () => {
+	const v1 = el1.value;
+	if ( el2.value != v1 )
+	  el2.value = v1;
+      });
+    }
+    el2.disabled = true;
+  }
+
+  for(const eq of data) {
+    const el1 = qspace_input(eq.qspace1, eq.qval1);
+    const el2 = qspace_input(eq.qspace2, eq.qval2);
+
+    if ( el1 && el2 ) {
+      if ( el1.index < el2.index )
+	propagate(el1.elem, el2.elem);
+      else
+	propagate(el2.elem, el1.elem);
+    }
+  }
+}

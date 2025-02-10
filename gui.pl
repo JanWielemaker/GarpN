@@ -614,7 +614,8 @@ qspace_controls(Model, Options) -->
     },
     !,
     html(div(class('qspace-header'), 'Quantity spaces')),
-    sequence(qspace_control(IdMapping, Options), Pairs).
+    sequence(qspace_control(IdMapping, Options), Pairs),
+    qequal_script(Model).
 qspace_controls(_, _) -->
     [].
 
@@ -662,6 +663,25 @@ qspace_element(Savedvalues, point(Name)) ==>
              ])).
 qspace_element(_, Name), atom(Name) ==>
     html(span(class('qspace-interval'), Name)).
+
+%!  qequal_script(+Model)// is det.
+%
+%   Add equality relations between quantity space points as JavaScript,
+%   so we can propagate changes.
+
+qequal_script(Model) -->
+    { findall(#{ qspace1:QSpace1,
+                 qspace2:QSpace2,
+                 qval1:QVal1,
+                 qval2:QVal2
+               },
+              q_rel(Model, equal(@(QSpace1,point(QVal1)),
+                                 @(QSpace2,point(QVal2)))),
+              Data)
+    },
+    js_script({|javascript(Data)||
+                set_qspace_equalities(Data)
+               |}).
 
 %!  model_issues(+Error)//
 
