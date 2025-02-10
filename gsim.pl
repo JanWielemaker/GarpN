@@ -23,6 +23,9 @@
 :- use_module(library(listing), [portray_clause/2]).
 :- use_module(library(prolog_code), [comma_list/2]).
 :- use_module(library(dcg/high_order), [sequence/4]).
+:- use_module(library(ordsets), [ord_intersection/3, ord_subtract/3, ord_union/3]).
+:- use_module(library(pairs), [map_list_to_pairs/3]).
+:- use_module(library(ugraphs), [ugraph_layers/2, del_vertices/3, vertices_edges_to_ugraph/3]).
 
 :- use_module(model).
 
