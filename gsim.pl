@@ -412,11 +412,26 @@ q_term_id(Options, Term, Id) :-
 %    - Any _source_ of the dependency graph.
 
 formulas_needs_init(Formulas, NeedsInit) :-
+    formulas_partial_odering(Formulas, Layers, DeletedVertices),
+    Layers = [First|_],
+    append(DeletedVertices, First, NeedsInit0),
+    sort(NeedsInit0, NeedsInit).
+
+%!  formulas_partial_odering(+Formulas, -Layers, -DeletedVertices) is det.
+%
+%   Create  a  partial  ordering  of  the    formulas   based  on  their
+%   dependencies.
+%
+%   @arg Formulas is a dict Var:formula(Prolog,Bindings)
+%   @arg Layers is a list of lists of variables representing a partial
+%   ordering in the dependencies.
+%   @arg DeletedVertices are the vertices that needed to be deleted
+%   from the graph to make it acyclic.
+
+formulas_partial_odering(Formulas, Layers, Vertices) :-
     formulas_ugraph(Formulas, UGRaph),
     ugraph_remove_cycles(UGRaph, UGRaph1, Vertices),
-    ugraph_layers(UGRaph1, [First|_]),
-    append(Vertices, First, NeedsInit0),
-    sort(NeedsInit0, NeedsInit).
+    ugraph_layers(UGRaph1, Layers).
 
 ugraph_remove_cycles(UGRaph0, UGRaph, Vertices) :-
     ugraph_remove_self_cycles(UGRaph0, UGRaph1, Del0),
