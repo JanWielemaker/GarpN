@@ -408,17 +408,39 @@ select_graph([H|T], Set0, Set) :-
 
 %!  order_equations(+Equations, +Formulas, -Ordered, +Options) is det.
 %
+%   Order and group the equations.  Ordered is a dict, holding
 %
+%     - model:    ModelEquationLayers
+%       Here, ModelEquationLayers is a list of layers.  Each layer
+%       is a list of equations that belong to this layer.  The
+%       layers are based on partial ordering of the equations.
+%     - time:     Time relations
+%     - constant: ConstantEquations
+%     - init:     InitializationEquations
 
 order_equations(Equations, Formulas, Ordered, Options) :-
-    map_list_to_pairs(equation_term_id(Options), Equations, Paired),
+    map_list_to_pairs(equation_class, Equations, Classified),
+    keysort(Classified, ByClass),
+    group_pairs_by_key(ByClass, Grouped),
+    select(model-ModelEq, Grouped, GroupedRest),
+    map_list_to_pairs(equation_term_id(Options), ModelEq, IdPaired),
     order_formulas(Formulas, Layers),
-    append(Layers, IdOrder),
-    maplist(select_eq(Paired), IdOrder, Ordered).
+    maplist(layer_equations(IdPaired), Layers, LayeredEquations0),
+    exclude(==([]), LayeredEquations0, LayeredEquations),
+    dict_pairs(Ordered, #, [model-LayeredEquations|GroupedRest]).
 
 :- det(equation_term_id/3).
 equation_term_id(Options, (QTerm := _), QId) =>
     formula_key(QTerm, QId, Options).
+
+equation_class(t:=_, Class)                       => Class = time.
+equation_class(_:=placeholder(constant,_), Class) => Class = constant.
+equation_class(_:=placeholder(init,_), Class)     => Class = init.
+equation_class(_:=Num, Class), number(Num)        => Class = init.
+equation_class(_, Class)                          => Class = model.
+
+layer_equations(IdPaired, IdOrder, Equations) :-
+    convlist(select_eq(IdPaired), IdOrder, Equations).
 
 select_eq(Pairs, QId, Equation) :-
     memberchk(QId-Equation, Pairs).

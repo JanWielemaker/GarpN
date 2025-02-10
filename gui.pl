@@ -355,15 +355,24 @@ propose_model_q(Request) :-
      http_parameters(Request,
                      [ model(Model, [])
                      ]),
-     propose_model(Model, Terms, [mode(quantities)]),
+     propose_flat_model(Model, Terms, [mode(quantities)]),
      set_model(Model, terms(Terms), [grouped(true)]).
 
 propose_model_d(Request) :-
      http_parameters(Request,
                      [ model(Model, [])
                      ]),
-     propose_model(Model, Terms, [mode(derivatives)]),
+     propose_flat_model(Model, Terms, [mode(derivatives)]),
      set_model(Model, terms(Terms), [grouped(true)]).
+
+propose_flat_model(ModelId, Terms, Options) :-
+    propose_model(ModelId, Grouped, Options),
+    append(Grouped.model, ModelTerms),
+    append([ ModelTerms,
+             Grouped.time,
+             Grouped.constant,
+             Grouped.init
+           ], Terms).
 
 %!  load_model(Request)
 %
