@@ -355,14 +355,14 @@ propose_model_q(Request) :-
      http_parameters(Request,
                      [ model(Model, [])
                      ]),
-     init_model(Model, Terms, [mode(quantities)]),
+     propose_model(Model, Terms, [mode(quantities)]),
      set_model(Model, terms(Terms), [grouped(true)]).
 
 propose_model_d(Request) :-
      http_parameters(Request,
                      [ model(Model, [])
                      ]),
-     init_model(Model, Terms, [mode(derivatives)]),
+     propose_model(Model, Terms, [mode(derivatives)]),
      set_model(Model, terms(Terms), [grouped(true)]).
 
 %!  load_model(Request)

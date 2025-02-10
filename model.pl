@@ -1,5 +1,5 @@
 :- module(model,
-          [ init_model/3,               % +Model, -Equations, +Options
+          [ propose_model/3,            % +ModelId, -Equations, +Options
             is_placeholder/1,           % @Term
             is_placeholder/2,           % @Term, -Type
             default_nrels/1             % -NRels:list
@@ -18,9 +18,23 @@
 
 */
 
-%!  init_model(+Model, -Equations, +Options) is det.
+%!  propose_model(+Model, -Equations, +Options) is det.
+%
+%   Propose a numerical model based on the qualitative model indentified
+%   by Model (an identifier).  The model is based on
+%
+%     - The qualitative relations
+%     - Exogenous input
+%     - The initial state
+%
+%   @arg Model is the model identifier.
+%   @arg Equations is a list of `X   := Expression` terms, where `X` are
+%   ground Prolog terms of the the form Prop(Entity) or 'ΔProp'(Entity).
+%   @arg Options supports
+%     - mode(+Mode)
+%       One of `quantities` or `derivatives`
 
-init_model(Model, Equations, Options) :-
+propose_model(Model, Equations, Options) :-
     findall(QRel, q_rel(Model, QRel), QRels), % Use relations
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
