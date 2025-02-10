@@ -45,17 +45,21 @@ dynalearn_model(Id, Model) :-
     dynalearn_model_nc(Id, Model),
     asserta(dynalearn_model_cache(Id, Model)).
 
-dynalearn_model_nc(Id, #{ results: Simulation,
-                          prolog:Terms,
-                          id_mapping:IdMapping,
-                          qspaces:QSpaces,
-                          input_state:InputState,
-                          exogenous:Exogenous,
-                          qrels:QRels
-                     }) :-
+dynalearn_model_nc(Id, Dict) :-
     get_model(Id, Model0),
+    import_model(Model0, Dict).
+
+import_model(Model0, #{ results: Simulation,
+                        prolog:Terms,
+                        id_mapping:IdMapping,
+                        qspaces:QSpaces,
+                        input_state:InputState,
+                        exogenous:Exogenous,
+                        qrels:QRels
+                     }) :-
     prolog_model(Model0, Terms, IdMapping, QSpaceMapping),
-    import_qrels(Terms, QRels),
+    import_qrels(Terms, QRels0),
+    maplist(unmap_correspondence(QSpaceMapping), QRels0, QRels),
     import_qspaces(Terms, QSpaces),
     import_input_state(Terms, QSpaces, InputState),
     import_exogenous(Terms, Exogenous),
@@ -178,6 +182,53 @@ par_relations(par_relations(List), QRels), is_list(List) =>
     QRels = List.
 par_relations(_, _) =>
     fail.
+
+%!  unmap_correspondence(+QSpaceMap, +Qrel0, -QRel) is det.
+%
+%   Unmap the Dynalearn nNNN numbers for correspondences.
+
+:- det(unmap_correspondence/3).
+unmap_correspondence(QSpaceMap, equal(Q1, Q2), QRel) =>
+    QRel = equal(Qm1, Qm2),
+    unmap_qpval(QSpaceMap, Q1, Qm1),
+    unmap_qpval(QSpaceMap, Q2, Qm2).
+unmap_correspondence(QSpaceMap, v_correspondence(P1, U1, P2, U2), QRel) =>
+    QRel = v_correspondence(P1, V1, P2, V2),
+    unmap_qval(QSpaceMap, U1, V1),
+    unmap_qval(QSpaceMap, U2, V2).
+unmap_correspondence(QSpaceMap, dv_correspondence(P1, U1, P2, U2), QRel) =>
+    QRel = dv_correspondence(P1, V1, P2, V2),
+    unmap_qval(QSpaceMap, U1, V1),
+    unmap_qval(QSpaceMap, U2, V2).
+unmap_correspondence(QSpaceMap, dir_v_correspondence(P1, U1, P2, U2), QRel) =>
+    QRel = v_correspondence(P1, V1, P2, V2),
+    unmap_qval(QSpaceMap, U1, V1),
+    unmap_qval(QSpaceMap, U2, V2).
+unmap_correspondence(QSpaceMap, dir_dv_correspondence(P1, U1, P2, U2), QRel) =>
+    QRel = dv_correspondence(P1, V1, P2, V2),
+    unmap_qval(QSpaceMap, U1, V1),
+    unmap_qval(QSpaceMap, U2, V2).
+unmap_correspondence(_, QRel0, QRel) =>
+    QRel = QRel0.
+
+unmap_qpval(QSpaceMap, QVal, @(Q,Val)) :-
+    QVal =.. [Val0,Q],
+    (   Val = QSpaceMap.get(Val0)
+    ->  true
+    ;   Val = Val0
+    ).
+
+unmap_qval(QSpaceMap, QVal, Val), compound(QVal) =>
+    QVal =.. [Val0,_Q],
+    (   Val = QSpaceMap.get(Val0)
+    ->  true
+    ;   Val = Val0
+    ).
+unmap_qval(QSpaceMap, QVal, Val), atom(QVal) =>
+    (   Val = QSpaceMap.get(QVal)
+    ->  true
+    ;   Val = point(QVal)
+    ).
 
 %!  import_qspaces(+Terms, -QSpaces) is det.
 %

@@ -40,7 +40,7 @@ propose_model(Model, Equations, Options) :-
     append(QRels, Exos, Rels),
     qrel2nrel(Rels, NRels, Options),
     intergrals(Model, IRels, Options),
-    init_nrels(Model, NRels, Init),           % Use input scenario
+    init_nrels(Model, QRels, NRels, Init),    % Use input scenario
     default_nrels(DefNRels),                  % Defaults (time)
     append([NRels,IRels,DefNRels,Init], Eql0),
     simplify_model(Eql0, Eql1),
@@ -188,6 +188,7 @@ qrel_nrel(DQ, [exogenous(Dep,Class)], RRels) :-
 % to verify all constraints are satisfied.
 qrel_nrel(_, [dir_q_correspondence(_,_)], []).
 qrel_nrel(_, [q_correspondence(_,_)], []).
+qrel_nrel(_, [v_correspondence(_,_,_,_)], []).
 qrel_nrel(_, [equal(_,_)], []).
 qrel_nrel(_, [smaller(_,_)], []).
 qrel_nrel(_, [greater(_,_)], []).
@@ -297,16 +298,19 @@ d_term(Term, DTerm), compound(Term) =>
     atom_concat('Δ', Name, DName),
     compound_name_arguments(DTerm, DName, Args).
 
-%!  init_nrels(+Model, +NRels, -Init) is det.
+%!  init_nrels(+Model, +QRels, +NRels, -Init) is det.
 %
 %   Use the input state (scenario)   to create initialization equations.
 %   We create an initialization for each   quantity defined in the input
 %   state, unless the quantity is defined by an exogenous steady input.
 %
+%   We may propagate v_correspondence(Q1,  V1,   Q2,  V2) relations from
+%   QRels to instantiate other quantities.
+%
 %   @tbd: This assumes only initial  values   on  quantities, __not__ on
 %   derivatives.
 
-init_nrels(Model, NRels, Init) :-
+init_nrels(Model, _QRels, NRels, Init) :-
     q_input_state(Model, Input),
     dict_pairs(Input, _, Pairs),
     convlist(init_nrel(NRels), Pairs, Inits),
