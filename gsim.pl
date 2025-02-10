@@ -1,5 +1,7 @@
 :- module(gsim,
-          [ read_model/5,          % +Source, -Formulas, -Constants, -State0, +Opts
+          [ read_model/5,          % +Source, -Formulas, -Constants, -State0,
+                                   % +Opts
+            order_formulas/2,      % +Formulas, -Ordering
             simulate/3,            % +ModelSrc, -Series, +Options
             init_derivatives/3,    % +Series, -DSeries, +IdMapping
             add_derivative/2,      % +Nth, +Series
@@ -8,7 +10,8 @@
             min_list_normal/2,     % +List, -Min
             max_list_normal/2,     % +List, -Max
             derivative_key/3,      % +Key, -Quantity, +IdMapping
-            normal_mid/3           % +N1, +N2, -Ni
+            normal_mid/3,          % +N1, +N2, -Ni
+            formula_key/3          % +QTerm, -Qid, +Options
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -148,6 +151,12 @@ quantity(Q := _Expr, Out), ground(Q) =>
     Out = Q.
 quantity(Invalid, _) =>
     type_error(model_term, Invalid).
+
+%!  formula_key(+QTerm, -Qid, +Options) is det.
+
+:- det(formula_key/3).
+formula_key(QTerm, QId, Options) :-
+    q_term(Options, QTerm, q(_Q,QId,_)).
 
 %!  q_term(+Options, ?QTerm, ?QData) is det.
 
@@ -574,6 +583,19 @@ initial_value(Formulas, Constants, State0, Key, Key-Value) :-
     catch(Value is Expr, error(_,_), fail),
     !.
 initial_value(_Formulas, _Constants, _State0, Key, Key-_).
+
+%!  order_formulas(+Formulas:dict, -Ordering:list(list(var))) is det.
+%
+%   Generate a partial ordering of  Formulas  as   a  list  of layers of
+%   variables (keys of the dict).
+
+order_formulas(Formulas, Layers) :-
+    formulas_partial_odering(Formulas, Layers, _Vertices).
+
+
+                /*******************************
+                *          SIMULATOR           *
+                *******************************/
 
 %!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
 %

@@ -47,7 +47,10 @@ propose_model(Model, Equations, Options) :-
     id_mapping(Model, Mapping),
     foldsubterms(id_to_term(Mapping), Eql1, Eql2, [], ConstEql),
     append(Eql2, ConstEql, Equations1),
-    add_model_init(Model, Equations1, Equations).
+%   ModelOpts = [id_mapping(Mapping)|Options],
+    ModelOpts = Options,
+    add_model_init(Model, Equations1, Equations2, Formulas, ModelOpts),
+    order_equations(Equations2, Formulas, Equations, ModelOpts).
 
 qrel2nrel(QRels, NRels, Options) :-
     aggregate_all(min(NLeft, NRels-Left),
@@ -284,7 +287,7 @@ id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
 %!  d_term(+Term, -DTerm) is det.
 %
 %   Translate a term that identifies a quantity (Attr(Entity)) into a an
-%   identifier for its 1st derivative by prepenting   the  name with a Δ
+%   identifier for its 1st derivative by prepending   the  name with a Δ
 %   symbol.
 
 d_term(Term, DTerm), atom(Term) =>
@@ -344,7 +347,8 @@ exogenous_equation(exogenous_pos_parabola, _DQ, Q, NRel) =>
 exogenous_equation(exogenous_free, _DQ, Q, NRel) =>
     NRel = [Q := (c*random)].
 
-%!  add_model_init(+EquationsIn, -EquationsOut) is det.
+%!  add_model_init(+ModelId, +EquationsIn, -EquationsOut, -Formulas,
+%!                 +Options) is det.
 %
 %   Add missing initializations to the equations.
 
@@ -352,9 +356,10 @@ exogenous_equation(exogenous_free, _DQ, Q, NRel) =>
 :- exception_type(model_error, model_error(no_initial_values(_))).
 :- exception_type(model_error, model_error(no_time_formulas)).
 
-add_model_init(Model, Eq0, Eq) :-
-    catch(read_model(terms(Eq0), _Formulas, _Constants, _State,
+add_model_init(Model, Eq0, Eq, Formulas, Options) :-
+    catch(read_model(terms(Eq0), Formulas, _Constants, _State,
                      [ allow_placeholders(true)
+                     | Options
                      ]),
           model_error, Ball, true),
     (   var(Ball)
@@ -363,7 +368,7 @@ add_model_init(Model, Eq0, Eq) :-
         append(Eq0, Init, Eq1),
         (   Init == []
         ->  Eq = Eq1
-        ;   add_model_init(Model, Eq1, Eq)
+        ;   add_model_init(Model, Eq1, Eq, Formulas, Options)
         )
     ).
 
@@ -400,6 +405,23 @@ select_graph([H|T], Set0, Set) :-
     select(H, Set0, Set1),
     select_graph(T, Set1, Set).
 
+
+%!  order_equations(+Equations, +Formulas, -Ordered, +Options) is det.
+%
+%
+
+order_equations(Equations, Formulas, Ordered, Options) :-
+    map_list_to_pairs(equation_term_id(Options), Equations, Paired),
+    order_formulas(Formulas, Layers),
+    append(Layers, IdOrder),
+    maplist(select_eq(Paired), IdOrder, Ordered).
+
+:- det(equation_term_id/3).
+equation_term_id(Options, (QTerm := _), QId) =>
+    formula_key(QTerm, QId, Options).
+
+select_eq(Pairs, QId, Equation) :-
+    memberchk(QId-Equation, Pairs).
 
 %!  simplify_model(+Eql0, -Eql) is det.
 %
