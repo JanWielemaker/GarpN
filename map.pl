@@ -27,6 +27,8 @@
 :- use_module(library(lists)).
 :- use_module(library(debug)).
 :- use_module(library(listing)).
+:- use_module(library(aggregate)).
+:- use_module(library(pprint)).
 
 :- use_module(gsim).
 :- use_module(csv_util).
@@ -586,7 +588,9 @@ series_qualitative(Series, Qualitative, Options) :-
     !,
     option(qspaces(QSpaces), Options),
     stable_min_derivatives(Asymptotes, Asymptotes1),
-    maplist(state_qualitative_a(Asymptotes1,Time,QSpaces), Series, Qualitative).
+    last(Series, LastState),
+    state_qualitative_final(Asymptotes1, QSpaces, LastState, LastQState),
+    maplist(state_qualitative_a(Asymptotes1,Time,QSpaces,LastQState), Series, Qualitative).
 series_qualitative(Series, Qualitative, Options) :-
     option(qspaces(QSpaces), Options),
     maplist(state_qualitative(QSpaces), Series, Qualitative).
@@ -604,56 +608,59 @@ stable_min_derivatives_([H1,H2|T0], T) :-
 stable_min_derivatives_([H|T0], [H|T]) :-
     stable_min_derivatives_(T0, T).
 
-%!  state_qualitative_a(+Asymptotes, +Time, +QSpaces, +NDict, -QDict) is
-%!                      det.
+%!  state_qualitative_a(+Asymptotes, +Time, +QSpaces,
+%!                      +LastQState, +NDict, -QDict) is det.
 %
 %   Turn the numeric  state  NDict  into   a  qualitative  state  QDict,
 %   considering that all quantities in  Asymptotes are considered `zero`
-%   after Time.
+%   after  Time.  If  the  first  derivative  is  considered  zero,  the
+%   qualitative value is taken from LastQState.
 
-:- det(state_qualitative_a/5).
-state_qualitative_a(Asymptotes, Time, QSpaces, Dict, QDict) :-
+:- det(state_qualitative_a/6).
+state_qualitative_a(Asymptotes, Time, QSpaces, LastQState, Dict, QDict) :-
     d(DictTime,_,_,_) = Dict.t,
     (   DictTime >= Time
-    ->  mapdict(to_qualitative_z(Asymptotes, QSpaces), Dict, QDict)
-    ;   mapdict(to_qualitative(QSpaces), Dict, QDict)
+    ->  mapdict(to_qualitative_z(true,Asymptotes,QSpaces,LastQState), Dict, QDict)
+    ;   mapdict(to_qualitative(true, QSpaces), Dict, QDict)
     ).
 
-state_qualitative(QSpaces, Dict, QDict) :-
-    mapdict(to_qualitative(QSpaces), Dict, QDict).
+state_qualitative_final(Asymptotes, QSpaces, Dict, QDict) :-
+    mapdict(to_qualitative_z(false, Asymptotes, QSpaces, #{}), Dict, QDict).
 
-to_qualitative_z(Asymptotes, QSpaces, Q, V0, R) :-
-    to_qualitative(QSpaces, Q, V0, R0),
+state_qualitative(QSpaces, Dict, QDict) :-
+    mapdict(to_qualitative(true, QSpaces), Dict, QDict).
+
+to_qualitative_z(Exact, Asymptotes, QSpaces, LastQState, Q, V0, R) :-
+    to_qualitative(Exact, QSpaces, Q, V0, R0),
     (   memberchk(asymptote(Q,D,_), Asymptotes)
     ->  QSpace = QSpaces.get(Q, [point(zero)]),
-        to_zero(D, QSpace, R0, R)
+        (   d(QVal,_,_,_) = LastQState.get(Q)
+        ->  true
+        ;   arg(1, R0, QVal)
+        ),
+        to_zero(D, QSpace, QVal, R0, R)
     ;   R = R0
     ).
 
-%!  to_zero(+N, +QSpace, +VIn, -VOut) is det.
+%!  to_zero(+N, +QSpace, +QVal, +VIn, -VOut) is det.
 %
 %   Keep the first N  of  value  or   d(V,D1,...)  as  is,  mapping  all
 %   subsequent to zero. For the value, zero means point(zero), while for
 %   derivatives it means the plain atom `zero`.
+%
+%   @arg QVal is the asymptotical qualitative value at the end of the
+%   series.
 
-:- det(to_zero/4).
-to_zero(N, QSpace, V0, R), V0 =.. [d|Args] =>
-    length(Keep, N),
-    append(Keep, ToZero, Args),
-    foldl(to_zero(QSpace), ToZero, Zero, N, _),
-    append(Keep, Zero, Args1),
-    R =.. [d|Args1].
-to_zero(0, QSpace, _, Zero) =>
+:- det(to_zero/5).
+to_zero(0, QSpace, _, _, R) =>
+    R = d(Zero, zero, zero, zero),
     qspace_zero(QSpace, Zero).
-to_zero(_, _, V, R) =>
-    R = V.
-
-to_zero(QSpace, _, Zero, 0, N) =>          % value is a quantity space element
-    qspace_zero(QSpace, Zero),
-    N = 1.
-to_zero(_, _, Zero, N, N1) =>              % Derivatives
-    Zero = zero,
-    N1 is N+1.
+to_zero(1, _QSpace, QVal, d(_,_,_,_), R) =>
+    R = d(QVal, zero, zero, zero).
+to_zero(2, _QSpace, _, d(V,D1,_,_), R) =>
+    R = d(V, D1, zero, zero).
+to_zero(3, _QSpace, _, d(V,D1,D2,_), R) =>
+    R = d(V, D1, D2, zero).
 
 qspace_zero(QSpace, Zero) :-
     member(point(Name=Val), QSpace),
@@ -662,7 +669,7 @@ qspace_zero(QSpace, Zero) :-
     Zero = point(Name).
 qspace_zero(_, point(zero)).
 
-%!  to_qualitative(+QSpaces, +Quantity, +NumIn, -QOut) is det.
+%!  to_qualitative(+Exact, +QSpaces, +Quantity, +NumIn, -QOut) is det.
 %
 %   Map a numeric result NumIn for Quantity into a qualitative result
 %   QOut.
@@ -671,37 +678,26 @@ qspace_zero(_, point(zero)).
 %   or term d(V,D1,D3).  Each Dn must be mapped to plus/min/zero.  Each
 %   V must be mapped to the quantity space.
 
-to_qualitative(_, t, T, R) => R = T.
-to_qualitative(QSpaces, Q, d(V,D1), R) =>
-    R = d(QV,QD1),
-    to_qualitative_v(QSpaces, Q, V, QV),
-    to_qualitative_d(D1, QD1).
-to_qualitative(QSpaces, Q, d(V,D1,D2), R) =>
-    R = d(QV,QD1,QD2),
-    to_qualitative_v(QSpaces, Q, V, QV),
-    to_qualitative_d(D1, QD1),
-    to_qualitative_d(D2, QD2).
-to_qualitative(QSpaces, Q, d(V,D1,D2,D3), R) =>
+to_qualitative(_, _, t, T, R) => R = T.
+to_qualitative(Exact, QSpaces, Q, d(V,D1,D2,D3), R) =>
     R = d(QV,QD1,QD2,QD3),
-    to_qualitative_v(QSpaces, Q, V, QV),
+    to_qualitative_v(Exact, QSpaces, Q, V, QV),
     to_qualitative_d(D1, QD1),
     to_qualitative_d(D2, QD2),
     to_qualitative_d(D3, QD3).
-to_qualitative(QSpaces, Q, V, QV) =>
-    to_qualitative_v(QSpaces, Q, V, QV).
 
 to_qualitative_d(V, _), \+ normal_number(V) => true.
 to_qualitative_d(V, D), V > 0   => D = plus.
 to_qualitative_d(V, D), V < 0   => D = min.
 to_qualitative_d(V, D), V =:= 0 => D = zero.
 
-to_qualitative_v(_QSpaces, _, V, _), \+ normal_number(V) => true.
-to_qualitative_v(QSpaces, Q, V, VQ), QSpace = QSpaces.get(Q) =>
-    n_to_qualitative(QSpace, Q, V, VQ).
-to_qualitative_v(_, _, V, VQ) =>
+to_qualitative_v(_, _QSpaces, _, V, _), \+ normal_number(V) => true.
+to_qualitative_v(Exact, QSpaces, Q, V, VQ), QSpace = QSpaces.get(Q) =>
+    n_to_qualitative(QSpace, Exact, Q, V, VQ).
+to_qualitative_v(_, _, _, V, VQ) =>
     to_qualitative_d(V, VQ).
 
-%!  n_to_qualitative(+QSpace, +Quantity, +Num, -QValue) is det.
+%!  n_to_qualitative(+QSpace, +Exact, +Quantity, +Num, -QValue) is det.
 %
 %   Map Num into a qualitative name from QSpace.
 %
@@ -710,50 +706,68 @@ to_qualitative_v(_, _, V, VQ) =>
 %   point(Name=Value).
 %   @arg QValue is one of point(PointName) or IntervalName.
 
-n_to_qualitative([Name], _Q, _V, VQ), atom(Name) =>
+n_to_qualitative([Name], _, _Q, _V, VQ), atom(Name) =>
     VQ = Name.
+n_to_qualitative(Values, false, Q, V, VQ),
+    member(point(NP), Values),
+    qspace_point_value(Q, NP, P, PV),
+    eq_approx(PV, V) =>
+    VQ = point(P).
+n_to_qualitative(Values, _, Q, V, VQ) =>
+    n_to_qualitative(Values, Q, V, VQ).
+
 n_to_qualitative([Name,point(NP)|_], Q, V, VQ),
     qspace_point_value(Q, NP, P, PV),
     V =< PV =>
-    (   V < PV
-    ->  VQ = Name
-    ;   VQ = point(P)
+    (   PV =:= V
+    ->  VQ = point(P)
+    ;   VQ = Name
     ).
 n_to_qualitative([point(NP)|_], Q, V, VQ),
     qspace_point_value(Q, NP, P, PV),
     V =< PV =>
-    (   V < PV
-    ->  VQ = error(underflow)
-    ;   VQ = point(P)
+    (   PV =:= V
+    ->  VQ = point(P)
+    ;   VQ = error(underflow)
     ).
 n_to_qualitative(List, Q, V, VQ),
     append(_, [point(NP), Name], List),
     qspace_point_value(Q, NP, P, PV),
     V >= PV =>
-    (   V > PV
-    ->  VQ = Name
-    ;   VQ = point(P)
+    (   PV =:= V
+    ->  VQ = point(P)
+    ;   VQ = Name
     ).
 n_to_qualitative(List, Q, V, VQ),
     append(_, [point(NP)], List),
     qspace_point_value(Q, NP, P, PV),
     V >= PV =>
-    (   V > PV
-    ->  VQ = error(overflow)
-    ;   VQ = point(P)
+    (   PV =:= V
+    ->  VQ = point(P)
+    ;   VQ = error(overflow)
     ).
 n_to_qualitative(List, Q, V, VQ) =>
     append(_, [point(NP1),Name,point(NP2)|_], List),
     qspace_point_value(Q, NP1, P1, N1),
     qspace_point_value(Q, NP2, P2, N2),
-    (   V =:= N1
+    (   N1 =:= V
     ->  VQ = point(P1)
-    ;   V =:= N2
+    ;   N2 =:= V
     ->  VQ = point(P2)
     ;   V > N1, V < N2
     ->  VQ = Name
     ),
     !.
+
+%!  eq_approx(+Reference, +Value) is semidet.
+%
+%   Approximate equality testing. This is   used for asymptotic matching
+%   and we allow for small mismatches.  It   is  not  clean how small is
+%   "small". Should we use  information  from   the  value  range of the
+%   entire series?
+
+eq_approx(Reference, Value), Reference =:= 0 => abs(Value) < 1e-3.
+eq_approx(Reference, Value) => 1-abs(Value/Reference) < 1e-3.
 
 %!  qspace_point_value(+Quantity, +Point, -Name, -Number) is det.
 
