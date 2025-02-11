@@ -177,9 +177,9 @@ qrel_nrel(q, [inf_pos_by(I,D)], [I := I + D*'Δt']).
 qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := D*'Δt']).
 qrel_nrel(q, [inf_neg_by(I,D)], [I := I - D*'Δt']).
 qrel_nrel(d, [inf_neg_by(I,D)], [d(I) := -D*'Δt']).
-qrel_nrel(q, [prop_pos(Dep,Infl)], [Dep := c*Infl]).
+qrel_nrel(q, [prop_pos(Dep,Infl)], [Dep := Dep + c*Infl]).
 qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := c*d(Infl)]).
-qrel_nrel(q, [prop_neg(Dep,Infl)], [Dep := -(c*Infl)]).
+qrel_nrel(q, [prop_neg(Dep,Infl)], [Dep := Dep - c*Infl]).
 qrel_nrel(d, [prop_neg(Dep,Infl)], [d(Dep) := -(c*d(Infl))]).
 qrel_nrel(DQ, [exogenous(Dep,Class)], RRels) :-
     freeze(Class, exogenous_equation(Class, DQ, Dep, RRels)).
@@ -197,11 +197,12 @@ is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
 is_prop(Dep, exogenous(Dep,_)).
 
-prop_nrel(Props, Dep := Sum) :-
+prop_nrel(Props, Dep := Expr) :-
     Props = [H|_],
     is_prop(Dep, H),
     maplist(one_prop, Props, Parts),
-    sum_expressions(Parts, Sum).
+    sum_expressions(Parts, Sum),
+    join_sum(Sum, Dep, Expr).
 
 sum_expressions(Parts, Sum) :-
     partition(is_neg, Parts, NegParts, PosParts),
