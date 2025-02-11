@@ -191,7 +191,7 @@ model_option(Default, File) -->
 %   Provide options for populating the numerical model.
 
 :- html_meta
-    model_button(html, +, +).
+    model_button(html,+,+,?,?).
 
 init_model_menu -->
     !,

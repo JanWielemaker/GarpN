@@ -68,15 +68,40 @@ qrel2nrel(QRels, NRels, Options) :-
 %   @arg NLeft is the length of Left.
 
 qrel2nrel(QRels, Left, NRels, NLeft, Options) :-
-    (   option(mode(derivatives), Options)
-    ->  qrel2nrel(d, QRels, Left, NRels)
-    ;   qrel2nrel(q, QRels, Left, NRels)
-    ),
+    mode_indicator(DQ, Options),
+    qrel2nrel(DQ, QRels, Left, NRels),
     length(Left, NLeft),
     (   NLeft =:= 0
     ->  !
     ;   true
     ).
+
+mode_indicator(DQ, Options), option(mode(quantities),  Options) => DQ = q.
+mode_indicator(DQ, Options), option(mode(derivatives), Options) => DQ = d.
+mode_indicator(DQ, Options), option(mode(mixed),       Options) => DQ = m.
+
+%!  qrel2nrel(+DQ, +QRels, -Left, -NRels) is nondet.
+%
+%   True when NRels  is  a  set   of  numerical  relations  covering the
+%   qualitative  relation  set  QRels.  Left  are  QRels  that  are  not
+%   processed. DQ describes the _mode_ as one of `q`, `d` or `m`. Steps:
+%
+%     1. Handle numerical relations (-,+,*,/). Ignore P+, P- and
+%        exogenous relations pointing at the result node.
+%     2. Handle nodes that have multiple P+ and P- dependencies
+%        by creating a single expression.
+%     3. Handle nodes that have multiple I+ or I- dependencies
+%        by creating a single expression.
+%     4. Map individual sub-graphs as defined by qrel_nrel/3.
+%        This recognizes a sub-graph and removes it from the
+%        remaining QRels set.
+%
+%   For the `mixed` model mode we shall
+%
+%     - If all affected quantities have a quantity space, used the `d`
+%       mode.
+%     - Otherwise use the `q` mode.  Add an integration relation
+%       for all involved quantities with a quantity space.
 
 qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Diff = A-B
     select(equal(min(A,B), Diff), QRels, QRels1),
