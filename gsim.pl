@@ -463,31 +463,45 @@ ugraph_remove_other_cycles(UGRaph0, UGRaph, Del) :-
     ugraph_layers(UGRaph0, _), !,
     UGRaph = UGRaph0,
     Del = [].
-ugraph_remove_other_cycles(UGRaph0, UGRaph, [V|Del]) :-
-    findall(Cycle, ugraph_cycle(UGRaph0, Cycle), Cycles),
-    shortest_cycle(Cycles, V-_),
-    del_vertices(UGRaph0, [V], UGRaph1),
+ugraph_remove_other_cycles(UGRaph0, UGRaph, Del) :-
+    findall(Cycle, ugraph_cycle(UGRaph0, Cycle), AllCycles),
+    sort(AllCycles, Cycles),
+    shortest_cycle(Cycles, ShortestCycle),
+    cycle_edge(ShortestCycle, Edge),
+    del_edges(UGRaph0, [Edge], UGRaph1),
     ugraph_remove_other_cycles(UGRaph1, UGRaph, Del).
 
-ugraph_cycle(UGRaph, V0-Path) :-
-    member(V0-To, UGRaph),
-    once(bf_reachable(To, UGRaph, V0, To, Path)).
+cycle_edge(List, F-T) :-
+    List = [H|_],
+    append(List, [H], List1),
+    append(_, [F,T|_], List1).
 
-bf_reachable([V0|_], _, V0, _Seen, [V0]).
-bf_reachable([V0|Agenda], UGRaph, V, Seen, [V0|Path]) :-
-    memberchk(V0-To, UGRaph),
-    ord_subtract(To, Seen, New),
-    append(Agenda, New, Agenda1),
-    ord_union(New, Seen, Seen1),
-    bf_reachable(Agenda1, UGRaph, V, Seen1, Path).
+ugraph_cycle(UGRaph, Cycle) :-
+    ugraph_cycle_(UGRaph, Cycle0),
+    canonical_cycle(Cycle0, Cycle).
+
+canonical_cycle(Cycle0, Cycle) :-
+    min_member(Min, Cycle0),
+    nth0(N, Cycle0, Min),
+    length(Pre, N),
+    append(Pre, Post, Cycle0),
+    append(Post, Pre, Cycle).
+
+ugraph_cycle_(UGRaph, [V1|Path]) :-
+    member(V0-To, UGRaph),
+    member(V1, To),
+    cycle_from(V1, V0, UGRaph, [V1], Path).
+
+cycle_from(T, T, _, _, []).
+cycle_from(H, T, UGRaph, Seen, [H1|Path]) :-
+    memberchk(H-To, UGRaph),
+    member(H1, To),
+    \+ memberchk(H1, Seen),
+    cycle_from(H1, T, UGRaph, [H1|Seen], Path).
 
 shortest_cycle(Cycles, Cycle) :-
-    map_list_to_pairs(cycle_length, Cycles, Keyed),
+    map_list_to_pairs(length, Cycles, Keyed),
     keysort(Keyed, [_-Cycle|_]).
-
-cycle_length(_V-L, Len) :-
-    length(L, Len).
-
 
 %!  formulas_ugraph(+Formulas, -UGRaph) is det.
 %
