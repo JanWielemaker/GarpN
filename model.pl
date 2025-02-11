@@ -229,6 +229,7 @@ nrel_all_valued_(VQs, NRel) :-
 has_value(VQs,  Q), memberchk(Q,VQs) => true.
 has_value(_,    t) => true.
 has_value(_, 'Δt') => true.
+has_value(_,    _) => fail.
 
 %!  nrel_quantities(+NRel, -Qs) is det.
 %
