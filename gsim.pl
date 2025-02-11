@@ -424,12 +424,12 @@ q_term_id(Options, Term, Id) :-
 %    - Any _source_ of the dependency graph.
 
 formulas_needs_init(Formulas, NeedsInit) :-
-    formulas_partial_odering(Formulas, Layers, DeletedVertices),
+    formulas_partial_odering(Formulas, Layers, SelfLoops),
     Layers = [First|_],
-    append(DeletedVertices, First, NeedsInit0),
+    append(First, SelfLoops, NeedsInit0),
     sort(NeedsInit0, NeedsInit).
 
-%!  formulas_partial_odering(+Formulas, -Layers, -DeletedVertices) is det.
+%!  formulas_partial_odering(+Formulas, -Layers, -SelfLoops) is det.
 %
 %   Create  a  partial  ordering  of  the    formulas   based  on  their
 %   dependencies.
@@ -440,23 +440,22 @@ formulas_needs_init(Formulas, NeedsInit) :-
 %   @arg DeletedVertices are the vertices that needed to be deleted
 %   from the graph to make it acyclic.
 
-formulas_partial_odering(Formulas, Layers, Vertices) :-
+formulas_partial_odering(Formulas, Layers, SelfLoops) :-
     formulas_ugraph(Formulas, UGRaph),
-    ugraph_remove_cycles(UGRaph, UGRaph1, Vertices),
+    ugraph_remove_cycles(UGRaph, UGRaph1, SelfLoops),
     ugraph_layers(UGRaph1, Layers).
 
-ugraph_remove_cycles(UGRaph0, UGRaph, Vertices) :-
-    ugraph_remove_self_cycles(UGRaph0, UGRaph1, Del),
-    ugraph_remove_other_cycles(UGRaph1, UGRaph),
-    sort(Del, Vertices).
+ugraph_remove_cycles(UGRaph0, UGRaph, SelfLoops) :-
+    ugraph_remove_self_cycles(UGRaph0, UGRaph1, SelfLoops),
+    ugraph_remove_other_cycles(UGRaph1, UGRaph).
 
 ugraph_remove_self_cycles([], [], []).
-ugraph_remove_self_cycles([V-E0|T0], [V-E|T], [V|DT]) :-
+ugraph_remove_self_cycles([V-E0|T0], [V-E|T], [V|LT]) :-
     selectchk(V, E0, E),
     !,
-    ugraph_remove_self_cycles(T0, T, DT).
-ugraph_remove_self_cycles([VE|T0], [VE|T], Del) :-
-    ugraph_remove_self_cycles(T0, T, Del).
+    ugraph_remove_self_cycles(T0, T, LT).
+ugraph_remove_self_cycles([VE|T0], [VE|T], SL) :-
+    ugraph_remove_self_cycles(T0, T, SL).
 
 ugraph_remove_other_cycles(UGRaph0, UGRaph) :-
     ugraph_layers(UGRaph0, _), !,
@@ -602,7 +601,7 @@ initial_value(_Formulas, _Constants, _State0, Key, Key-_).
 %   variables (keys of the dict).
 
 order_formulas(Formulas, Layers) :-
-    formulas_partial_odering(Formulas, Layers, _Vertices).
+    formulas_partial_odering(Formulas, Layers, _SelfLoops).
 
 
                 /*******************************

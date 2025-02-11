@@ -1211,7 +1211,8 @@ jqspace(Dict, QSpace-Points) :-
      maplist(input_to_number, AValues, Points).
 
 input_to_number(AValue, Number) :-
-    atom_number(AValue, Number).
+    atom_number(AValue, Number),
+    !.
 input_to_number(AValue, error(AValue)).
 
 validate_qspace_points(QPoints) :-
