@@ -38,8 +38,9 @@ propose_model(Model, Equations, Options) :-
     findall(QRel, q_rel(Model, QRel), QRels), % Use relations
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
-    qrel2nrel(Rels, NRels, Options),
-    integrals(Model, NRels, IRels, Options),
+    valued_quantities(Model, VQs),
+    qrel2nrel(Rels, VQs, NRels, Options),
+    integrals(VQs, NRels, IRels, Options),
     init_nrels(Model, QRels, NRels, Init),    % Use input scenario
     default_nrels(DefNRels),                  % Defaults (time)
     append([NRels,IRels,DefNRels,Init], Eql0),
@@ -52,13 +53,14 @@ propose_model(Model, Equations, Options) :-
     add_model_init(Model, Equations1, Equations2, Formulas, ModelOpts),
     order_equations(Equations2, Formulas, Equations, ModelOpts).
 
-qrel2nrel(QRels, NRels, Options) :-
+qrel2nrel(QRels, VQs, NRels, Options) :-
     aggregate_all(min(NLeft, NRels-Left),
-                  qrel2nrel(QRels, Left, NRels, NLeft, Options),
+                  qrel2nrel(QRels, VQs, Left, NRels, NLeft, Options),
                   min(_, NRels-Left)),
     maplist(rel_unknown, Left).
 
-%!  qrel2nrel(+QRels, -Left, -NRels, -NLeft, +Options) is multi.
+%!  qrel2nrel(+QRels, +ValuedQuantities, -Left, -NRels, -NLeft,
+%!            +Options) is multi.
 %
 %   True when NRels are the  numeric   relations  for QRels. Enumeration
 %   stops if we find an element that   leaves  nothing unmapped. Is this
@@ -67,9 +69,9 @@ qrel2nrel(QRels, NRels, Options) :-
 %   @arg Left are unmapped QRels elements.
 %   @arg NLeft is the length of Left.
 
-qrel2nrel(QRels, Left, NRels, NLeft, Options) :-
+qrel2nrel(QRels, VQs, Left, NRels, NLeft, Options) :-
     mode_indicator(DQ, Options),
-    qrel2nrel(DQ, QRels, Left, NRels),
+    qrel2nrel(DQ, QRels, VQs, Left, NRels),
     length(Left, NLeft),
     (   NLeft =:= 0
     ->  !
@@ -80,7 +82,7 @@ mode_indicator(DQ, Options), option(mode(quantities),  Options) => DQ = q.
 mode_indicator(DQ, Options), option(mode(derivatives), Options) => DQ = d.
 mode_indicator(DQ, Options), option(mode(mixed),       Options) => DQ = m.
 
-%!  qrel2nrel(+DQ, +QRels, -Left, -NRels) is nondet.
+%!  qrel2nrel(+DQ, +QRels, +VQs, -Left, -NRels) is nondet.
 %
 %   True when NRels  is  a  set   of  numerical  relations  covering the
 %   qualitative  relation  set  QRels.  Left  are  QRels  that  are  not
@@ -103,55 +105,55 @@ mode_indicator(DQ, Options), option(mode(mixed),       Options) => DQ = m.
 %     - Otherwise use the `q` mode.  Add an integration relation
 %       for all involved quantities with a quantity space.
 
-qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Diff = A-B
+qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Diff = A-B
     select(equal(min(A,B), Diff), QRels, QRels1),
     !,
-    mkrel(DQ, Diff := A - B, NRel),
+    mkrel(DQ, VQs, Diff := A - B, NRel),
     exclude(is_prop(Diff), QRels1, QRels2),
     qrel2nrel(DQ, QRels2, Left, NRels).
-qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Sum = A-B
+qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Sum = A-B
     select(equal(plus(A,B), Sum), QRels, QRels1),
     !,
-    mkrel(DQ,
+    mkrel(DQ, VQs,
           Sum := A + B,
           d(Sum) := d(A) + d(B),
           NRel),
     exclude(is_prop(Sum), QRels1, QRels2),
     qrel2nrel(DQ, QRels2, Left, NRels).
-qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Mult = A*B
+qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Mult = A*B
     select(equal(mult(A,B), Mult), QRels, QRels1),
     !,
-    mkrel(DQ,
+    mkrel(DQ, VQs,
           Mult := A * B,
           d(Mult) := d(A) * d(B),
           NRel),
     exclude(is_prop(Mult), QRels1, QRels2),
     qrel2nrel(DQ, QRels2, Left, NRels).
-qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :- % Div = A/B
+qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Div = A/B
     select(equal(diw(A,B), Div), QRels, QRels1),
     !,
-    mkrel(DQ,
+    mkrel(DQ, VQs,
           Div := A / B,
           d(Div) := d(A) / d(B),
           NRel),
     exclude(is_prop(Div), QRels1, QRels2),
     qrel2nrel(DQ, QRels2, Left, NRels).
-qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :-       % multiple prop on a target
+qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, Prob),
     partition(is_prop(Dep), QRels1, Props, QRels2),
     Props \== [],
     prop_nrel([Prob|Props], NRel0),
-    mkrel(DQ, NRel0, NRel),
+    mkrel(DQ, VQs, NRel0, NRel),
     qrel2nrel(DQ, QRels2, Left, NRels).
-qrel2nrel(DQ, QRels, Left, [NRel|NRels]) :-       % multiple integrals on a target
+qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple integrals on target
     select(Integral, QRels, QRels1),
     is_inf_by(Dep, Integral),
     partition(is_inf_by(Dep), QRels1, Integrals, QRels2),
     Integrals \== [],
-    inf_by_nrel(DQ, [Integral|Integrals], NRel),
+    inf_by_nrel(DQ, VQs, [Integral|Integrals], NRel),
     qrel2nrel(DQ, QRels2, Left, NRels).
-qrel2nrel(DQ, QRels, Left, NRels) :-
+qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
     qrel_nrel(DQ, Q, NRel),
     select_graph(Q, QRels, QRels1),
     !,
@@ -159,12 +161,22 @@ qrel2nrel(DQ, QRels, Left, NRels) :-
     qrel2nrel(DQ, QRels1, Left, NRels1).
 qrel2nrel(_DQ, Left, Left, []).
 
-mkrel(q, NRel, _, NRel).
-mkrel(d, _, DRel, DRel).
+mkrel(q, _VQs, NRel, _, NRel).
+mkrel(d, _VQs, _, DRel, DRel).
+mkrel(m, VQs, NRel, DRel, Rel) :-
+    (   nrel_all_valued(NRel, VQs)
+    ->  Rel = NRel
+    ;   Rel = DRel
+    ).
 
-mkrel(q, NRel, NRel).
-mkrel(d, NRel, DRel) :-
+mkrel(q, _VQs, NRel, NRel).
+mkrel(d, _VQs, NRel, DRel) :-
     drel(NRel, DRel).
+mkrel(m, VQs, NRel, Rel) :-
+    (   nrel_all_valued(NRel, VQs)
+    ->  Rel = NRel
+    ;   drel(NRel, Rel)
+    ).
 
 drel(A := B, Rel) =>
     Rel = (d(A) := DB),
@@ -190,6 +202,42 @@ drel(c(N), C) =>
     C = c(N).
 drel(Q, DQ) =>
     DQ = d(Q).
+
+%!  nrel_all_valued(+NRel, +VQs) is semidet.
+%
+%   True when all quantities in a numerical relation have a value in the
+%   qualitative model.
+
+nrel_all_valued(NRel, VQs) :-
+    nrel_quantities(NRel, Qs),
+    maplist(has_value(VQs), Qs).
+
+has_value(VQs,  Q), memberchk(Q,VQs) => true.
+has_value(_,    t) => true.
+has_value(_, 'Δt') => true.
+
+%!  nrel_quantities(+NRel, -Qs) is det.
+%
+%   Find all quantities used in a   numerical  relation (equation). Note
+%   that we only need to deal with   functions  that may be generated by
+%   the translation. The user may use any  known function, but this code
+%   does not touch that.
+
+nrel_quantities(NRel, Qs) :-
+    phrase(nrel_quantities(NRel), Qs).
+
+nrel_quantities(A:=B)   ==> nrel_quantities(A), nrel_quantities(B).
+nrel_quantities(A+B)    ==> nrel_quantities(A), nrel_quantities(B).
+nrel_quantities(A-B)    ==> nrel_quantities(A), nrel_quantities(B).
+nrel_quantities(A*B)    ==> nrel_quantities(A), nrel_quantities(B).
+nrel_quantities(A/B)    ==> nrel_quantities(A), nrel_quantities(B).
+nrel_quantities(A^B)    ==> nrel_quantities(A), nrel_quantities(B).
+nrel_quantities(-(A))   ==> nrel_quantities(A).
+nrel_quantities(sin(A)) ==> nrel_quantities(A).  % exogenous
+nrel_quantities(random) ==> [].                  % exogenous
+nrel_quantities(c)      ==> [].
+nrel_quantities(c(_))   ==> [].
+nrel_quantities(Q)      ==> [Q].
 
 %!  qrel_nrel(+QRel:list, -NRel:list) is multi.
 %
@@ -253,7 +301,7 @@ join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
 is_inf_by(Dep, inf_pos_by(Dep, _)).
 is_inf_by(Dep, inf_neg_by(Dep, _)).
 
-inf_by_nrel(DQ, Integrals, Dep := Expr) :-
+inf_by_nrel(DQ, VQs, Integrals, Dep := Expr) :-
     Integrals = [H|_],
     is_inf_by(Dep, H),
     maplist(one_inf_by, Integrals, Parts),
@@ -266,22 +314,20 @@ inf_by_nrel(DQ, Integrals, Dep := Expr) :-
 one_inf_by(inf_pos_by(_, D), Expr) => Expr = c(1)*D.
 one_inf_by(inf_neg_by(_, D), Expr) => Expr = -(c(1)*D).
 
-%!  integrals(+Model, +NRels, -IRels, +Options) is det.
+%!  integrals(+ValuedQuantities, +NRels, -IRels, +Options) is det.
 %
 %   Create integration relations for all quantifies  that have a defined
 %   quantity space.
 
-integrals(_Model, _, IRels, Options),
+integrals(_VQs, _, IRels, Options),
     option(mode(quantities), Options) =>
     IRels = [].
-integrals(Model, _NRels, IRels, Options),
+integrals(VQs, _NRels, IRels, Options),
     option(mode(derivatives), Options) =>
-    valued_quantities(Model, Qs),
-    maplist(integral, Qs, IRels).
-integrals(Model, NRels, IRels, _Options) =>
-    valued_quantities(Model, Qs),
-    exclude(has_value_equation(NRels), Qs, Qs2),
-    maplist(integral, Qs2, IRels).
+    maplist(integral, VQs, IRels).
+integrals(VQs, NRels, IRels, _Options) =>
+    exclude(has_value_equation(NRels), VQs, VQs2),
+    maplist(integral, VQs2, IRels).
 
 has_value_equation(NRels, Q) :-
     memberchk((Q:=_), NRels).
