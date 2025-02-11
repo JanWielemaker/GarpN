@@ -39,7 +39,7 @@ propose_model(Model, Equations, Options) :-
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
     qrel2nrel(Rels, NRels, Options),
-    intergrals(Model, IRels, Options),
+    integrals(Model, NRels, IRels, Options),
     init_nrels(Model, QRels, NRels, Init),    % Use input scenario
     default_nrels(DefNRels),                  % Defaults (time)
     append([NRels,IRels,DefNRels,Init], Eql0),
@@ -266,24 +266,39 @@ inf_by_nrel(DQ, Integrals, Dep := Expr) :-
 one_inf_by(inf_pos_by(_, D), Expr) => Expr = c(1)*D.
 one_inf_by(inf_neg_by(_, D), Expr) => Expr = -(c(1)*D).
 
-%!  intergrals(+Model, -IRels, +Options) is det.
+%!  integrals(+Model, +NRels, -IRels, +Options) is det.
 %
 %   Create integration relations for all quantifies  that have a defined
 %   quantity space.
 
-intergrals(_Model, IRels, Options),
+integrals(_Model, _, IRels, Options),
     option(mode(quantities), Options) =>
     IRels = [].
-intergrals(Model, IRels, Options),
+integrals(Model, _NRels, IRels, Options),
     option(mode(derivatives), Options) =>
-    findall(Q, qspace_with_points(Model, Q), Qs),
+    valued_quantities(Model, Qs),
     maplist(integral, Qs, IRels).
+integrals(Model, NRels, IRels, _Options) =>
+    valued_quantities(Model, Qs),
+    exclude(has_value_equation(NRels), Qs, Qs2),
+    maplist(integral, Qs2, IRels).
+
+has_value_equation(NRels, Q) :-
+    memberchk((Q:=_), NRels).
+
+integral(Q, Q := Q + d(Q)).
+
+%!  valued_quantities(+Model, -Qs:list(atom)) is det.
+%
+%   True when Qs is a list of quantity identifiers for quantities with a
+%   value.
+
+valued_quantities(Model, Qs) :-
+    findall(Q, qspace_with_points(Model, Q), Qs).
 
 qspace_with_points(Model, Q) :-
     m_qspace(Model, Q, _QSpaceName, Values),
     memberchk(point(_), Values).
-
-integral(Q, Q := Q + d(Q)).
 
 %!  default_nrels(-NRels:list) is det.
 
