@@ -23,7 +23,7 @@
 %   Propose a numerical model based on the qualitative model indentified
 %   by Model (an identifier).  The model is based on
 %
-%     - The qualitative relations
+%     - The qualitative relations except for _correspondence_ relations
 %     - Exogenous input
 %     - The initial state
 %
@@ -35,7 +35,7 @@
 %       One of `quantities`, `derivatives` or `mixed`
 
 propose_model(Model, Equations, Options) :-
-    findall(QRel, q_rel(Model, QRel), QRels), % Use relations
+    findall(QRel, (q_rel(Model, QRel), \+correspondence_rel(QRel)), QRels),
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
     valued_quantities(Model, VQs),
@@ -110,7 +110,7 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Diff = A-B
     !,
     mkrel(DQ, VQs, Diff := A - B, NRel),
     exclude(is_prop(Diff), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, Left, NRels).
+    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
 qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Sum = A-B
     select(equal(plus(A,B), Sum), QRels, QRels1),
     !,
@@ -119,7 +119,7 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Sum = A-B
           d(Sum) := d(A) + d(B),
           NRel),
     exclude(is_prop(Sum), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, Left, NRels).
+    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
 qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Mult = A*B
     select(equal(mult(A,B), Mult), QRels, QRels1),
     !,
@@ -128,7 +128,7 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Mult = A*B
           d(Mult) := d(A) * d(B),
           NRel),
     exclude(is_prop(Mult), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, Left, NRels).
+    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
 qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Div = A/B
     select(equal(diw(A,B), Div), QRels, QRels1),
     !,
@@ -137,7 +137,7 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Div = A/B
           d(Div) := d(A) / d(B),
           NRel),
     exclude(is_prop(Div), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, Left, NRels).
+    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
 qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, Prob),
@@ -145,21 +145,27 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple prop on a target
     Props \== [],
     prop_nrel([Prob|Props], NRel0),
     mkrel(DQ, VQs, NRel0, NRel),
-    qrel2nrel(DQ, QRels2, Left, NRels).
+    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
 qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple integrals on target
     select(Integral, QRels, QRels1),
     is_inf_by(Dep, Integral),
     partition(is_inf_by(Dep), QRels1, Integrals, QRels2),
     Integrals \== [],
     inf_by_nrel(DQ, VQs, [Integral|Integrals], NRel),
-    qrel2nrel(DQ, QRels2, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
-    qrel_nrel(DQ, Q, NRel),
-    select_graph(Q, QRels, QRels1),
+    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
+qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :-
+    select(exogenous(Dep,Class), QRels, QRels1),
     !,
-    append(NRel, NRels1, NRels),
-    qrel2nrel(DQ, QRels1, Left, NRels1).
-qrel2nrel(_DQ, Left, Left, []).
+    exogenous_equation(Class, Dep, NRel),
+    qrel2nrel(DQ, QRels1, VQs,Left, NRels).
+qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
+    qrel_nrel(Qsubgraph, NRels, DRels),
+    select_graph(Qsubgraph, QRels, QRels1),
+    !,
+    mkrel(DQ, VQs, NRels, DRels, Rels),
+    append(Rels, NRels1, NRels),
+    qrel2nrel(DQ, QRels1, VQs, Left, NRels1).
+qrel2nrel(_DQ, _VQs, Left, Left, []).
 
 mkrel(q, _VQs, NRel, _, NRel).
 mkrel(d, _VQs, _, DRel, DRel).
@@ -207,8 +213,15 @@ drel(Q, DQ) =>
 %
 %   True when all quantities in a numerical relation have a value in the
 %   qualitative model.
+%
+%   @arg NRel is a numeric equation or a list of these.
 
-nrel_all_valued(NRel, VQs) :-
+nrel_all_valued(NRels, VQs), is_list(NRels) =>
+    maplist(nrel_all_valued_(VQs), NRels).
+nrel_all_valued(NRel, VQs) =>
+    nrel_all_valued_(VQs, NRel).
+
+nrel_all_valued_(VQs, NRel) :-
     nrel_quantities(NRel, Qs),
     maplist(has_value(VQs), Qs).
 
@@ -239,32 +252,41 @@ nrel_quantities(c)      ==> [].
 nrel_quantities(c(_))   ==> [].
 nrel_quantities(Q)      ==> [Q].
 
-%!  qrel_nrel(+QRel:list, -NRel:list) is multi.
+%!  qrel_nrel(+QRel:list, -NRel:list, -DRel:list) is multi.
 %
 %   Map  a  set  of  qualitative  relations  to  a  set  of  qualitative
 %   relations. The rules are ordered to map larger submodels first.
 %
 %   @tbd include quantity spaces into the picture
 
-qrel_nrel(q, [inf_pos_by(I,D)], [I := I + D*'Δt']).
-qrel_nrel(d, [inf_pos_by(I,D)], [d(I) := D*'Δt']).
-qrel_nrel(q, [inf_neg_by(I,D)], [I := I - D*'Δt']).
-qrel_nrel(d, [inf_neg_by(I,D)], [d(I) := -D*'Δt']).
-qrel_nrel(q, [prop_pos(Dep,Infl)], [Dep := Dep + c*Infl]).
-qrel_nrel(d, [prop_pos(Dep,Infl)], [d(Dep) := c*d(Infl)]).
-qrel_nrel(q, [prop_neg(Dep,Infl)], [Dep := Dep - c*Infl]).
-qrel_nrel(d, [prop_neg(Dep,Infl)], [d(Dep) := -(c*d(Infl))]).
-qrel_nrel(DQ, [exogenous(Dep,Class)], RRels) :-
-    freeze(Class, exogenous_equation(Class, DQ, Dep, RRels)).
-% Correspondences typically cannot be used to create
-% equations.  They should be used during the simulation
-% to verify all constraints are satisfied.
-qrel_nrel(_, [dir_q_correspondence(_,_)], []).
-qrel_nrel(_, [q_correspondence(_,_)], []).
-qrel_nrel(_, [v_correspondence(_,_,_,_)], []).
-qrel_nrel(_, [equal(_,_)], []).
-qrel_nrel(_, [smaller(_,_)], []).
-qrel_nrel(_, [greater(_,_)], []).
+qrel_nrel([inf_pos_by(I,D)],
+          [I := I + D*'Δt'],
+          [d(I) := D*'Δt']).
+qrel_nrel([inf_neg_by(I,D)],
+          [I := I - D*'Δt'],
+          [d(I) := -D*'Δt']).
+qrel_nrel([prop_pos(Dep,Infl)],
+          [Dep := Dep + c*Infl],
+          [d(Dep) := c*d(Infl)]).
+qrel_nrel([prop_neg(Dep,Infl)],
+          [Dep := Dep - c*Infl],
+          [d(Dep) := -(c*d(Infl))]).
+qrel_nrel([exogenous(Dep,exogenous_steady)],
+          [Dep := c],
+          [Dep := c, d(Dep) := 0]).
+
+%!  correspondence_rel(?Rel)
+%
+%   True  when  Rel  is  a  _correspondence_  relation.  Correspondences
+%   typically cannot be used to create   equations.  They should be used
+%   during the simulation to verify all constraints are satisfied.
+
+correspondence_rel(dir_q_correspondence(_,_)).
+correspondence_rel(q_correspondence(_,_)).
+correspondence_rel(v_correspondence(_,_,_,_)).
+correspondence_rel(equal(_,_)).
+correspondence_rel(smaller(_,_)).
+correspondence_rel(greater(_,_)).
 
 is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
@@ -306,9 +328,10 @@ inf_by_nrel(DQ, VQs, Integrals, Dep := Expr) :-
     is_inf_by(Dep, H),
     maplist(one_inf_by, Integrals, Parts),
     sum_expressions(Parts, Sum),
-    (   DQ == q
-    ->  sum_expressions([Sum*'Δt', Dep], Expr)
-    ;   Expr = Sum
+    (   DQ == d,
+        nrel_all_valued(Dep+Sum, VQs)
+    ->  Expr = Sum
+    ;   sum_expressions([Sum*'Δt', Dep], Expr)
     ).
 
 one_inf_by(inf_pos_by(_, D), Expr) => Expr = c(1)*D.
@@ -419,23 +442,19 @@ init_d(Id, zero)         ==> [d(Id) := 0].
 init_d(Id, D), nonvar(D) ==> [d(Id) := placeholder(init, _)].
 init_d(_, _)             ==> [].
 
-%!  exogenous_equation(+Class, +DQ, ?Q, -Equations) is det.
+%!  exogenous_equation(+Class, ?Q, -Equations) is det.
 
-exogenous_equation(exogenous_steady, q, Q, NRel) =>
-    NRel = [Q := c].
-exogenous_equation(exogenous_steady, d, Q, NRel) =>
-    NRel = [Q := c, d(Q) := 0].
-exogenous_equation(exogenous_increasing, _DQ, Q, NRel) =>
+exogenous_equation(exogenous_increasing, Q, NRel) =>
     NRel = [Q := c+c*t].
-exogenous_equation(exogenous_decreasing, _DQ, Q, NRel) =>
+exogenous_equation(exogenous_decreasing, Q, NRel) =>
     NRel = [Q := c-(c*t)].
-exogenous_equation(exogenous_sinus, _DQ, Q, NRel) =>
+exogenous_equation(exogenous_sinus, Q, NRel) =>
     NRel = [Q := (c*sin(c+c*t))].
-exogenous_equation(exogenous_pos_parabola, _DQ, Q, NRel) =>
+exogenous_equation(exogenous_pos_parabola, Q, NRel) =>
     NRel = [Q := (c-c*t^2)].
-exogenous_equation(exogenous_pos_parabola, _DQ, Q, NRel) =>
+exogenous_equation(exogenous_pos_parabola, Q, NRel) =>
     NRel = [Q := (c+c*t^2)].
-exogenous_equation(exogenous_free, _DQ, Q, NRel) =>
+exogenous_equation(exogenous_free, Q, NRel) =>
     NRel = [Q := (c*random)].
 
 %!  add_model_init(+ModelId, +EquationsIn, -EquationsOut, -Formulas,
