@@ -446,9 +446,8 @@ formulas_partial_odering(Formulas, Layers, Vertices) :-
     ugraph_layers(UGRaph1, Layers).
 
 ugraph_remove_cycles(UGRaph0, UGRaph, Vertices) :-
-    ugraph_remove_self_cycles(UGRaph0, UGRaph1, Del0),
-    ugraph_remove_other_cycles(UGRaph1, UGRaph, Del1),
-    append(Del0, Del1, Del),
+    ugraph_remove_self_cycles(UGRaph0, UGRaph1, Del),
+    ugraph_remove_other_cycles(UGRaph1, UGRaph),
     sort(Del, Vertices).
 
 ugraph_remove_self_cycles([], [], []).
@@ -459,17 +458,16 @@ ugraph_remove_self_cycles([V-E0|T0], [V-E|T], [V|DT]) :-
 ugraph_remove_self_cycles([VE|T0], [VE|T], Del) :-
     ugraph_remove_self_cycles(T0, T, Del).
 
-ugraph_remove_other_cycles(UGRaph0, UGRaph, Del) :-
+ugraph_remove_other_cycles(UGRaph0, UGRaph) :-
     ugraph_layers(UGRaph0, _), !,
-    UGRaph = UGRaph0,
-    Del = [].
-ugraph_remove_other_cycles(UGRaph0, UGRaph, Del) :-
+    UGRaph = UGRaph0.
+ugraph_remove_other_cycles(UGRaph0, UGRaph) :-
     findall(Cycle, ugraph_cycle(UGRaph0, Cycle), AllCycles),
     sort(AllCycles, Cycles),
     shortest_cycle(Cycles, ShortestCycle),
-    cycle_edge(ShortestCycle, Edge),
+    once(cycle_edge(ShortestCycle, Edge)),        % TODO: Smart select
     del_edges(UGRaph0, [Edge], UGRaph1),
-    ugraph_remove_other_cycles(UGRaph1, UGRaph, Del).
+    ugraph_remove_other_cycles(UGRaph1, UGRaph).
 
 cycle_edge(List, F-T) :-
     List = [H|_],
