@@ -507,16 +507,48 @@ analyze(Request) :-
     http_read_json_dict(Request, Data, []),
     _{model:ModelS, ml_data:MlData} :< Data,
     atom_string(Model, ModelS),
-    (   JQSpaces = Data.get(qspaces)
-    ->  qspaces(Model, JQSpaces, QSpaces),
-        Options = [qspaces(QSpaces)]
-    ;   Options = []
-    ),
-    latex_to_prolog_ex(MlData, Prolog),
-    reply_htmx([ \q_menu(Model, terms(Prolog), Options),
-                 \js_script({|javascript(Model,Source)||
-                             setModel(Model,Source)|})
-               ]).
+    get_qspace_options(Model, Data, Options),
+    (   is_list(Options)
+    ->  latex_to_prolog_ex(MlData, Prolog),
+        reply_htmx([ \q_menu(Model, terms(Prolog), Options),
+                     \js_script({|javascript(Model)||
+                                 setModel(Model)|})
+                   ])
+    ;   true
+    ).
+
+
+get_qspace_options(Model, Data, Options) :-
+    JQSpaces = Data.get(qspaces), !,
+    catch(qspaces(Model, JQSpaces, QSpaces),
+          model_error(Error),
+          true),
+    (   var(Error)
+    ->  Options = [qspaces(QSpaces)]
+    ;   reply_htmx(\qspace_issues(Error))
+    ).
+get_qspace_options(_, _, []).
+
+qspace_issues(invalid_qspace_points(Errors)) ==>
+    { partition(==(''), Errors, Empty, Invalid),
+      length(Empty, EmptyCount),
+      length(Invalid, InvalidCount)
+    },
+    qspace_issues(EmptyCount, InvalidCount).
+qspace_issues(Error) ==>
+    html(div(class(warning),
+             'Unknown error: ~p'-Error)).
+
+qspace_issues(0, Invalid) -->
+    html(div(class(warning),
+             '~D invalid quantity space values'-[Invalid])).
+qspace_issues(Empty, 0) -->
+    html(div(class(warning),
+             '~D missing quantity space values'-[Empty])).
+qspace_issues(Empty, Invalid) -->
+    html(div(class(warning),
+             '~D missing and ~D invalid quantity space values'-[Empty, Invalid])).
+
 
 %!  q_menu(+Model, +Source, +Options)// is det.
 %
@@ -1147,6 +1179,7 @@ run_model(Request) :-
 
 qspaces(Model, JQSpaces, QSpaces) :-
     jqspaces(JQSpaces, QPoints),
+    validate_qspace_points(QPoints),
     findall(Q-Values, qspace(Model, QPoints, Q, Values), Pairs),
     dict_pairs(QSpaces, #, Pairs).
 
@@ -1175,11 +1208,20 @@ jqspace(Dict, QSpace-Points) :-
     _{ qspace_id:QSpace,
        values:AValues
      } :< Dict,
-     (   maplist(atom_number, AValues, Points)
-     ->  true
-     ;   type_error(numbers, AValues)
-     ).
+     maplist(input_to_number, AValues, Points).
 
+input_to_number(AValue, Number) :-
+    atom_number(AValue, Number).
+input_to_number(AValue, error(AValue)).
+
+validate_qspace_points(QPoints) :-
+    foldsubterms(qspace_error, QPoints, [], Errors),
+    (   Errors == []
+    ->  true
+    ;   throw(model_error(invalid_qspace_points(Errors)))
+    ).
+
+qspace_error(error(E), E0, [E|E0]).
 
 %!  plot(+Target, +Title, +Traces, +Shapes)//
 %
