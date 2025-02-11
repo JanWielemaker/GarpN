@@ -153,19 +153,20 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple integrals on target
     Integrals \== [],
     inf_by_nrel(DQ, VQs, [Integral|Integrals], NRel),
     qrel2nrel(DQ, QRels2, VQs, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :-
+qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
     select(exogenous(Dep,Class), QRels, QRels1),
     !,
-    exogenous_equation(Class, Dep, NRel),
-    qrel2nrel(DQ, QRels1, VQs,Left, NRels).
+    exogenous_equation(Class, Dep, Rels),
+    append(Rels, NRels1, NRels),
+    qrel2nrel(DQ, QRels1, VQs,Left, NRels1).
 qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
-    qrel_nrel(Qsubgraph, NRels, DRels),
+    qrel_nrel(Qsubgraph, NQRels, DRels),
     select_graph(Qsubgraph, QRels, QRels1),
     !,
-    mkrel(DQ, VQs, NRels, DRels, Rels),
+    mkrel(DQ, VQs, NQRels, DRels, Rels),
     append(Rels, NRels1, NRels),
     qrel2nrel(DQ, QRels1, VQs, Left, NRels1).
-qrel2nrel(_DQ, _VQs, Left, Left, []).
+qrel2nrel(_DQ, Left, _VQs, Left, []).
 
 mkrel(q, _VQs, NRel, _, NRel).
 mkrel(d, _VQs, _, DRel, DRel).
@@ -271,9 +272,11 @@ qrel_nrel([prop_pos(Dep,Infl)],
 qrel_nrel([prop_neg(Dep,Infl)],
           [Dep := Dep - c*Infl],
           [d(Dep) := -(c*d(Infl))]).
+/*
 qrel_nrel([exogenous(Dep,exogenous_steady)],
           [Dep := c],
           [Dep := c, d(Dep) := 0]).
+*/
 
 %!  correspondence_rel(?Rel)
 %
@@ -444,6 +447,8 @@ init_d(_, _)             ==> [].
 
 %!  exogenous_equation(+Class, ?Q, -Equations) is det.
 
+exogenous_equation(exogenous_steady, Q, NRel) =>
+    NRel = [Q := c].
 exogenous_equation(exogenous_increasing, Q, NRel) =>
     NRel = [Q := c+c*t].
 exogenous_equation(exogenous_decreasing, Q, NRel) =>
