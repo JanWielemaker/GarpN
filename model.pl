@@ -32,7 +32,7 @@
 %   ground Prolog terms of the the form Prop(Entity) or 'ΔProp'(Entity).
 %   @arg Options supports
 %     - mode(+Mode)
-%       One of `quantities` or `derivatives`
+%       One of `quantities`, `derivatives` or `mixed`
 
 propose_model(Model, Equations, Options) :-
     findall(QRel, q_rel(Model, QRel), QRels), % Use relations

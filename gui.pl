@@ -190,6 +190,9 @@ model_option(Default, File) -->
 %
 %   Provide options for populating the numerical model.
 
+:- html_meta
+    model_button(html, +, +).
+
 init_model_menu -->
     !,
     html(span(class('init-model-buttons'),
@@ -201,7 +204,9 @@ init_model_menu -->
                 \model_button('\u2728',     propose_model_q,
                               "Propose model (quantities)"),
                 \model_button('\U0001F320', propose_model_d,
-                              "Propose model (derivatives)")
+                              "Propose model (derivatives)"),
+                \model_button([sup('\u2728'),/,sub('\U0001F320')], propose_model_qd,
+                              "Propose model (mixed)")
               ])).
 
 model_button(Label, Target, Title) -->
@@ -296,6 +301,7 @@ mathlive_model(Model, Source, Options) ==>
 :- http_handler(htmx('wipe-model'),    wipe_model, []).
 :- http_handler(htmx('propose-model-q'), propose_model_q, []).
 :- http_handler(htmx('propose-model-d'), propose_model_d, []).
+:- http_handler(htmx('propose-model-qd'), propose_model_qd, []).
 
 %!  set_model_handler(+Request)
 %
@@ -348,22 +354,16 @@ numeric_model_file(Model, File) :-
 
 %!  propose_model_q(+Request) is det.
 %!  propose_model_d(+Request) is det.
+%!  propose_model_qd(+Request) is det.
 %
 %   Create a new model based on the qualitative model
 
-propose_model_q(Request) :-
-     http_parameters(Request,
-                     [ model(Model, [])
-                     ]),
-     propose_flat_model(Model, Terms, [mode(quantities)]),
-     set_model(Model, terms(Terms), [grouped(true)]).
-
-propose_model_d(Request) :-
-     http_parameters(Request,
-                     [ model(Model, [])
-                     ]),
-     propose_flat_model(Model, Terms, [mode(derivatives)]),
-     set_model(Model, terms(Terms), [grouped(true)]).
+propose_model(Request, Options) :-
+    http_parameters(Request,
+                    [ model(Model, [])
+                    ]),
+    propose_flat_model(Model, Terms, Options),
+    set_model(Model, terms(Terms), Options).
 
 propose_flat_model(ModelId, Terms, Options) :-
     propose_model(ModelId, Grouped, Options),
@@ -373,6 +373,15 @@ propose_flat_model(ModelId, Terms, Options) :-
              Grouped.constant,
              Grouped.init
            ], Terms).
+
+propose_model_q(Request) :-
+    propose_model(Request, [mode(quantities), grouped(true)]).
+
+propose_model_d(Request) :-
+    propose_model(Request, [mode(derivatives), grouped(true)]).
+
+propose_model_qd(Request) :-
+    propose_model(Request, [mode(mixed), grouped(true)]).
 
 %!  load_model(Request)
 %
