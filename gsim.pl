@@ -31,7 +31,7 @@
 :- use_module(model).
 :- use_module(identifiers).
 
-:- set_prolog_flag(optimise, true).
+% :- set_prolog_flag(optimise, true).
 
 /** <module> Numerical simulation
 
@@ -474,7 +474,8 @@ complete_state(State) :-
     mapdict(set_var_to_nan, State).
 
 set_var_to_nan(_, V), var(V) =>
-    V is nan.
+%    V is nan.
+    V = 0.			% dubious
 set_var_to_nan(_, _) => true.
 
 %!  formulas_partial_odering(+Formulas, -Layers, -SelfLoops) is det.
