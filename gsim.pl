@@ -463,6 +463,20 @@ formulas_needs_init(Formulas, NeedsInit) :-
     append(First, SelfLoops, NeedsInit0),
     sort(NeedsInit0, NeedsInit).
 
+%!  complete_state(?State) is det.
+%
+%   Fill remaining missing values with  NaN.   These  will  be filled in
+%   subsequent  iteration  steps  with  real   values.  Note  that  IEEE
+%   arithmetic  used  for  the  series   evaluation  (still)  raises  an
+%   instantiation error on variables, but proceeds happily using NaN.
+
+complete_state(State) :-
+    mapdict(set_var_to_nan, State).
+
+set_var_to_nan(_, V), var(V) =>
+    V is nan.
+set_var_to_nan(_, _) => true.
+
 %!  formulas_partial_odering(+Formulas, -Layers, -SelfLoops) is det.
 %
 %   Create  a  partial  ordering  of  the    formulas   based  on  their
@@ -657,6 +671,7 @@ order_formulas(Formulas, Layers) :-
 %        `State` but different values.
 
 steps(I, N, Method, Sample, Formulas, State, Series) :-
+    complete_state(State),
     setup_call_cleanup(
         compile_formulas(Formulas, Ref),
         steps_(I, N, Method, Sample, State, Series),
@@ -717,9 +732,9 @@ compile_formulas(Formulas, Ref) :-
     ),
     ieee_floats.
 
-eval(S0, S, Key-formula(Expr, Bindings),
-     ( S0 >:< Bindings,
-       Value is Expr)) :-
+eval(S0, S, Key-formula(Expr, Bindings), Eval) =>
+    Eval = (Value is Expr),
+    S0 >:< Bindings,
     get_dict(Key, S, Value).
 
 eval_delta(S0, S, Key-formula(δ(Of), Bindings), Eval) =>
