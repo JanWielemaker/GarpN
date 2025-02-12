@@ -230,11 +230,10 @@ latex_expression(Expr, MaxPri, Pri) -->
     { Expr =.. [Op,Right]
     }.
 latex_expression(Expr, MaxPri, Pri) -->
-    string(Tokens),
-    infix_op(Op, MaxPriLeft, Pri, MaxPriRight),
-    { debug(latex(op), 'Infix ~p; left ~p', [Op, Tokens]),
+    scan_for_infix_op(LeftTokens, Op, MaxPriLeft, Pri, MaxPriRight),
+    { debug(latex(op), 'Infix ~p; left ~p', [Op, LeftTokens]),
       Pri =< MaxPri,
-      phrase(latex_expression(Left, MaxPriLeft, _), Tokens)
+      phrase(latex_expression(Left, MaxPriLeft, _), LeftTokens)
     },
     latex_expression(Right, MaxPriRight, _),
     { Expr =.. [Op,Left,Right]
@@ -268,9 +267,9 @@ embraced_expression(Expr) -->
     latex_symbol(')'),
     !.
 embraced_expression(Expr) -->
-    latex_whites, [left("(")], latex_whites,
+    latex_whites, [left(["("])], latex_whites,
     latex_expression(Expr),
-    latex_whites, [right(")")],
+    latex_whites, [right([")"])],
     !.
 
 cmd_expression(pi)     --> [pi()],  !.
@@ -321,6 +320,10 @@ prefix_op(Op, OpPri, RightPri) -->
 
 c_prefix_op(+, 200, 200).
 c_prefix_op(-, 200, 200).
+
+scan_for_infix_op(Left, Op, MaxPriLeft, Pri, MaxPriRight) -->
+    string(Left),
+    infix_op(Op, MaxPriLeft, Pri, MaxPriRight).
 
 infix_op(*, LeftPri, OpPri, RightPri) -->
     latex_whites, [cdot()],
