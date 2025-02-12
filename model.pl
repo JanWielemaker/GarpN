@@ -7,12 +7,13 @@
 :- use_module(library(terms)).
 :- use_module(library(lists)).
 :- use_module(library(exceptions)).
-
-:- use_module(map).
-:- use_module(gsim).
 :- use_module(library(apply)).
 :- use_module(library(aggregate)).
 :- use_module(library(option)).
+
+:- use_module(map).
+:- use_module(gsim).
+:- use_module(identifiers).
 
 /** <module> Propose a (partial) numeric model from Garp
 
@@ -392,25 +393,12 @@ id_to_term(_Mapping, c(Value), Term, S0, S) =>
 id_to_term(Mapping, d(Id), Term, S0, S), atom(Id) =>
     S = S0,
     Term0 = Mapping.get(Id,Id),
-    d_term(Term0, Term).
+    term_derivative(Term0, Term).
 id_to_term(Mapping, Id, Term, S0, S), atom(Id) =>
     S = S0,
     Term = Mapping.get(Id,Id).
 id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
     fail.
-
-%!  d_term(+Term, -DTerm) is det.
-%
-%   Translate a term that identifies a quantity (Attr(Entity)) into a an
-%   identifier for its 1st derivative by prepending   the  name with a Δ
-%   symbol.
-
-d_term(Term, DTerm), atom(Term) =>
-    atom_concat('Δ', Term, DTerm).
-d_term(Term, DTerm), compound(Term) =>
-    compound_name_arguments(Term, Name, Args),
-    atom_concat('Δ', Name, DName),
-    compound_name_arguments(DTerm, DName, Args).
 
 %!  init_nrels(+Model, +QRels, +NRels, -Init) is det.
 %
@@ -547,7 +535,8 @@ order_equations(Equations, Formulas, Ordered, Options) :-
 
 :- det(equation_term_id/3).
 equation_term_id(Options, (QTerm := _), QId) =>
-    formula_key(QTerm, QId, Options).
+    option(id_mapping(IdMapping), Options, #{}),
+    term_key(QTerm, QId, IdMapping).
 
 equation_class(t:=_, Class)                       => Class = time.
 equation_class(_:=placeholder(constant,_), Class) => Class = constant.

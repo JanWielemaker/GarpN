@@ -9,9 +9,7 @@
             normal_number/1,       % @Term
             min_list_normal/2,     % +List, -Min
             max_list_normal/2,     % +List, -Max
-            derivative_key/3,      % +Key, -Quantity, +IdMapping
-            normal_mid/3,          % +N1, +N2, -Ni
-            formula_key/3          % +QTerm, -Qid, +Options
+            normal_mid/3           % +N1, +N2, -Ni
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -21,16 +19,17 @@
 :- use_module(library(lists)).
 :- use_module(library(debug)).
 :- use_module(library(dicts)).
-
 :- use_module(library(apply_macros), []).
 :- use_module(library(listing), [portray_clause/2]).
 :- use_module(library(prolog_code), [comma_list/2]).
 :- use_module(library(dcg/high_order), [sequence/4]).
-:- use_module(library(ordsets), [ord_intersection/3, ord_subtract/3, ord_union/3]).
+:- use_module(library(ordsets), [ord_intersection/3]).
 :- use_module(library(pairs), [map_list_to_pairs/3]).
-:- use_module(library(ugraphs), [ugraph_layers/2, del_vertices/3, vertices_edges_to_ugraph/3]).
+:- use_module(library(ugraphs),
+              [ugraph_layers/2, vertices_edges_to_ugraph/3, del_edges/3]).
 
 :- use_module(model).
+:- use_module(identifiers).
 
 :- set_prolog_flag(optimise, true).
 
@@ -152,23 +151,11 @@ quantity(Q := _Expr, Out), ground(Q) =>
 quantity(Invalid, _) =>
     type_error(model_term, Invalid).
 
-%!  formula_key(+QTerm, -Qid, +Options) is det.
-
-:- det(formula_key/3).
-formula_key(QTerm, QId, Options) :-
-    q_term(Options, QTerm, q(_Q,QId,_)).
-
 %!  q_term(+Options, ?QTerm, ?QData) is det.
 
-q_term(Options, Q, q(Q,Id,_)) :-
-    option(id_mapping(Mapping), Options),
-    get_dict(Id, Mapping, Q),
-    !.
-q_term(_Options, Q, q(Q,Id,_)) :-
-    to_id(Q, Id).
-
-to_id(Term, Id), nonvar(Term) => format(atom(Id), '~q', Term).
-to_id(Term, Id), nonvar(Id)   => term_string(Term, Id).
+q_term(Options, QTerm, q(QTerm,QId,_)) :-
+    option(id_mapping(IdMapping), Options, #{}),
+    term_key(QTerm, QId, IdMapping).
 
 %!  intern_model_term(+Quantities, +TermIn, -TermOutBindings)
 %
@@ -772,7 +759,7 @@ make_derivative_map(Dict, IdMapping, In, Out) :-
     dict_pairs(Out, _, OutPairs2).
 
 make_derivative_map_(IdMapping, K-_, K-D0, Id-d(_,D0,_,_)) :-
-    derivative_key(K, Id, IdMapping),
+    key_derivative(Id, K, IdMapping),
     !.
 make_derivative_map_(_IdMapping, K-_, K-V0, K-d(V0,_,_,_)).
 
@@ -782,16 +769,6 @@ join_pairs([K-V,K-V|T0], Pairs) :-
     join_pairs([K-V|T0], Pairs).
 join_pairs([H|T0], [H|T]) :-
     join_pairs(T0, T).
-
-%!  derivative_key(+Key, -Quantity, +IdMapping) is semidet
-
-derivative_key(Key, Quantity, IdMapping) :-
-    sub_atom(Key, B, _, A, 'Δ'),
-    sub_atom(Key, 0, B, _, Before),
-    sub_atom(Key, _, A, 0, After),
-    string_concat(Before, After, S),
-    term_string(IdTerm, S),
-    get_dict(Quantity, IdMapping, IdTerm).
 
 derivative_map(In, Out, DictIn, DictOut) :-
     copy_term(In+Out, DictIn+DictOut).

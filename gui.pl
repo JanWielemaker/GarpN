@@ -11,7 +11,6 @@
 :- use_module(library(http/js_write)).
 :- use_module(library(apply)).
 :- use_module(library(dicts)).
-:- use_module(library(readutil)).
 :- use_module(library(pairs)).
 :- use_module(library(csv)).
 :- use_module(library(lists)).
@@ -21,18 +20,17 @@
 :- use_module(library(exceptions)).
 :- use_module(library(filesex)).
 :- use_module(library(http/json)).
+:- use_module(library(listing)).
+:- use_module(library(terms)).
 
 :- use_module(gsim).
 :- use_module(map).
 :- use_module(csv_util).
 :- use_module(equations).
 :- use_module(model).
+:- use_module(identifiers).
 :- if(current_prolog_flag(dynalearn, true)).
 :- use_module(dynalearn).
-:- use_module(library(error)).
-:- use_module(library(listing)).
-:- use_module(library(terms)).
-
 :- endif.
 
 http:location(garp, root(garp), []).
@@ -591,7 +589,7 @@ q_menu(_, _, _) -->
     [].
 
 key_quantity(IdMapping, Key, Quantity) :-
-    derivative_key(Key, Quantity, IdMapping),
+    key_derivative(Quantity, Key, IdMapping),
     !.
 key_quantity(_, Key, Key).
 
