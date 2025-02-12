@@ -703,8 +703,12 @@ step(euler, S0, S) =>
 
 compile_formulas(Formulas, Ref) :-
     dict_pairs(Formulas, _, Pairs),
+    dict_same_keys(Formulas, S0),
     dict_same_keys(Formulas, S),
-    maplist(eval(S0, S), Pairs, Eval),
+    partition(is_delta_formula, Pairs, Deltas, Normal),
+    maplist(eval(S0, S), Normal, EvalNormal),
+    maplist(eval_delta(S0, S), Deltas, EvalDelta),
+    append(EvalNormal, EvalDelta, Eval),
     comma_list(Body, Eval),
     assertz((euler_step(S0, S) :- Body), Ref),
     (   debugging(euler_step_clause)
@@ -717,6 +721,14 @@ eval(S0, S, Key-formula(Expr, Bindings),
      ( S0 >:< Bindings,
        Value is Expr)) :-
     get_dict(Key, S, Value).
+
+eval_delta(S0, S, Key-formula(δ(Of), Bindings), Eval) =>
+    get_dict(OfKey, Bindings, OfB),
+    assertion(Of == OfB),
+    get_dict(Key, S, D1),
+    get_dict(OfKey, S, V1),
+    get_dict(OfKey, S0, V0),
+    Eval = ( D1 is V1-V0 ).
 
 clean_formulas(Ref) :-
     iso_floats,
@@ -731,6 +743,10 @@ iso_floats :-
     set_prolog_flag(float_overflow, error),
     set_prolog_flag(float_zero_div, error),
     set_prolog_flag(float_undefined, error).
+
+is_delta_formula(_-formula(δ(_),_)) => true.
+is_delta_formula(_) => fail.
+
 
 
 %!  eval_d(+Formulas, +T, +DT, +H, +Y0, -K) is det.
