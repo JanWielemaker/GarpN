@@ -1,7 +1,8 @@
 :- module(identifiers,
           [ term_key/3,                 % +Term, -Key, +IdMapping
             term_derivative/2,          % ?Term, ?DTerm
-            key_derivative/3            % ?Key, ?DKey, +IdMapping
+            key_derivative/3,           % ?Key, ?DKey, +IdMapping
+            is_derivative_term/1        % ++Term
           ]).
 
 /** <module> Translate identifier representations
@@ -35,19 +36,34 @@ term_key(Term, Key, IdMapping), ground(Term) =>
     ).
 
 %!  term_derivative(+Term, -DTerm) is det.
-%!  term_derivative(-Term, +DTerm) is det.
+%!  term_derivative(-Term, +DTerm) is semidet.
 %
 %   Translate a term that identifies a quantity (Attr(Entity)) into a an
 %   identifier for its 1st derivative by prepending   the  name with a Δ
 %   symbol.
 
 :- det(term_derivative/2).
-term_derivative(Term, DTerm), atom(Term) =>
+term_derivative(Term, DTerm), (atom(Term) ; atom(DTerm)) =>
     atom_concat('Δ', Term, DTerm).
 term_derivative(Term, DTerm), compound(Term) =>
     compound_name_arguments(Term, Name, Args),
     atom_concat('Δ', Name, DName),
     compound_name_arguments(DTerm, DName, Args).
+term_derivative(Term, DTerm), compound(DTerm) =>
+    compound_name_arguments(DTerm, DName, Args),
+    atom_concat('Δ', Name, DName),
+    compound_name_arguments(Term, Name, Args).
+
+%!  is_derivative_term(@Term) is semidet.
+%
+%   True if Term represents a derivative.
+
+is_derivative_term(Term), atom(Term) =>
+    sub_atom(Term, 0, _, _, 'Δ').
+is_derivative_term(Term), compound(Term), functor(Term, DName, 1) =>
+    sub_atom(DName, 0, _, _, 'Δ').
+is_derivative_term(_) =>
+    fail.
 
 %!  key_derivative(+Key, -DKey, +IdMapping) is det.
 %!  key_derivative(-Key, +DKey, +IdMapping) is det.

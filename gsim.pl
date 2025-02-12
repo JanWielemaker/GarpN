@@ -105,12 +105,12 @@ read_model(From, Formulas, Constants, State, Options) :-
     read_model_to_terms(From, Terms0),
     partition(is_qspace, Terms0, QSpaces, Terms1),
     option(source_qspaces(QSpaces), Options, _),
-    maplist(quantity, Terms0, Quantities0),        % Quantities are the
-    sort(Quantities0, Sorted),                     % left side of equations
-    maplist(q_term(Options), Sorted, Quantities1), % q(Term,Id,Var)
-    maplist(intern_model_term(Quantities1), Terms1, Terms2),
-    validate_model(Terms2, Options),
-    foldl(model_expression, Terms2, m(f{}, i{}), m(Formulas0, Init)),
+    add_derivative_equations(Terms1, Terms2),
+    equation_quantities(Terms2, Quantities0),
+    maplist(q_term(Options), Quantities0, Quantities1), % q(Term,Id,Var)
+    maplist(intern_model_term(Quantities1), Terms2, Terms3),
+    validate_model(Terms3, Options),
+    foldl(model_expression, Terms3, m(f{}, i{}), m(Formulas0, Init)),
     split_init(Init, Formulas0, Constants0, State0),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
     derived_initial_state(Formulas, Constants, State0, State, Options).
@@ -143,6 +143,40 @@ read_stream_to_terms_(end_of_file, _, [], _) :-
 read_stream_to_terms_(T0, In, [T0|Terms], Options) :-
     read_term(In, T1, Options),
     read_stream_to_terms_(T1, In, Terms, Options).
+
+%!  add_derivative_equations(Equations0, Equations) is det.
+
+add_derivative_equations(Equations0, Equations) :-
+    derivative_equations(Equations0, DEquations),
+    append(Equations0, DEquations, Equations).
+
+%!  derivative_equations(+Equations, -DEquations) is det.
+%
+%   If there are formulas that use the   derivative  of some quantity as
+%   inputs while only the quantity itself exists, add an equation
+%
+%       'ΔQ' := δ(Q).
+
+derivative_equations(Equations, DEquations) :-
+    equation_quantities(Equations, Quantities),
+    findall(DQ, dependent_derivative(Equations, DQ), DQs0),
+    sort(DQs0, DQs),
+    ord_subtract(DQs, Quantities, Required),
+    maplist(d_equation, Required, DEquations).
+
+dependent_derivative(Equations, DQ) :-
+    member(_Q := Expr, Equations),
+    sub_term(DQ, Expr),
+    is_derivative_term(DQ).
+
+d_equation(DQ, DQ := δ(Q)) :-
+    term_derivative(Q, DQ).
+
+%!  equation_quantities(+Equations, -Quantities) is det.
+
+equation_quantities(Terms1, Quantities) :-
+    maplist(quantity, Terms1, Quantities0),     % Quantities are the
+    sort(Quantities0, Quantities).		% left side of equations
 
 %!  quantity(++ModelTerm, -Quantity) is det.
 
@@ -208,11 +242,11 @@ invalid_model_term((Left:=Right)-Bindings, Missing), var(Left) =>
     phrase(invalid_model_term_(Bindings, Right), Missing).
 
 invalid_model_term_(Bindings, Term),
-    compound(Term), current_arithmetic_function(Term) ==>
+    compound(Term), supported_function(Term) ==>
     { compound_name_arguments(Term, _, Args) },
     sequence(invalid_model_term_(Bindings), Args).
 invalid_model_term_(_Bindings, Term),
-    atom(Term), current_arithmetic_function(Term) ==>
+    atom(Term), supported_function(Term) ==>
     [].                                         % i.e., `pi`, `e`
 invalid_model_term_(_Bindings, Term),
     number(Term) ==>
@@ -227,6 +261,17 @@ invalid_model_term_(Bindings, placeholder(_Name, Value)),
     [].
 invalid_model_term_(_Bindings, Term) ==>
     [Term].
+
+%!  supported_function(@Term) is semidet.
+%
+%   True if Term is a function supported by NGarp.
+
+supported_function(Term), current_arithmetic_function(Term) => true.
+supported_function(δ(_)) => true.
+supported_function(_) => fail.
+
+is_delta_function(δ(_)) => true.
+is_delta_function(_) => fail.
 
 %!  model_expression(+TermAndBindings, +Model0, -Model1) is det.
 %
@@ -377,6 +422,7 @@ derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
     DTExpr >:< Bindings,
     ground(Right),
     \+ is_placeholder(Right),
+    \+ is_delta_function(Right),
     !,
     Value is Right,
     State1 = State0.put(Key,Value),
@@ -393,6 +439,7 @@ derived_initials(Missing, Unresolved, _, _, _, State, State) :-
 
 missing_init(Formulas, Constants, State, Key) :-
     get_dict(_Left, Formulas, formula(Right, Bindings)),
+    \+ is_delta_function(Right),
     Bindings >:< Constants,
     Bindings >:< State,
     term_variables(Right, Vars),
