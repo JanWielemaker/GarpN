@@ -188,7 +188,7 @@ par_relations(_, _) =>
 %   Unmap the Dynalearn nNNN numbers for correspondences.
 
 :- det(unmap_correspondence/3).
-unmap_correspondence(QSpaceMap, equal(Q1, Q2), QRel) =>
+unmap_correspondence(QSpaceMap, equal(Q1, Q2), QRel), \+ is_expr(Q1) =>
     QRel = equal(Qm1, Qm2),
     unmap_qpval(QSpaceMap, Q1, Qm1),
     unmap_qpval(QSpaceMap, Q2, Qm2).
@@ -210,6 +210,12 @@ unmap_correspondence(QSpaceMap, dir_dv_correspondence(P1, U1, P2, U2), QRel) =>
     unmap_qval(QSpaceMap, U2, V2).
 unmap_correspondence(_, QRel0, QRel) =>
     QRel = QRel0.
+
+is_expr(min(_,_)) => true.                  % not a correspondence
+is_expr(plus(_,_)) => true.
+is_expr(mult(_,_)) => true.
+is_expr(diw(_,_)) => true.
+is_expr(_) => false.
 
 unmap_qpval(QSpaceMap, QVal, @(Q,Val)) :-
     QVal =.. [Val0,Q],
