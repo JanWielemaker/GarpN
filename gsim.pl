@@ -311,12 +311,15 @@ same_variables(T1, T2) :-
 %!  initialise_model(+FormulasIn, +Init, -Formulas, -Constants, -State,
 %!                   +Options) is det.
 %
-%   Determine the final set of formulas and the initial state.
+%   Determine the final set  of  formulas,   constants  and  the initial
+%   state. Mathematically, we can  set  Δt   to  zero  and propagate all
+%   constants and equations.
 
 initialise_model(Formulas0, Init, Formulas, Constants, State, Options) :-
     split_init(Init, Formulas0, Constants0, State0),
+    copy_term(Formulas0, Formulas1),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
-    derived_initial_state(Formulas, Constants, State0, State, Options).
+    derived_initial_state(Formulas1, Constants, State0, State, Options).
 
 %!  split_init(+Init, +Formulas, -Constants, -State) is det.
 %
