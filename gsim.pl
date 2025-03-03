@@ -111,9 +111,7 @@ read_model(From, Formulas, Constants, State, Options) :-
     maplist(intern_model_term(Quantities1), Terms2, Terms3),
     validate_model(Terms3, Options),
     foldl(model_expression, Terms3, m(f{}, i{}), m(Formulas0, Init)),
-    split_init(Init, Formulas0, Constants0, State0),
-    derived_constants(Formulas0, Constants0, Formulas, Constants),
-    derived_initial_state(Formulas, Constants, State0, State, Options).
+    initialise_model(Formulas0, Init, Formulas, Constants, State, Options).
 
 is_qspace(qspace(_Q,_Values)) => true.
 is_qspace(_) => fail.
@@ -309,6 +307,16 @@ same_variables(T1, T2) :-
     term_variables(T1, V1), sort(V1, Vs1),
     term_variables(T2, V2), sort(V2, Vs2),
     Vs1 == Vs2.
+
+%!  initialise_model(+FormulasIn, +Init, -Formulas, -Constants, -State,
+%!                   +Options) is det.
+%
+%   Determine the final set of formulas and the initial state.
+
+initialise_model(Formulas0, Init, Formulas, Constants, State, Options) :-
+    split_init(Init, Formulas0, Constants0, State0),
+    derived_constants(Formulas0, Constants0, Formulas, Constants),
+    derived_initial_state(Formulas, Constants, State0, State, Options).
 
 %!  split_init(+Init, +Formulas, -Constants, -State) is det.
 %
