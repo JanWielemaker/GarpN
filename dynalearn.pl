@@ -14,6 +14,7 @@
 :- use_module(library(occurs)).
 
 :- use_module(map).
+:- use_module(model).
 
 dynalearn_url('https://api.dynalearn.nl/garpN/').
 
@@ -210,12 +211,6 @@ unmap_correspondence(QSpaceMap, dir_dv_correspondence(P1, U1, P2, U2), QRel) =>
     unmap_qval(QSpaceMap, U2, V2).
 unmap_correspondence(_, QRel0, QRel) =>
     QRel = QRel0.
-
-is_expr(min(_,_)) => true.                  % not a correspondence
-is_expr(plus(_,_)) => true.
-is_expr(mult(_,_)) => true.
-is_expr(diw(_,_)) => true.
-is_expr(_) => false.
 
 unmap_qpval(QSpaceMap, QVal, @(Q,Val)) :-
     QVal =.. [Val0,Q],

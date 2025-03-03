@@ -2,7 +2,8 @@
           [ propose_model/3,            % +ModelId, -Equations, +Options
             is_placeholder/1,           % @Term
             is_placeholder/2,           % @Term, -Type
-            default_nrels/1             % -NRels:list
+            default_nrels/1,            % -NRels:list
+            is_expr/1                   % @Expr
           ]).
 :- use_module(library(terms)).
 :- use_module(library(lists)).
@@ -287,11 +288,22 @@ qrel_nrel([exogenous(Dep,exogenous_steady)],
 %   during the simulation to verify all constraints are satisfied.
 
 correspondence_rel(dir_q_correspondence(_,_)).
+correspondence_rel(dir_v_correspondence(_,_)).
 correspondence_rel(q_correspondence(_,_)).
 correspondence_rel(v_correspondence(_,_,_,_)).
-correspondence_rel(equal(_,_)).
-correspondence_rel(smaller(_,_)).
-correspondence_rel(greater(_,_)).
+correspondence_rel(equal(Left,_)) :- \+ is_expr(Left).
+correspondence_rel(smaller(Left,_)) :- \+ is_expr(Left).
+correspondence_rel(greater(Left,_)) :- \+ is_expr(Left).
+
+%!  is_expr(@Expr) is semidet.
+%
+%   True when Expr is an arithmetic expression.
+
+is_expr(min(_,_)) => true.                  % not a correspondence
+is_expr(plus(_,_)) => true.
+is_expr(mult(_,_)) => true.
+is_expr(diw(_,_)) => true.
+is_expr(_) => false.
 
 is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
