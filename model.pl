@@ -437,9 +437,9 @@ init_d(_, _)             ==> [].
 %!  exogenous_equation(+Class, ?Q, -Equations) is det.
 
 exogenous_equation(exogenous_steady, Q, NRel) =>
-    NRel = [Q := c].
+    NRel = [Q := c + c(0)*d(t)].
 exogenous_equation(exogenous_increasing, Q, NRel) =>
-    NRel = [Q := c+c*t].
+    NRel = [Q := c+(c*t)].
 exogenous_equation(exogenous_decreasing, Q, NRel) =>
     NRel = [Q := c-(c*t)].
 exogenous_equation(exogenous_sinus, Q, NRel) =>
