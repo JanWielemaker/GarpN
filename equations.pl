@@ -22,7 +22,8 @@
                    requires([ 'https://unpkg.com/mathlive',
                               %'https://unpkg.com/@cortex-js/compute-engine',
                               %'/garp/mathlive.js',
-                              '/garp/equations.js'
+                              '/garp/equations.js',
+                              'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js'
                             ])
                  ]).
 :- html_resource('https://unpkg.com/mathlive',
@@ -36,31 +37,62 @@
 %
 %   Render a list of equations as a div holding mathlive expressions.
 
-equations(Eqs, Options) -->
-    { order_equations(Eqs, Eqs1, Options),
-      quantities(Quantities, Options)
+equations(Equations, Options) -->
+    { option(grouped(true), Options, true),
+      !,
+      group_equations(Equations, Groups)
     },
+    html(div(id(equations),
+             \sequence(eq_group(Options), Groups))),
     html_requires(mathlive),
-    html(div([ id(equations),
-               'hx-post'('/garp/htmx/analyze'),
-               'hx-vals'('js:{"ml_data": ml_value()}'),
-               'hx-trigger'('input delay:200ms'),
-               'hx-target'('#quantity_controls'),
-               'hx-ext'('json-enc'),
-               class(equations)
-             ],
-             \eq_list(Eqs1, Options))),
+    eq_quantities(Options).
+equations(Equations, Options) -->
+    html_requires(mathlive),
+    eq_div(Equations, [id(equations)|Options]),
+    eq_quantities(Options).
+
+eq_quantities(Options) -->
+    { quantities(Quantities, Options)
+    },
     js_script({|javascript(Quantities)||
                ml_init(Quantities);
               |}).
 
-order_equations(Equations0, Equations, Options),
-    option(grouped(true), Options) =>
-    group_equations(Equations0, Groups), % list(Type-Equations)
-    pairs_values(Groups, Eql),
-    append(Eql, Equations).
-order_equations(Equations0, Equations, _Options) =>
-    Equations = Equations0.
+eq_group(Options, Group-Equations) -->
+    { group_classes(Group, Classes) },
+    html(div(class(['eq-group'|Classes]),
+             [ div(class('eq-group-header'), \group_label(Group)),
+               \eq_div(Equations, Options)
+             ])).
+
+group_classes(formula, Classes) => Classes = [].
+group_classes(_,       Classes) => Classes = [collapsed].
+
+group_label(formula)    ==> html("Model equations").
+group_label(time)       ==> html("Time equations").
+group_label(init)       ==> html("Unknown initial values").
+group_label(init_value) ==> html("Known initial values").
+group_label(constant)   ==> html("Constants").
+group_label(Label)      ==> html(Label).
+
+eq_div(Equations, Options) -->
+    { (   select_option(id(Id), Options, Options1)
+      ->  Extra = [id(Id)]
+      ;   Extra = [],
+          Options1 = Options
+      )
+    },
+    html(div([ 'hx-post'('/garp/htmx/analyze'),
+               'hx-vals'('js:{"ml_data": ml_value()}'),
+               'hx-trigger'('input delay:200ms'),
+               'hx-target'('#quantity_controls'),
+               'hx-ext'('json-enc'),
+               class([equations,sortable])
+             | Extra
+             ],
+             \eq_list(Equations, Options1))).
+
+
 
 eq_list(Eqs, _Options) -->
     sequence(equation, Eqs),
@@ -75,7 +107,12 @@ equation(Eq) -->
     },
     html(div(class(equation),
              [ 'math-field'(String),
-               span(class('delete-equation'), '\u2716')
+               span([ class('sort-handle'),
+                      title('Grab to reorder')
+                    ], '\u2B0D'),
+               span([ class('delete-equation'),
+                      title('Click to delete')
+                    ], '\u2716')
              ])).
 
 eq_to_mathjax(Left := Right) ==>
@@ -524,20 +561,24 @@ alpha(C) -->
 
 :- det(group_equations/2).
 group_equations(Eql, Groups) :-
-    map_list_to_pairs(classify_equation, Eql, Pairs),
+    map_list_to_pairs(classify_equation(Eql), Eql, Pairs),
     keysort(Pairs, Sorted),
     group_pairs_by_key(Sorted, Groups0),
     maplist(label_group, Groups0, Groups).
 
-classify_equation(t := _, Order) =>
+classify_equation(_, t := _, Order) =>
     eq_type_order(time, Order).
-classify_equation('Δt' := _, Order) =>
+classify_equation(_, 'Δt' := _, Order) =>
     eq_type_order(time, Order).
-classify_equation(_Left := Number, Order), number(Number) =>
-    eq_type_order(init_value, Order).
-classify_equation(_Left := placeholder(Type,_), Order) =>
+classify_equation(Eql, Left := Number, Order), number(Number) =>
+    (   member(Left := Right, Eql),
+        Right \== Number
+    ->  eq_type_order(init_value, Order)
+    ;   eq_type_order(constant, Order)
+    ).
+classify_equation(_, _Left := placeholder(Type,_), Order) =>
     eq_type_order(Type, Order).
-classify_equation(_, Order) =>
+classify_equation(_, _, Order) =>
     eq_type_order(formula, Order).
 
 label_group(Order-Eql, Type-Eql) :-
@@ -545,10 +586,10 @@ label_group(Order-Eql, Type-Eql) :-
     !.
 
 eq_type_order(formula,    1).
-eq_type_order(time,       2).
-eq_type_order(constant,   3).
-eq_type_order(init,       4).
-eq_type_order(init_value, 5).
+eq_type_order(constant,   2).
+eq_type_order(init,       3).
+eq_type_order(init_value, 4).
+eq_type_order(time,       5).
 
 
 		 /*******************************

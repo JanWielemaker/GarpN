@@ -160,21 +160,23 @@ function ml_init(quantities)
 { const eql = document.getElementById("equations");
   state.quantities = quantities;
 
-  for(eq of eql.children) {
+  for(eq of eql.querySelectorAll("div.equation")) {
     eq_prep(eq, quantities);
   }
   eql.value = function() {
     return ml_value(eql);
   }
 
-  activatePlusButton(eql);
+  activatePlusButtons(eql);
+  activateCollapse(eql);
+  activateSortable(eql);
 }
 
 function ml_value(eql)
 { const val = [];
 
   eql = eql||document.getElementById("equations");
-  for(eq of eql.children) {
+  for(eq of eql.querySelectorAll("div.equation")) {
     const mf = eq.querySelector("math-field");
     if ( mf )
       val.push(mf.getValue('latex-expanded'));
@@ -187,16 +189,48 @@ function ml_value_string(eql)
 }
 
 function
-activatePlusButton(eql)
-{ const el = eql.querySelector("div.add-equation");
-  if ( el ) {
-    el.addEventListener("click", (ev) => {
-      const div = document.createElement("div");
-      div.classList.add("equation");
-      div.innerHTML = "<math-field></math-field>"+
-	'<span class="delete-equation">✖</span>';
-      el.parentNode.insertBefore(div, el);
-      eq_prep(div);
+activatePlusButtons(eql)
+{ const els = eql.querySelectorAll("div.add-equation");
+
+  function add_eq(ev) {
+    const me = ev.target.closest("div.add-equation");
+    const div = document.createElement("div");
+    div.classList.add("equation");
+    div.innerHTML = "<math-field></math-field>"+
+      '<span class="delete-equation">✖</span>';
+    me.parentNode.insertBefore(div, me);
+    eq_prep(div);
+  }
+
+  for(el of els) {
+    el.addEventListener("click", add_eq);
+  }
+}
+
+function activateCollapse(eql) {
+  const hdrs = eql.querySelectorAll("div.eq-group-header");
+
+  function collapse(ev) {
+    const me = ev.target.closest("div.eq-group");
+    me.classList.toggle("collapsed");
+  }
+
+  for(hdr of hdrs) {
+    hdr.addEventListener("click", collapse);
+  }
+}
+
+function activateSortable(eql) {
+  const targets = eql.querySelectorAll(".sortable");
+  console.log(targets);
+  for(el of targets) {
+    new Sortable(el, {
+      animation: 150,
+      handle: '.sort-handle',
+      onEnd: (ev) => {
+	eq_prep(ev.item, state.quantities);
+	eql_changed(ev.item);
+      }
     });
   }
 }

@@ -18,6 +18,13 @@ div.model {
     box-sizing: border-box;
 }
 
+#model-menu {
+    white-space: nowrap;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 span.init-model-buttons {
     float:right;
 }
@@ -275,9 +282,42 @@ input.qspace-point {
 div.equations {
     border: 1px solid #000;
     padding: 10px;
-    height: 30ex;
+    max-height: 30ex;
     overflow: auto;
     resize: vertical;
+}
+
+div.eq-group-header {
+    font-weight: bold;
+    cursor: pointer;
+    position: relative;
+    left: -10pt;
+}
+
+div.eq-group-header:hover {
+    text-decoration: underline;
+}
+
+div.eq-group-header::before {
+    content: "\25BC";
+    color: blue;
+    display: inline-block;
+    width: 10pt;
+}
+
+div.eq-group.collapsed div.eq-group-header::before {
+    content: "\25B6";
+    color: blue;
+    font-size: 70%;
+    display: inline-block;
+    width: 20pt;
+    position: relative;
+    top: -2px;
+    width: 10pt;
+}
+
+div.eq-group.collapsed div.equations {
+    display: none;
 }
 
 div.equation:nth-child(even) math-field {
@@ -289,14 +329,24 @@ div.equation {
 }
 
 math-field {
-    width: calc(100% - 2ex);
+    width: calc(100% - 4ex);
     margin-bottom: 1px;
 }
 
 span.delete-equation {
-    cursor: default;
+    cursor: pointer;
     color: red;
+    margin-left: 2px;
+}
+
+span.sort-handle {
+    cursor: grab;
+    color: darkgreen;
     margin-left: 5px;
+}
+
+span.delete-equation:hover, span.sort-handle:hover {
+    outline: 1px solid #888;
 }
 
 math-field::part(container) {
