@@ -15,6 +15,7 @@
 :- use_module(map).
 :- use_module(gsim).
 :- use_module(identifiers).
+:- use_module(library(pairs)).
 
 /** <module> Propose a (partial) numeric model from Garp
 
@@ -41,22 +42,33 @@
 %       will be used to perserve as much as possible of the current
 %       model.
 
-propose_model(Model, Equations, Options) :-
+propose_model(Model, Equations, Options0) :-
+    opt_id_mapping(Model, Options0, Options),
     findall(QRel, (q_rel(Model, QRel), \+correspondence_rel(QRel)), QRels),
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
     valued_quantities(Model, VQs),
     qrel2nrel(Rels, VQs, NRels, Options),
     integrals(VQs, NRels, IRels, Options),
-    init_nrels(Model, QRels, NRels, Init),    % Use input scenario
-    default_nrels(DefNRels),                  % Defaults (time)
+    init_nrels(Model, QRels, NRels, Init, Options), % Use input scenario
+    default_nrels(DefNRels),			    % Defaults (time)
     append([NRels,IRels,DefNRels,Init], Eql0),
     simplify_model(Eql0, Eql1),
-    id_mapping(Model, Mapping),
+    option(id_mapping(Mapping), Options),
     foldsubterms(id_to_term(Mapping), Eql1, Eql2, [], ConstEql),
     append(Eql2, ConstEql, Equations1),
     add_model_init(Model, Equations1, Equations2, Formulas, Options),
     order_equations(Equations2, Formulas, Equations, Options).
+
+opt_id_mapping(_, Options0, Options) :-
+    option(id_mapping(_), Options0),
+    !,
+    Options = Options0.
+opt_id_mapping(Model, Options0, Options) :-
+    id_mapping(Model, IdMapping),
+    !,
+    Options = [id_mapping(IdMapping)|Options0].
+opt_id_mapping(_, Options, Options).
 
 qrel2nrel(QRels, VQs, NRels, Options) :-
     aggregate_all(min(NLeft, NRels-Left),
@@ -172,6 +184,25 @@ qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
     append(Rels, NRels1, NRels),
     qrel2nrel(DQ, QRels1, VQs, Left, NRels1).
 qrel2nrel(_DQ, Left, _VQs, Left, []).
+
+%!  select_graph(+SubGraph, +Graph, -Rest) is nondet.
+%
+%   Select a subgraph from Graph
+
+select_graph([], Set, Set).
+select_graph([H|T], Set0, Set) :-
+    select(H, Set0, Set1),
+    select_graph(T, Set1, Set).
+
+%!  mkrel(+DQ, +VQs, +NRel, +DRel, -Rel) is det.
+%!  mkrel(+DQ, +VQs, +NRel, -Rel) is det.
+%
+%   Given the mode (DQ), the  set  of   quantities  with  a value in the
+%   qualitative model (VQs), select either the  quantity relation or the
+%   derivative variant.
+%
+%   The mkrel/4 is similar, but deduces the   DRel from VRel by symbolic
+%   derivation.
 
 mkrel(q, _VQs, NRel, _, NRel).
 mkrel(d, _VQs, _, DRel, DRel).
@@ -415,7 +446,7 @@ id_to_term(Mapping, Id, Term, S0, S), atom(Id) =>
 id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
     fail.
 
-%!  init_nrels(+Model, +QRels, +NRels, -Init) is det.
+%!  init_nrels(+Model, +QRels, +NRels, -Init, +Options) is det.
 %
 %   Use the input state (scenario)   to create initialization equations.
 %   We create an initialization for each   quantity defined in the input
@@ -427,27 +458,55 @@ id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
 %   @tbd: This assumes only initial  values   on  quantities, __not__ on
 %   derivatives.
 
-init_nrels(Model, _QRels, NRels, Init) :-
+init_nrels(Model, _QRels, NRels, Init, Options) :-
     q_input_state(Model, Input),
     dict_pairs(Input, _, Pairs),
-    convlist(init_nrel(NRels), Pairs, Inits),
+    convlist(init_nrel(NRels, Options), Pairs, Inits),
     append(Inits, Init).
 
-init_nrel(NRels, Id-_, _), memberchk(Id:=c, NRels) =>
+init_nrel(NRels, _, Id-_, _), memberchk(Id:=c, NRels) =>
     fail.
-init_nrel(_NRels, Id-d(Q,D1,_,_), Init) =>
-    phrase(init_nrel(Id, Q, D1), Init).
+init_nrel(_NRels, Options, Id-d(Q,D1,_,_), Init) =>
+    phrase(init_nrel(Id, Q, D1, Options), Init).
 
-init_nrel(Id, Q, D) -->
-    init_v(Id, Q),
-    init_d(Id, D).
+%!  init_nrel(+Id, +QV, +D, +Options)// is det.
+%
+%   Create an initialization relation for Id  (an atom) that has initial
+%   value QV (a point or  interval  in   a  quantity  space) and initial
+%   derivative D (neg,zero,plus). This first uses the qualitative model.
+%   When unsuccessful, we try  the  old   model  to  preserve a possible
+%   value.
 
-init_v(Id, point(zero))  ==> [Id := 0].
-init_v(Id, Q), nonvar(Q) ==> [Id := placeholder(init, _)].
-init_v(_, _)             ==> [].
-init_d(Id, zero)         ==> [d(Id) := 0].
-init_d(Id, D), nonvar(D) ==> [d(Id) := placeholder(init, _)].
-init_d(_, _)             ==> [].
+init_nrel(Id, Q, D, Options) -->
+    init_v(Id, Q, Options),
+    init_d(Id, D, Options).
+
+init_v(Id, point(zero), _)     ==> [Id := 0].
+init_v(Id, Q, Opts), nonvar(Q) ==> init_placeholder(Id, Opts).
+init_v(_, _, _)                ==> [].
+init_d(Id, zero, _)            ==> [d(Id) := 0].
+init_d(Id, D, Opts), nonvar(D) ==> init_placeholder(d(Id), Opts).
+init_d(_, _, _)                ==> [].
+
+init_placeholder(d(Id), Opts) -->
+    { option(id_mapping(IdMapping), Opts),
+      option(old_model(_Equations), Opts),
+      !,
+      term_key(Q, Id, IdMapping),
+      term_derivative(Q, DQ),
+      preserve_init(DQ, Value, Opts)
+    },
+    [ Id := placeholder(init, Value)].
+init_placeholder(Id, Opts) -->
+    { option(id_mapping(IdMapping), Opts),
+      option(old_model(_Equations), Opts),
+      !,
+      term_key(Q, Id, IdMapping),
+      preserve_init(Q, Value, Opts)
+    },
+    [ Id := placeholder(init, Value)].
+init_placeholder(Id, _Opts) -->
+    [ Id := placeholder(init, _)].
 
 %!  exogenous_equation(+Class, ?Q, -Equations) is det.
 
@@ -483,7 +542,7 @@ add_model_init(Model, Eq0, Eq, Formulas, Options) :-
           model_error, Ball, true),
     (   var(Ball)
     ->  Eq = Eq0
-    ;   init_from_error(Ball, Model, Init),
+    ;   init_from_error(Ball, Model, Init, Eq0, Options),
         append(Eq0, Init, Eq1),
         (   Init == []
         ->  Eq = Eq1
@@ -492,38 +551,67 @@ add_model_init(Model, Eq0, Eq, Formulas, Options) :-
     ).
 
 init_from_error(model_error(invalid(Invalid)),
-                Model, Init) =>
-    convlist(constant_quantity(Model), Invalid, Init).
+                Model, Init, Equations, Options) =>
+    convlist(constant_quantity(Model, Equations, Options), Invalid, Init).
 init_from_error(model_error(no_initial_values(UnResolved)),
-                Model, Init) =>
-    convlist(init_quantity(Model), UnResolved, Init).
+                Model, Init, _Equations, Options) =>
+    convlist(init_quantity(Model, Options), UnResolved, Init).
 
-constant_quantity(_Model, Q, Init) :-
+%!  constant_quantity(+ModelId, +Options, +Equations, +Q, -Init) is
+%!                    det.
+
+constant_quantity(_Model, _Options, _Equations, Q, Init) :-
     Init = (Q := placeholder(constant, _)).
 
-init_quantity(Model, Q, Init) :-
-    initial_value(Q, Model, Value),
+init_quantity(Model, Options, Q, Init) :-
+    initial_value(Q, Model, Value, Options),
     Init = (Q := Value).
 
-%!  initial_value(+Q, +Model, -Value)
+%!  initial_value(+Q, +Model, -Value, +Options)
 %
 %   True when Value is the initial (input) value for Q in Model. This is
-%   a placeholder, unless the qualitative value is `zero`.
+%   a placeholder, unless the qualitative value is  `zero` or we have an
+%   old model with a numeric expression.
 
-initial_value(Q, Model, Value) :-
+initial_value(Q, Model, Value, _Options) :-
     id_mapping(Model, Mapping),
     once(get_dict(Id, Mapping, Q)),
     q_input_state(Model, Input),
     zero = Input.get(Id),
     !,
     Value = 0.
-initial_value(_Q, _Model, placeholder(init,_)).
+initial_value(Q, _Model, placeholder(init,Value), Options) :-
+    preserve_init(Q, Value, Options).
 
-select_graph([], Set, Set).
-select_graph([H|T], Set0, Set) :-
-    select(H, Set0, Set1),
-    select_graph(T, Set1, Set).
+                /*******************************
+                *         PRESERVATION         *
+                *******************************/
 
+%!  preserve_init(+Q, -Value, +Options) is det.
+%
+%   Try   to   preserve   the   initialization     for    Q   from   the
+%   old_model(Equations)  option.  On  success,  unify    Value  with  a
+%   numerical expression. On failure, Value is left unbound.
+
+preserve_init(Q, Value, Options) :-
+    option(old_model(OldEquations), Options),
+    member(Q := Right, OldEquations),
+    numeric_expression(Right),
+    !,
+    Value = Right.
+preserve_init(_, _, _).
+
+%!  numeric_expression(@Expr) is semidet.
+%
+%   True when Expr is an  expression   that  only holds numbers.
+
+numeric_expression(Expr) :-
+    catch(_ is Expr, error(_,_), fail).
+
+
+                /*******************************
+                *      ORGANISE EQUATIONS      *
+                *******************************/
 
 %!  order_equations(+Equations, +Formulas, -Ordered, +Options) is det.
 %
