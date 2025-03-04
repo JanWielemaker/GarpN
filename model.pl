@@ -35,6 +35,11 @@
 %   @arg Options supports
 %     - mode(+Mode)
 %       One of `quantities`, `derivatives` or `mixed`
+%     - old_model(+Model)
+%     - old_qspaces(+QSpaces)
+%       These two options provide the current qualitative model.  They
+%       will be used to perserve as much as possible of the current
+%       model.
 
 propose_model(Model, Equations, Options) :-
     findall(QRel, (q_rel(Model, QRel), \+correspondence_rel(QRel)), QRels),
@@ -50,10 +55,8 @@ propose_model(Model, Equations, Options) :-
     id_mapping(Model, Mapping),
     foldsubterms(id_to_term(Mapping), Eql1, Eql2, [], ConstEql),
     append(Eql2, ConstEql, Equations1),
-%   ModelOpts = [id_mapping(Mapping)|Options],
-    ModelOpts = Options,
-    add_model_init(Model, Equations1, Equations2, Formulas, ModelOpts),
-    order_equations(Equations2, Formulas, Equations, ModelOpts).
+    add_model_init(Model, Equations1, Equations2, Formulas, Options),
+    order_equations(Equations2, Formulas, Equations, Options).
 
 qrel2nrel(QRels, VQs, NRels, Options) :-
     aggregate_all(min(NLeft, NRels-Left),
