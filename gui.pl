@@ -189,7 +189,8 @@ model_option(Default, File) -->
 %   Provide options for populating the numerical model.
 
 :- html_meta
-    model_button(html,+,+,?,?).
+    model_button(html,+,+,?,?),
+    propose_model_button(html,+,+,?,?).
 
 init_model_menu -->
     !,
@@ -199,18 +200,32 @@ init_model_menu -->
                 \save_model_button,
                 \model_button('\U0001F4E5', load_model,
                               "Load reference model"),
-                \model_button('\u2728',     propose_model_q,
-                              "Propose model (quantities)"),
-                \model_button('\U0001F320', propose_model_d,
-                              "Propose model (derivatives)"),
-                \model_button([sup('\u2728'),/,sub('\U0001F320')], propose_model_qd,
-                              "Propose model (mixed)")
+                \propose_model_button('\u2728',     propose_model_q,
+                                      "Propose model (quantities)"),
+                \propose_model_button('\U0001F320', propose_model_d,
+                                      "Propose model (derivatives)"),
+                \propose_model_button(span(style('font-size:75%'),
+                                           [ sup('\u2728'),/,
+                                             sub('\U0001F320')
+                                           ]),
+                                      propose_model_qd,
+                                      "Propose model (mixed)")
               ])).
 
 model_button(Label, Target, Title) -->
     { http_link_to_id(Target, [], HREF) },
     html(button([ 'hx-get'(HREF),
                   'hx-vals'('js:{model: currentModel()}'),
+                  'hx-target'('#quantity_controls'),
+                  title(Title)
+                ], Label)).
+
+propose_model_button(Label, Target, Title) -->
+    { http_link_to_id(Target, [], HREF) },
+    html(button([ 'hx-get'(HREF),
+                  'hx-vals'('js:{model: currentModel(), \c
+                                 ml_source: ml_value_string(), \c
+                                 qspaces: get_jqspaces()}'),
                   'hx-target'('#quantity_controls'),
                   title(Title)
                 ], Label)).
@@ -358,10 +373,54 @@ numeric_model_file(Model, File) :-
 
 propose_model(Request, Options) :-
     http_parameters(Request,
-                    [ model(Model, [])
+                    [ ml_source(MlSource, [optional(true)]),
+                      qspaces(JQspaces, [optional(true)]),
+                      model(Model, [])
                     ]),
-    propose_flat_model(Model, Terms, Options),
+    phrase(old_model(Model, MlSource, JQspaces), OldOptions),
+    merge_options(Options, OldOptions, Options1),
+    propose_flat_model(Model, Terms, Options1),
     set_model(Model, terms(Terms), Options).
+
+%!  old_model(+Model, +MlSource, +JQSpaces)//
+%
+%   Create the options old_qspaces(QSpaces),   and old_model(Model) from
+%   the current state.
+
+old_model(Model, MlSource, JQSpaces) -->
+    old_qspaces(Model, JQSpaces),
+    old_model(MlSource).
+
+old_qspaces(Model, JQSpaces) -->
+    { nonvar(JQSpaces),
+      !,
+      qspaces(Model, JQSpaces, QSpaces)
+    },
+    [ old_qspaces(QSpaces) ].
+old_qspaces(_Model, _JQSpaces) -->
+    [].
+
+old_model(MlSource) -->
+    { nonvar(MlSource),
+      !,
+      latex_to_prolog_ex(MlSource, Equations)
+    },
+    [ old_model(Equations) ].
+old_model(_) -->
+    [].
+
+%!  propose_flat_model(+ModelId, -Terms, +Options) is det.
+%
+%   Propose a new model for ModelId.  When using Dynalearn, this fetches
+%   the qualitative model and its simulation from Dynalearn and proposes
+%   a quantitative model. Options:
+%
+%     - mode(+Mode)
+%       One of `quantities`, `derivatives` or `mixed`
+%     - grouped(+Boolean)
+%       Whether or not to group the equations.  Not sure we need this
+%       here.  The grammar equations//2 from equations.pl performs the
+%       grouping that is presented to the user.
 
 propose_flat_model(ModelId, Terms, Options) :-
     propose_model(ModelId, Grouped, Options),
