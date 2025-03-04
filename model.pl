@@ -2,7 +2,7 @@
           [ propose_model/3,            % +ModelId, -Equations, +Options
             is_placeholder/1,           % @Term
             is_placeholder/2,           % @Term, -Type
-            default_nrels/1,            % -NRels:list
+            default_nrels/2,            % -NRels:list, +Options
             is_expr/1                   % @Expr
           ]).
 :- use_module(library(terms)).
@@ -51,11 +51,12 @@ propose_model(Model, Equations, Options0) :-
     qrel2nrel(Rels, VQs, NRels, Options),
     integrals(VQs, NRels, IRels, Options),
     init_nrels(Model, QRels, NRels, Init, Options), % Use input scenario
-    default_nrels(DefNRels),			    % Defaults (time)
+    default_nrels(DefNRels, Options),		    % Defaults (time)
     append([NRels,IRels,DefNRels,Init], Eql0),
     simplify_model(Eql0, Eql1),
     option(id_mapping(Mapping), Options),
     foldsubterms(id_to_term(Mapping), Eql1, Eql2, [], ConstEql),
+    preserve_constants(ConstEql, Eql2, Options),
     append(Eql2, ConstEql, Equations1),
     add_model_init(Model, Equations1, Equations2, Formulas, Options),
     order_equations(Equations2, Formulas, Equations, Options).
@@ -420,14 +421,23 @@ qspace_with_points(Model, Q) :-
     m_qspace(Model, Q, _QSpaceName, Values),
     memberchk(point(_), Values).
 
-%!  default_nrels(-NRels:list) is det.
+%!  default_nrels(-NRels:list, +Options) is det.
 
 default_nrels([ t := t + 'Δt',
                 t := 0,
-                'Δt' := placeholder(constant,0.1)
-              ]).
+                'Δt' := placeholder(constant,Value)
+              ], Options) :-
+    (   option(old_model(Equations), Options),
+        memberchk('Δt' := Value, Equations)
+    ->  true
+    ;   Value = 0.1
+    ).
 
 %!  id_to_term(+IdMapping, +IdTerm, -Term, +S0, -S) is det.
+%
+%   Rewrite  the  model  from  using  internal   atomic  keys  from  the
+%   qualitative model to terms and map  app   `c`  and c(Value) terms to
+%   unique constants.
 
 id_to_term(Mapping, c, Term, S0, S) =>
     id_to_term(Mapping, c(_), Term, S0, S).
@@ -587,6 +597,49 @@ initial_value(Q, _Model, placeholder(init,Value), Options) :-
                 *         PRESERVATION         *
                 *******************************/
 
+%!  preserve_constants(+ConstantExpressions, +Equations, +Options) is det.
+%
+%   Try to preserve as much as possible from the old constants.
+%
+%   @arg CostantExpressions is a list of `cN := placeholder(constant,V)`,
+%   where V is often unbound.  That is the value we try to bind.
+
+preserve_constants(ConstEq, Equations, Options) :-
+    option(old_model(OldEquations), Options),
+    !,
+    maplist(preserve_constant(Equations, OldEquations), ConstEq).
+preserve_constants(_, _, _).
+
+preserve_constant(Equations, OldEquations, C := placeholder(constant, V)) :-
+    member(OldC := V, OldEquations),
+    numeric_expression(V),
+    similar_relation(C, Equations, OldC, OldEquations),
+    !.
+preserve_constant(_, _, _).
+
+similar_relation(C1, Eql1, C2, Eql2) :-
+    member(Eq1, Eql1),
+    c_rel(C1, Eq1, Rel),
+    member(Eq2, Eql2),
+    c_rel(C2, Eq2, Rel),
+    !.
+
+c_rel(C, Q := Expr, rel(Q,Pos)) :-
+    ground(Expr),
+    c_pos(C, Expr, Pos).
+
+c_pos(C, C, C).
+c_pos(C, -A, X)    :- c_pos(C, A, X0), neg(X0, X).
+c_pos(C, A*B, X*B) :- c_pos(C, A, X).
+c_pos(C, A*B, X*A) :- c_pos(C, B, X).
+c_pos(C, A+_, X)   :- c_pos(C, A, X).
+c_pos(C, _+B, X)   :- c_pos(C, B, X).
+c_pos(C, A-_, X)   :- c_pos(C, A, X).
+c_pos(C, _-B, X)   :- c_pos(C, B, X0), neg(X0, X).
+
+neg(-X, X).
+neg(X, -X).
+
 %!  preserve_init(+Q, -Value, +Options) is det.
 %
 %   Try   to   preserve   the   initialization     for    Q   from   the
@@ -629,7 +682,7 @@ order_equations(Equations, Formulas, Ordered, Options) :-
     map_list_to_pairs(equation_class, Equations, Classified),
     keysort(Classified, ByClass),
     group_pairs_by_key(ByClass, Grouped),
-    select(model-ModelEq, Grouped, GroupedRest),
+    selectchk(model-ModelEq, Grouped, GroupedRest),
     map_list_to_pairs(equation_term_id(Options), ModelEq, IdPaired),
     order_formulas(Formulas, Layers),
     maplist(layer_equations(IdPaired), Layers, LayeredEquations0),

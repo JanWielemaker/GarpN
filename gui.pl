@@ -296,7 +296,7 @@ methods -->
 
 mathlive_model(Model, Source, Options), var(Source) ==>
     { id_mapping(Model, IdMapping),
-      default_nrels(Terms)
+      default_nrels(Terms, [])
     },
      html(div(\equations(Terms, [id_mapping(IdMapping)|Options]))).
 mathlive_model(Model, Source, Options) ==>

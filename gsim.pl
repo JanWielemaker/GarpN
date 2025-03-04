@@ -435,12 +435,23 @@ derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
     \+ is_placeholder(Right),
     \+ is_delta_function(Right),
     !,
-    Value is Right,
+    map_filled_placeholders(Right, Right1),
+    Value is Right1,
     State1 = State0.put(Key,Value),
     derived_initials(Missing1, Unres, Formulas, DTExpr, Constants,
                      State1, State).
 derived_initials(Missing, Unresolved, _, _, _, State, State) :-
     sort(Missing, Unresolved).
+
+%!  map_filled_placeholders(+TermIn, -Term) is det.
+
+map_filled_placeholders(Expr0, Expr) :-
+    mapsubterms(map_filled_placeholder, Expr0, Expr).
+
+map_filled_placeholder(placeholder(_Type, Value), Result), number(Value) =>
+    Result = Value.
+map_filled_placeholder(_, _) => fail.
+
 
 %!  missing_init(+Formulas, +Constants, +State, -Key) is nondet.
 %
