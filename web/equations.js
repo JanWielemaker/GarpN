@@ -170,6 +170,15 @@ function ml_init(quantities)
   activatePlusButtons(eql);
   activateCollapse(eql);
   activateSortable(eql);
+
+  setTimeout(() => {
+    console.log(eql.scrollHeight, eql.clientHeight);
+    if ( eql.scrollHeight > eql.clientHeight )
+    { console.log("Needs scrolling");
+      eql.style.height = "30ex";
+      eql.style.maxHeight = "none";
+    }
+  });
 }
 
 function ml_value(eql)
@@ -222,7 +231,6 @@ function activateCollapse(eql) {
 
 function activateSortable(eql) {
   const targets = eql.querySelectorAll(".sortable");
-  console.log(targets);
   for(el of targets) {
     new Sortable(el, {
       animation: 150,
