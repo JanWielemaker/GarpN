@@ -464,9 +464,6 @@ id_to_term(_Mapping, _Id, _Term, _S0, _S) =>
 %
 %   We may propagate v_correspondence(Q1,  V1,   Q2,  V2) relations from
 %   QRels to instantiate other quantities.
-%
-%   @tbd: This assumes only initial  values   on  quantities, __not__ on
-%   derivatives.
 
 init_nrels(Model, _QRels, NRels, Init, Options) :-
     q_input_state(Model, Input),
@@ -474,10 +471,24 @@ init_nrels(Model, _QRels, NRels, Init, Options) :-
     convlist(init_nrel(NRels, Options), Pairs, Inits),
     append(Inits, Init).
 
-init_nrel(NRels, _, Id-_, _), memberchk(Id:=c, NRels) =>
+init_nrel(NRels, _, Id-_, _),
+    memberchk(Id:=Expr, NRels),
+    noinit_expression(Expr) =>
     fail.
 init_nrel(_NRels, Options, Id-d(Q,D1,_,_), Init) =>
     phrase(init_nrel(Id, Q, D1, Options), Init).
+
+noinit_expression(A+B)  => noinit_expression(A), noinit_expression(B).
+noinit_expression(A-B)  => noinit_expression(A), noinit_expression(B).
+noinit_expression(-A)   => noinit_expression(A).
+noinit_expression(A*B)  => noinit_expression(A), noinit_expression(B).
+noinit_expression(A/B)  => noinit_expression(A), noinit_expression(B).
+noinit_expression(c)    => true.
+noinit_expression(c(_)) => true.
+noinit_expression(d(t)) => true.
+noinit_expression(t)    => true.
+noinit_expression(placeholder(_,_)) => true.
+noinit_expression(_)    => fail.
 
 %!  init_nrel(+Id, +QV, +D, +Options)// is det.
 %
