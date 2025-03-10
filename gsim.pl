@@ -227,10 +227,11 @@ intern(_, _, _, _, _) =>
 validate_model(Terms, Options) :-
     maplist(invalid_model_term, Terms, InvalidL),
     append(InvalidL, Invalid0),
-    strip_placeholders(Invalid0, Invalid, Options),
-    (   Invalid == []
+    strip_placeholders(Invalid0, Invalid1, Options),
+    (   Invalid1 == []
     ->  true
-    ;   throw(model_error(invalid(Invalid)))
+    ;   sort(Invalid1, Invalid),
+        throw(model_error(invalid(Invalid)))
     ).
 
 strip_placeholders(Invalid0, Invalid, Options),
@@ -327,19 +328,19 @@ same_variables(T1, T2) :-
 
 initialise_model(Formulas0, Init, Formulas, Constants, State, Options) :-
     split_init(Init, Formulas0, Constants0, State0),
-    dict_pairs(FormulaDict0, #, Formulas0),
-    copy_term(FormulaDict0, FormulaDict1),
+    copy_term(Formulas0, Formulas1),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
     dict_pairs(ConstantsDict, #, Constants),
     dict_pairs(StateDict0, #, State0),
-    derived_initial_state(FormulaDict1, ConstantsDict,
+    derived_initial_state(Formulas1, ConstantsDict,
                           StateDict0, State, Options).
 
-%!  split_init(+Init, +Formulas, -Constants, -State) is det.
+%!  split_init(+Init:pairs, +Formulas:pairs, -Constants:pairs,
+%!             -State:dict) is det.
 %
-%   Split the quantities for which we found an initial value into a dict
-%   with constants and the initial  state  dict.   Both  map  an id to a
-%   concrete number.
+%   Split the quantities for  which  we   found  an  initial  value into
+%   constants and the initial state dict. Both   map an id to a concrete
+%   number.
 
 split_init(Init, Formulas, Constants, StatePairs) :-
     split_init_(Init, Formulas, Constants, StatePairs).
@@ -352,8 +353,8 @@ split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
 split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
     split_init_(T, Formulas, ConstantPairs, StatePairs).
 
-%!  derived_constants(+Formulas0, +Constants0, -Formulas, -Constants) is
-%!                    det.
+%!  derived_constants(+Formulas0:pairs, +Constants0:pairs,
+%!                    -Formulas:pairs, -Constants:pairs) is det.
 %
 %   If a formula just has constants at the  right, remove it and add the
 %   value to Constants.
@@ -381,8 +382,8 @@ derived_constants__([Left-formula(Right, Bindings)|FT], Constants0,
 derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
     derived_constants__(FT, Constants0, FPairs, Constants).
 
-%!  derived_initial_state(+Formulas, +Constants, +State0, -State,
-%!                        +Options) is det.
+%!  derived_initial_state(+Formulas:pairs, +Constants:dict,
+%!			  +State0:dict, -State:dict, +Options) is det.
 %
 %   Extend the initial state. We do so  by evaluating formulas for which
 %   the right side is known and add these  to the state. This process is
@@ -427,8 +428,8 @@ bind_placeholder(placeholder(_Id, PValue), Value) :-
     ;   Value = 1
     ).
 
-%!  derived_initials(+Missing, -Unresolved:ordset, +Formulas, +DTExpr,
-%!                   +Constants, +State0, -State) is det.
+%!  derived_initials(+Missing, -Unresolved:ordset, +Formulas:pairs,
+%!                   +DTExpr, +Constants, +State0, -State) is det.
 %
 %   Remove missing values that can be   computed  from other fully known
 %   values.
@@ -437,7 +438,7 @@ derived_initials([], [], _, _, _, State, State) :-
     !.
 derived_initials(Missing, Unres, Formulas, DTExpr, Constants, State0, State) :-
     select(Key, Missing, Missing1),
-    copy_term(Formulas.get(Key), formula(Right,Bindings)),
+    member(Key-formula(Right,Bindings), Formulas),
     Constants >:< Bindings,
     State0 >:< Bindings,
     DTExpr >:< Bindings,
@@ -463,14 +464,15 @@ map_filled_placeholder(placeholder(_Type, Value), Result), number(Value) =>
 map_filled_placeholder(_, _) => fail.
 
 
-%!  missing_init(+Formulas, +Constants, +State, -Key) is nondet.
+%!  missing_init(+Formulas:pairs, +Constants:dict, +State:dict, -Key) is
+%!               nondet.
 %
 %   True when Key appears at the right side of an equation and refers to
 %   a variable for which there is no   constant and that does not appear
 %   in State.
 
 missing_init(Formulas, Constants, State, Key) :-
-    get_dict(_Left, Formulas, formula(Right, Bindings)),
+    member(_-formula(Right, Bindings), Formulas),
     \+ is_delta_function(Right),
     Bindings >:< Constants,
     Bindings >:< State,
@@ -483,7 +485,7 @@ missing_init(Formulas, Constants, State, Key) :-
 q_term_id(Options, Term, Id) :-
     q_term(Options, Term, q(Term,Id,_)).
 
-%!  formulas_needs_init(+Formulas, -NeedsInit:ordset) is det.
+%!  formulas_needs_init(+Formulas:pairs, -NeedsInit:ordset) is det.
 %
 %   Find the variables that require to be initialized.  That is
 %    - Any variable that depends on itself (i.e., integrations)
@@ -510,7 +512,8 @@ set_var_to_nan(_, V), var(V) =>
     V = 0.			% dubious
 set_var_to_nan(_, _) => true.
 
-%!  formulas_partial_odering(+Formulas, -Layers, -SelfLoops) is det.
+%!  formulas_partial_odering(+Formulas:pairs, -Layers, -SelfLoops) is
+%!                           det.
 %
 %   Create  a  partial  ordering  of  the    formulas   based  on  their
 %   dependencies.
@@ -581,13 +584,12 @@ shortest_cycle(Cycles, Cycle) :-
     map_list_to_pairs(length, Cycles, Keyed),
     keysort(Keyed, [_-Cycle|_]).
 
-%!  formulas_ugraph(+Formulas, -UGRaph) is det.
+%!  formulas_ugraph(+Formulas:pairs, -UGRaph) is det.
 %
 %   Create a ugraph holding all InVar-OutVar edges.
 
 formulas_ugraph(Formulas, UGRaph) :-
-    dict_pairs(Formulas, _, FPairs),
-    maplist(formula_edges, FPairs, EdgesL),
+    maplist(formula_edges, Formulas, EdgesL),
     append(EdgesL, Edges),
     vertices_edges_to_ugraph([], Edges, UGRaph).
 
