@@ -375,7 +375,7 @@ derived_constants__([Left-formula(Right, Bindings)|FT], Constants0,
     Bindings >:< Constants0,
     ground(Right), !,
     Value is Right,
-    Constants1 = Constants0.put(Left, Value),
+    Constants1 = [Left-Value|Constants0],
     derived_constants__(FT, Constants1, FPairs, Constants).
 derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
     derived_constants__(FT, Constants0, FPairs, Constants).
@@ -597,18 +597,17 @@ formula_edges(Left-formula(_Right,Bindings), Edges) :-
 mk_edge(LVar, RVal, RVal-LVar).
 
 
-%!  intern_constants(+Constants, -DTExpr, +FormualsIn, -Formuals) is det.
+%!  intern_constants(+Constants:pairs, -DTExpr, +FormualsIn:pairs,
+%!                   -Formuals:pairs) is det.
 %
 %   Simplify FormualsIn by binding the constants  and removing them from
 %   the bindings term of the formulas.
 
-intern_constants(Constants0, DTExpr, Formulas0, Formulas1) :-
+intern_constants(Constants0, DTExpr, Formulas0, Formulas) :-
     dt_expression(Formulas0, DTExpr),
     dict_keys(DTExpr, [DTName]),
-    del_dict(DTName, Constants0, _, Constants),
-    dict_pairs(Formulas0, f, Pairs0),
-    maplist(intern_constants_(Constants), Pairs0, Pairs1),
-    dict_pairs(Formulas1, f, Pairs1).
+    selectchk(DTName-_, Constants0, Constants),
+    maplist(intern_constants_(Constants), Formulas0, Formulas).
 
 intern_constants_(Constants,
                   Id-formula(Expr, Bindings),
@@ -626,12 +625,21 @@ instantiated_binding(_-I) => nonvar(I).
 %   variable name and allows binding  it  if   it  is  a constant as for
 %   _Euler_.
 %
+%   @arg Formulas is either a dict or list of pairs mapping Ids to
+%   terms formula(Expression, Bindings).
 %   @arg DTExpr is a dict _{DTName: DTVar}.
 %   @throws model_error(no_time_formulas)
 
 :- det(dt_expression/2).
 dt_expression(Formulas, DTExpr) :-
+    is_dict(Formulas),
     formula(T+DTVar, Dict) = Formulas.get(t),
+    T == Dict.t,
+    DTVar == Dict.DTName,
+    !,
+    dict_pairs(DTExpr, _, [DTName-DTVar]).
+dt_expression(Formulas, DTExpr) :-
+    member(t-formula(T+DTVar, Dict), Formulas),
     T == Dict.t,
     DTVar == Dict.DTName,
     !,
@@ -651,24 +659,27 @@ method_params(rk4, DTExpr, Constants, Formulas, DFormulas,
     dict_pairs(DTExpr, _, [DTName-_DTVar]),
     DT = Constants.DTName.
 
-%!  add_tracking(+Formulas:dict, +Constants, +State0, -State, +Options)
-%!               is det.
+%!  add_tracking(+Formulas:pairs, +Constants:pairs,
+%!		 +State0:dict, -State:dict, +Options) is det.
 %
-%   When track(all) is given, track the values for all formulas
+%   When track(all) is given, track the values for all formulas. We also
+%   have to do this for RK4.
 
 add_tracking(Formulas, Constants, State0, State, Options) :-
     (   option(track(all), Options)
     ;   option(method(rk4), Options)
     ),
     !,
-    dict_keys(Formulas, FKeys),
-    maplist(initial_value(Formulas, Constants, State0), FKeys, Pairs),
+    pairs_keys(Formulas, FKeys),
+    dict_pairs(ConstantDict, _, Constants),
+    maplist(initial_value(Formulas, ConstantDict, State0), FKeys, Pairs),
     dict_pairs(FState, _, Pairs),
     State = FState.put(State0).
 add_tracking(_, _, State, State, _).
 
 initial_value(Formulas, Constants, State0, Key, Key-Value) :-
-    copy_term(Formulas.get(Key), formula(Expr,Bindings)),
+    memberchk(Key-Formula, Formulas),
+    copy_term(Formula, formula(Expr,Bindings)),
     Bindings >:< State0,
     Bindings >:< Constants,
     catch(Value is Expr, error(_,_), fail),
