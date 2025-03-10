@@ -776,28 +776,34 @@ step(euler, S0, S) =>
 %   from S0.
 
 compile_formulas(rk4(DTName, _DT), Formulas, Ref) =>
-    dict_pairs(FDict, _, [DTName-_, t-_|Formulas]),
-    dict_same_keys(FDict, S0),
-    dict_same_keys(FDict, S),
+    step_state_dicts([DTName-_, t-_|Formulas], S0, S),
     partition(is_delta_formula, Formulas, Deltas, Normal),
     maplist(eval(S0, S), Normal, EvalNormal),
     maplist(eval_delta(S0, S), Deltas, EvalDelta),
     append(EvalNormal, EvalDelta, Eval),
-    comma_list(Body, Eval),
-    assertz((euler_step(S0, S) :- Body), Ref),
-    (   debugging(euler_step_clause)
-    ->  portray_clause(user_error, (euler_step(S0, S) :- Body))
-    ;   true
-    ),
-    ieee_floats.
+    assert_step(S0, S, Eval, Ref).
 compile_formulas(euler, Formulas, Ref) =>
+    step_state_dicts(Formulas, S0, S),
+    foldl(eval_seq(S0,S), Formulas, Eval, #{}, _),
+    assert_step(S0, S, Eval, Ref).
+
+%!  step_state_dicts(+Formulas, -S0, -S) is det.
+%
+%   True when S0 and S are two dicts with the same keys as the left side
+%   of each formula and unbound values.   The  generated stepping clause
+%   links these two dicts using a set of arithmetic expressions.
+
+step_state_dicts(Formulas, S0, S) :-
     dict_pairs(FDict, _, Formulas),
     dict_same_keys(FDict, S0),
-    dict_same_keys(FDict, S),
-    partition(is_delta_formula, Formulas, Deltas, Normal),
-    maplist(eval(S0, S), Normal, EvalNormal),
-    maplist(eval_delta(S0, S), Deltas, EvalDelta),
-    append(EvalNormal, EvalDelta, Eval),
+    dict_same_keys(FDict, S).
+
+%!  assert_step(+S0, +S, +Eval, -Ref) is det.
+%
+%   Generate the euler_step/2 clause. Ref is   the clause reference that
+%   is used to clean up the clause.
+
+assert_step(S0, S, Eval, Ref) :-
     comma_list(Body, Eval),
     assertz((euler_step(S0, S) :- Body), Ref),
     (   debugging(euler_step_clause)
@@ -818,6 +824,47 @@ eval_delta(S0, S, Key-formula(δ(Of), Bindings), Eval) =>
     get_dict(OfKey, S, V1),
     get_dict(OfKey, S0, V0),
     Eval = ( D1 is V1-V0 ).
+
+%!  eval_seq(+S0, +S, +Formula, -Eval, +IntermediateIn, -Intermediate)
+%!           is det.
+%
+%   Sequential     evaluation     of      formulas.       Note      tbat
+%   add_derivative_equations/2   guarantees   that   derivative   (δ(Q))
+%   equations always for follow the equation for Q.
+%
+%   @arg S0 is the step input state
+%   @arg S is the step output state
+%   @arg Formula is the formula to evaluate next
+%   @arg Eval is its compiled version
+%   @arg IntermediateIn contains the outputs of formulas evaluated
+%   earlier in the step.
+
+eval_seq(S0, S, Formula, Eval, I0, I) :-
+    copy_term(Formula, Formula1),             % variables can be shared
+    eval_seq_(S0, S, Formula1, Eval, I0, I).  % between formulas
+
+eval_seq_(S0, S, Key-formula(δ(Of), Bindings), Eval, I0, I) =>
+    I is I0.put(Key, D1),
+    get_dict(OfKey, Bindings, OfB),
+    assertion(Of == OfB),
+    get_dict(Key, S, D1),
+    get_dict(OfKey, S, V1),
+    (   get_dict(OfKey, I0, V0)
+    ->  true
+    ;   get_dict(OfKey, S0, V0)
+    ),
+    Eval = ( D1 is V1-V0 ).
+eval_seq_(S0, S, Key-formula(Expr, Bindings), Eval, I0, I) =>
+    Eval = (Value is Expr),
+    S1 = S0.put(I0),
+    S1 >:< Bindings,
+    get_dict(Key, S, Value),
+    I = I0.put(Key, Value).
+
+%!  clean_formulas(+Ref)
+%
+%   Cleanup after simulation completes:  remove   the  compiled stepping
+%   clause and reset arithmetic to default ISO Prolog mode.
 
 clean_formulas(Ref) :-
     iso_floats,
