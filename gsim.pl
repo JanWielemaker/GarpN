@@ -94,11 +94,13 @@ simulate(From, Series, Options) :-
     method_params(Method, DTExpr, Constants, Formulas1, Formulas2, MethodP),
     steps(0, Count, MethodP, Sample, Formulas2, State, Series).
 
-%!  read_model(+Source, -Formulas, -Constants, -State0, +Options) is det.
+%!  read_model(+Source, -Formulas:pairs, -Constants:pairs, -State0:dict,
+%!             +Options) is det.
 %
-%   @arg Formulas is a dict `QuantityId` -> formula(Expression,
-%   Bindings), where Bindings is a dict `QuantityId` -> `Var`.
-%   @arg Constants is a dict `ConstantId` -> `Value`.
+%   @arg Formulas is list of pairs `QuantityId` -
+%   formula(Expression, Bindings), where Bindings is a dict `QuantityId`
+%   -> `Var`.
+%   @arg Constants is a list of pairs `ConstantId` - `Value`.
 %   @arg State0 is a dict `QuantityId` -> `Value`.
 
 read_model(From, Formulas, Constants, State, Options) :-
@@ -110,7 +112,7 @@ read_model(From, Formulas, Constants, State, Options) :-
     maplist(q_term(Options), Quantities0, Quantities1), % q(Term,Id,Var)
     maplist(intern_model_term(Quantities1), Terms2, Terms3),
     validate_model(Terms3, Options),
-    foldl(model_expression, Terms3, m([], []), m(Formulas0, Init)),
+    split_formulas(Terms3, Formulas0, Init),
     initialise_model(Formulas0, Init, Formulas, Constants, State, Options).
 
 is_qspace(qspace(_Q,_Values)) => true.
@@ -277,27 +279,24 @@ supported_function(_) => fail.
 is_delta_function(δ(_)) => true.
 is_delta_function(_) => fail.
 
-%!  model_expression(+TermAndBindings, +Model0, -Model1) is det.
+%!  split_formulas(+Terms:pairs, -Formulas, -Init) is det.
 %
 %   Split the input into formulas and constants.
 
-model_expression(Term, m(FormulasIn, InitIn),  m(Formulas, Init)) :-
-    model_expression(Term, FormulasIn, Formulas, InitIn, Init).
-
-model_expression((Left := Right)-Bindings,
-                 FormulasIn, Formulas, InitIn, Init),
+split_formulas([], Formulas, Init) =>
+    Formulas = [],
+    Init = [].
+split_formulas([(Left := Right)-Bindings|Terms], Formulas, Init),
     dict_pairs(Bindings, _, [Id-Left]) =>         % Left only binding
-    Formulas = FormulasIn,
     (   is_placeholder(Right)
     ->  Value = Right
     ;   ground(Right)
     ->  Value is Right
     ;   Value = Right                             % only for incomplete formulas
     ),
-    Init = [Id-Value|InitIn].
-model_expression((Left := Right)-Bindings,
-                 FormulasIn, Formulas, InitIn, Init) =>
-    InitIn = Init,
+    Init = [Id-Value|Init1],
+    split_formulas(Terms, Formulas, Init1).
+split_formulas([(Left := Right)-Bindings|Terms], Formulas, Init) =>
     dict_pairs(Bindings, _, Pairs),
     select(Id-Var, Pairs, Pairs1),
     Var == Left,
@@ -307,7 +306,8 @@ model_expression((Left := Right)-Bindings,
     ;   assertion(same_variables(Right, Pairs1)),
         dict_pairs(RightBindings, _, Pairs1)
     ),
-    Formulas = [Id-formula(Right, RightBindings)|FormulasIn].
+    Formulas = [Id-formula(Right, RightBindings)|Formulas1],
+    split_formulas(Terms, Formulas1, Init).
 
 same_variables(T1, T2) :-
     term_variables(T1, V1), sort(V1, Vs1),
