@@ -647,17 +647,20 @@ dt_expression(Formulas, DTExpr) :-
 dt_expression(_, _) :-
     throw(model_error(no_time_formulas)).
 
-%!  method_params(+Method, +DTExpr, +Constants,
-%!                +FormulasIn, -FormulasOut, -MethodOut)
+%!  method_params(+Method:atom, +DTExpr:dict, +Constants:pairs,
+%!                +FormulasIn:pairs, -FormulasOut:pairs, -MethodOut)
+%
+%   When using RK4, find the time expression as this needs to be treated
+%   special.  Also remove the time expression from FormulasIn.
 
 method_params(euler, DTExpr, Constants, Formulas, Formulas, euler) :-
     DTExpr :< Constants.
 method_params(rk4, DTExpr, Constants, Formulas, DFormulas,
               rk4(DTName, DT)) :-
     $dict_keys(DTExpr, [DTName]),
-    del_dict(t, Formulas, _, DFormulas),
+    selectchk(t-_, Formulas, DFormulas),
     dict_pairs(DTExpr, _, [DTName-_DTVar]),
-    DT = Constants.DTName.
+    memberchk(DTName-DT, Constants).
 
 %!  add_tracking(+Formulas:pairs, +Constants:pairs,
 %!		 +State0:dict, -State:dict, +Options) is det.
@@ -705,10 +708,10 @@ order_formulas(Formulas, Layers) :-
 %
 %   @arg I numbers the simulation steps (0..)
 %   @arg N ends the simulation
-%   @arg Method is one of `euler` or `rk4`
+%   @arg Method is one of `euler` or rk4(DTName, DT)
 %   @arg Sample indicates that we create the output Series
 %   by sampling every N iterations.
-%   @arg Formulas is a dict `Id` -> formula(Expr,Bindings)
+%   @arg Formulas is a list of pairs `Id` - formula(Expr,Bindings)
 %   @arg State is a dict `Id` -> `Value`
 %   @arg Series is a list of dicts with the same state as
 %        `State` but different values.
@@ -716,7 +719,7 @@ order_formulas(Formulas, Layers) :-
 steps(I, N, Method, Sample, Formulas, State, Series) :-
     complete_state(State),
     setup_call_cleanup(
-        compile_formulas(Formulas, Ref),
+        compile_formulas(Method, Formulas, Ref),
         steps_(I, N, Method, Sample, State, Series),
         clean_formulas(Ref)).
 
@@ -759,11 +762,15 @@ step(euler, S0, S) =>
 
 :- thread_local euler_step/2.
 
-compile_formulas(Formulas, Ref) :-
-    dict_pairs(Formulas, _, Pairs),
-    dict_same_keys(Formulas, S0),
-    dict_same_keys(Formulas, S),
-    partition(is_delta_formula, Pairs, Deltas, Normal),
+%!  compile_formulas(+Method, +Formulas:pairs, -ClauseRef) is det.
+%
+%   Compile Formulas to a clause for euler_step/2.
+
+compile_formulas(_Method, Formulas, Ref) :-
+    dict_pairs(FDict, _, Formulas),
+    dict_same_keys(FDict, S0),
+    dict_same_keys(FDict, S),
+    partition(is_delta_formula, Formulas, Deltas, Normal),
     maplist(eval(S0, S), Normal, EvalNormal),
     maplist(eval_delta(S0, S), Deltas, EvalDelta),
     append(EvalNormal, EvalDelta, Eval),
