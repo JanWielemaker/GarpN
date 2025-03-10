@@ -70,7 +70,7 @@ group_classes(_,       Classes) => Classes = [collapsed].
 
 group_label(formula)    ==> html("Model equations").
 group_label(time)       ==> html("Time equations").
-group_label(init)       ==> html("Unknown initial values").
+group_label(init)       ==> html("Initial values").
 group_label(init_value) ==> html("Known initial values").
 group_label(constant)   ==> html("Constants").
 group_label(Label)      ==> html(Label).
@@ -573,8 +573,8 @@ classify_equation(_, 'Δt' := _, Order) =>
 classify_equation(Eql, Left := Number, Order), number(Number) =>
     (   member(Left := Right, Eql),
         Right \== Number
-    ->  eq_type_order(init_value, Order)
-    ;   eq_type_order(constant, Order)
+    ->  eq_type_order(init, Order)      % both formula and value
+    ;   eq_type_order(constant, Order)  % only value (constant)
     ).
 classify_equation(_, _Left := placeholder(Type,_), Order) =>
     eq_type_order(Type, Order).
