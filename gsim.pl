@@ -142,30 +142,36 @@ read_stream_to_terms_(T0, In, [T0|Terms], Options) :-
     read_term(In, T1, Options),
     read_stream_to_terms_(T1, In, Terms, Options).
 
-%!  add_derivative_equations(Equations0, Equations) is det.
-
-add_derivative_equations(Equations0, Equations) :-
-    derivative_equations(Equations0, DEquations),
-    append(Equations0, DEquations, Equations).
-
-%!  derivative_equations(+Equations, -DEquations) is det.
+%!  add_derivative_equations(+EquationsIn, -Equations) is det.
 %
 %   If there are formulas that use the   derivative  of some quantity as
 %   inputs while only the quantity itself exists, add an equation
 %
 %       'ΔQ' := δ(Q).
+%
+%   after the equation for Q.
 
-derivative_equations(Equations, DEquations) :-
-    equation_quantities(Equations, Quantities),
-    findall(DQ, dependent_derivative(Equations, DQ), DQs0),
+add_derivative_equations(Equations0, Equations) :-
+    equation_quantities(Equations0, Quantities),
+    findall(DQ, dependent_derivative(Equations0, DQ), DQs0),
     sort(DQs0, DQs),
     ord_subtract(DQs, Quantities, Required),
-    maplist(d_equation, Required, DEquations).
+    insert_derirative_equations(Equations0, Required, Equations).
 
 dependent_derivative(Equations, DQ) :-
     member(_Q := Expr, Equations),
     sub_term(DQ, Expr),
     is_derivative_term(DQ).
+
+insert_derirative_equations([], _, []).
+insert_derirative_equations([H|T0], Required, [H,DQ,T]) :-
+    quantity(H, Q),
+    memberchk(Q, Required),
+    !,
+    d_equation(Q, DQ),
+    insert_derirative_equations(T0, Required, T).
+insert_derirative_equations([H|T0], Required, [H,T]) :-
+    insert_derirative_equations(T0, Required, T).
 
 d_equation(DQ, DQ := δ(Q)) :-
     term_derivative(Q, DQ).
