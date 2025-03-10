@@ -374,7 +374,8 @@ derived_constants__([Left-formula(Right, Bindings)|FT], Constants0,
                     FPairs, Constants) :-
     Bindings >:< Constants0,
     ground(Right), !,
-    Value is Right,
+    map_filled_placeholders(Right, Right1),
+    Value is Right1,
     Constants1 = [Left-Value|Constants0],
     derived_constants__(FT, Constants1, FPairs, Constants).
 derived_constants__([FH|FT], Constants0, [FH|FPairs], Constants) :-
