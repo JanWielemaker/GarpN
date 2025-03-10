@@ -764,7 +764,16 @@ step(euler, S0, S) =>
 
 %!  compile_formulas(+Method, +Formulas:pairs, -ClauseRef) is det.
 %
-%   Compile Formulas to a clause for euler_step/2.
+%   Compile Formulas to a clause for   euler_step/2.  When using RK4, we
+%   must re-add the time formulas for  eval_d/5   to  work.  We have two
+%   modes.  For RK4, we use the first.
+%
+%     - Evaluate all formulas relative to S0 to create S1
+%     - Evaluate the formulas in order, where the next formula
+%       takes the value just computed by an earlier.
+%
+%   This predicate asserts a clause for   euler_step/2  that computes S1
+%   from S0.
 
 compile_formulas(rk4(DTName, _DT), Formulas, Ref) =>
     dict_pairs(FDict, _, [DTName-_, t-_|Formulas]),
