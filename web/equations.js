@@ -250,12 +250,15 @@ function activateSortable(eql) {
  * a message.
  */
 
-function ml_errors(errors, eql)
-{ eql = eql||document.getElementById("equations");
-  let sub=1
+function ml_errors(errors, equations) {
+  equations = equations||document.getElementById("equations");
+  const eql = equations.querySelectorAll("div.equation");
 
-  for(e of errors)
-  { const eq = eql.children[e.line-sub];
+  for(e of errors) {
+    e.equation = eql[e.line-1];
+  }
+
+  for(e of errors) {
     const div = document.createElement("div");
 
     div.classList.add("ml-error");
@@ -263,7 +266,6 @@ function ml_errors(errors, eql)
       div.innerHTML = e.html;
     else
       div.textContent = e.message;
-    eq.after(div);
-    sub--;
+    e.equation.after(div);
   }
 }
