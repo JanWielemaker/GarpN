@@ -766,7 +766,22 @@ step(euler, S0, S) =>
 %
 %   Compile Formulas to a clause for euler_step/2.
 
-compile_formulas(_Method, Formulas, Ref) :-
+compile_formulas(rk4(DTName, _DT), Formulas, Ref) =>
+    dict_pairs(FDict, _, [DTName-_, t-_|Formulas]),
+    dict_same_keys(FDict, S0),
+    dict_same_keys(FDict, S),
+    partition(is_delta_formula, Formulas, Deltas, Normal),
+    maplist(eval(S0, S), Normal, EvalNormal),
+    maplist(eval_delta(S0, S), Deltas, EvalDelta),
+    append(EvalNormal, EvalDelta, Eval),
+    comma_list(Body, Eval),
+    assertz((euler_step(S0, S) :- Body), Ref),
+    (   debugging(euler_step_clause)
+    ->  portray_clause(user_error, (euler_step(S0, S) :- Body))
+    ;   true
+    ),
+    ieee_floats.
+compile_formulas(euler, Formulas, Ref) =>
     dict_pairs(FDict, _, Formulas),
     dict_same_keys(FDict, S0),
     dict_same_keys(FDict, S),
@@ -814,7 +829,7 @@ is_delta_formula(_) => fail.
 
 
 
-%!  eval_d(+Formulas, +T, +DT, +H, +Y0, -K) is det.
+%!  eval_d(+T, +DT, +H, +Y0, -K) is det.
 %
 %   K is the derivative of Formulas at T and Y0.
 %
@@ -827,7 +842,9 @@ eval_d(T, DT, H, Y0, K) :-
     dict_pairs(Extra, _, [DT-H,t-T]),
     Y1 = Y0.put(Extra),
     euler_step(Y1, Y2),
-    derivative_(Y0,Y2,H,K).
+    del_dict(DT, Y2, _, Y2a),
+    del_dict(t, Y2a, _, Y2b),
+    derivative_(Y0,Y2b,H,K).
 
 derivative_(Y0, Y1, H, K) :-
     mapdict(derivative__(H), Y0, Y1, K).
