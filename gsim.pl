@@ -110,7 +110,7 @@ read_model(From, Formulas, Constants, State, Options) :-
     maplist(q_term(Options), Quantities0, Quantities1), % q(Term,Id,Var)
     maplist(intern_model_term(Quantities1), Terms2, Terms3),
     validate_model(Terms3, Options),
-    foldl(model_expression, Terms3, m(f{}, i{}), m(Formulas0, Init)),
+    foldl(model_expression, Terms3, m([], []), m(Formulas0, Init)),
     initialise_model(Formulas0, Init, Formulas, Constants, State, Options).
 
 is_qspace(qspace(_Q,_Values)) => true.
@@ -164,13 +164,13 @@ dependent_derivative(Equations, DQ) :-
     is_derivative_term(DQ).
 
 insert_derirative_equations([], _, []).
-insert_derirative_equations([H|T0], Required, [H,DQ,T]) :-
+insert_derirative_equations([H|T0], Required, [H,DQ|T]) :-
     quantity(H, Q),
     memberchk(Q, Required),
     !,
     d_equation(Q, DQ),
     insert_derirative_equations(T0, Required, T).
-insert_derirative_equations([H|T0], Required, [H,T]) :-
+insert_derirative_equations([H|T0], Required, [H|T]) :-
     insert_derirative_equations(T0, Required, T).
 
 d_equation(DQ, DQ := δ(Q)) :-
@@ -294,7 +294,7 @@ model_expression((Left := Right)-Bindings,
     ->  Value is Right
     ;   Value = Right                             % only for incomplete formulas
     ),
-    Init = InitIn.put(Id, Value).
+    Init = [Id-Value|InitIn].
 model_expression((Left := Right)-Bindings,
                  FormulasIn, Formulas, InitIn, Init) =>
     InitIn = Init,
@@ -307,25 +307,33 @@ model_expression((Left := Right)-Bindings,
     ;   assertion(same_variables(Right, Pairs1)),
         dict_pairs(RightBindings, _, Pairs1)
     ),
-    Formulas = FormulasIn.put(Id, formula(Right, RightBindings)).
+    Formulas = [Id-formula(Right, RightBindings)|FormulasIn].
 
 same_variables(T1, T2) :-
     term_variables(T1, V1), sort(V1, Vs1),
     term_variables(T2, V2), sort(V2, Vs2),
     Vs1 == Vs2.
 
-%!  initialise_model(+FormulasIn, +Init, -Formulas, -Constants, -State,
-%!                   +Options) is det.
+%!  initialise_model(+FormulasIn:pairs, +Init:pairs, -Formulas:pairs,
+%!                   -Constants:pairs, -State:dict, +Options) is det.
 %
 %   Determine the final set  of  formulas,   constants  and  the initial
 %   state. Mathematically, we can  set  Δt   to  zero  and propagate all
 %   constants and equations.
+%
+%   @arg FormulasIn is a list of Id-formula(Right,RightBindings)
+%   @arg Init is a list of Id-Value, where Value can be an expression
+%   if not all constants are known.
 
 initialise_model(Formulas0, Init, Formulas, Constants, State, Options) :-
     split_init(Init, Formulas0, Constants0, State0),
-    copy_term(Formulas0, Formulas1),
+    dict_pairs(FormulaDict0, #, Formulas0),
+    copy_term(FormulaDict0, FormulaDict1),
     derived_constants(Formulas0, Constants0, Formulas, Constants),
-    derived_initial_state(Formulas1, Constants, State0, State, Options).
+    dict_pairs(ConstantsDict, #, Constants),
+    dict_pairs(StateDict0, #, State0),
+    derived_initial_state(FormulaDict1, ConstantsDict,
+                          StateDict0, State, Options).
 
 %!  split_init(+Init, +Formulas, -Constants, -State) is det.
 %
@@ -333,15 +341,12 @@ initialise_model(Formulas0, Init, Formulas, Constants, State, Options) :-
 %   with constants and the initial  state  dict.   Both  map  an id to a
 %   concrete number.
 
-split_init(Init, Formulas, Constants, State) :-
-    dict_pairs(Init, _, Pairs),
-    split_init_(Pairs, Formulas, ConstantPairs, StatePairs),
-    dict_pairs(Constants, _, ConstantPairs),
-    dict_pairs(State, _, StatePairs).
+split_init(Init, Formulas, Constants, StatePairs) :-
+    split_init_(Init, Formulas, Constants, StatePairs).
 
 split_init_([], _, [], []).
 split_init_([Id-Value|T], Formulas, ConstantPairs, [Id-Value|StatePairs]) :-
-    get_dict(Id, Formulas, _),
+    memberchk(Id-_, Formulas),
     !,
     split_init_(T, Formulas, ConstantPairs, StatePairs).
 split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
@@ -354,9 +359,7 @@ split_init_([Id-Value|T], Formulas, [Id-Value|ConstantPairs], StatePairs) :-
 %   value to Constants.
 
 derived_constants(Formulas0, Constants0, Formulas, Constants) :-
-    dict_pairs(Formulas0, FTag, FPairs0),
-    derived_constants_(FPairs0, Constants0, FPairs, Constants),
-    dict_pairs(Formulas, FTag, FPairs).
+    derived_constants_(Formulas0, Constants0, Formulas, Constants).
 
 derived_constants_(FPairs0, Constants0, FPairs, Constants) :-
     derived_constants__(FPairs0, Constants0, FPairs1, Constants1),
