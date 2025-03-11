@@ -156,6 +156,17 @@ function eq_prep(eq, quantities)
   }
 }
 
+// The idea is  that if we need scrolling, we  disable the max-height;
+// such that the  user can resize. Somehow the scrollbar  comes up too
+// early.  The +20 avoids this, but why is it needed?
+
+function allow_resize(grp) {
+  if ( grp.scrollHeight > grp.clientHeight+20 ) {
+    grp.style.height = "30ex";
+    grp.style.maxHeight = "none";
+  }
+}
+
 function ml_init(quantities)
 { const eql = document.getElementById("equations");
   state.quantities = quantities;
@@ -171,14 +182,9 @@ function ml_init(quantities)
   activateCollapse(eql);
   activateSortable(eql);
 
-  setTimeout(() => {
-    console.log(eql.scrollHeight, eql.clientHeight);
-    if ( eql.scrollHeight > eql.clientHeight )
-    { console.log("Needs scrolling");
-      eql.style.height = "30ex";
-      eql.style.maxHeight = "none";
-    }
-  });
+  for(let grp of eql.querySelectorAll("div.equations")) {
+    allow_resize(grp);
+  }
 }
 
 function ml_value(eql)
@@ -222,6 +228,8 @@ function activateCollapse(eql) {
   function collapse(ev) {
     const me = ev.target.closest("div.eq-group");
     me.classList.toggle("collapsed");
+    if ( !me.classList.contains("collapsed") )
+      allow_resize(me.querySelector("div.equations"));
   }
 
   for(hdr of hdrs) {

@@ -30,6 +30,15 @@
    - Introduce units?  That may help finding sensible
      values for the constants.
    - (Re)name constants?
+ - Equation management
+   - Allow renaming constants
+   - Allow adding constants.  Make new constants appear
+     in the Constants folder.
+   - Show and allow editing constants in the formula
+     in which it appears.
+   - Allow adding units.
+   - Provide menu with (domain dependent) additional
+     functions.
  - Dynalearn integration
    - How does this server integrate with Dynalearn?
    - How are the UI components integrated/migrated?
@@ -48,7 +57,7 @@
 ## Issues
 
  - Should P(+) in quantity space mean `X = c*Y` or
-   `X is X+c*Y`.
+   `X is X+c*Y`?
  - Invalid equation warning below equation			[fixed]
 
 ## Notes
