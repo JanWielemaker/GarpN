@@ -53,6 +53,7 @@
      - State detection
 	 - Asymptotes
  - Validate correspondences
+ - Initial steps: no value
 
 ## Issues
 
