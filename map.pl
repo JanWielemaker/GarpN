@@ -12,7 +12,9 @@
             q_exogenous/3,              % +Model, ?Quantity, ?Exegenous
             exogenous/1,                % ?Class
             m_qspace/4,                 % +ModelId, ?QspaceId, ?Qspace, ?Values
-            qspace_point_value/2        % +Name, -Number
+            qspace_point_value/2,       % +Name, -Number
+            linked_state//2,            % ?State, ?To
+            not_linked_states//1        % -States
           ]).
 :- if(\+current_prolog_flag(dynalearn, true)).
 :- export(save_garp_results/1).
@@ -824,6 +826,31 @@ add_state(GarpStates, State0, State) :-
 
 matching_state(State, _Id-GarpState) :-
     \+ \+ State >:< GarpState.
+
+%!  linked_state(?State, ?To)// is semidet.
+%
+%   True when State is linked to the Garp states in To.
+
+linked_state(State, To) -->
+    [State],
+    { To = State.get(garp_states),
+      To = [_|_]
+    }.
+
+%!  not_linked_states(-States:list)// is multi.
+%
+%   True when States is a list  of   qualitative  states  that cannot be
+%   matched to Garp.
+
+not_linked_states([]) -->
+    [].
+not_linked_states([H|T]) -->
+    not_linked_state(H),
+    not_linked_states(T).
+
+not_linked_state(State) -->
+    [State],
+    { \+ State.get(garp_states) = [_|_] }.
 
 %!  q_series(+Model, -QSeries, +Options) is det.
 %

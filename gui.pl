@@ -847,24 +847,11 @@ d2(_Key, _V, [0,1]).
 
 info_seq(Time, States) -->
     ...,
-    linked(Before), not_linked_list(BL), timed(Time,State),
+    linked_state(Before,_),
+    not_linked_states(BL), timed(Time,State),
     { \+ State.get(garp_states) = [_|_] },
-    not_linked_list(AL), linked(After), !,
+    not_linked_states(AL), linked_state(After, _), !,
     { append([[Before], BL, [State], AL, [After]], States) }.
-
-linked(State) -->
-    [State],
-    { State.get(garp_states) = [_|_] }.
-
-not_linked_list([]) -->
-    [].
-not_linked_list([H|T]) -->
-    not_linked(H),
-    not_linked_list(T).
-
-not_linked(State) -->
-    [State],
-    { \+ State.get(garp_states) = [_|_] }.
 
 timed(Time, State) -->
     [State],
