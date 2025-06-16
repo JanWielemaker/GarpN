@@ -323,6 +323,7 @@ qrel_nrel([exogenous(Dep,exogenous_steady)],
 %   during the simulation to verify all constraints are satisfied.
 
 correspondence_rel(dir_q_correspondence(_,_)).
+correspondence_rel(dir_mirror_q_correspondence(_,_)).
 correspondence_rel(dir_v_correspondence(_,_)).
 correspondence_rel(q_correspondence(_,_)).
 correspondence_rel(v_correspondence(_,_,_,_)).
