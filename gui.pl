@@ -196,17 +196,17 @@ init_model_menu -->
     !,
     html(span(class('init-model-buttons'),
               [ \refresh_model_button,
-                \model_button('\U0001F9F9', wipe_model,    "Clear model"),
+                \model_button('🧹', wipe_model,    "Clear model"),
                 \save_model_button,
-                \model_button('\U0001F4E5', load_model,
+                \model_button('📥', load_model,
                               "Load reference model"),
-                \propose_model_button('\u2728',     propose_model_q,
+                \propose_model_button('✨',     propose_model_q,
                                       "Propose model (quantities)"),
-                \propose_model_button('\U0001F320', propose_model_d,
+                \propose_model_button('🌠', propose_model_d,
                                       "Propose model (derivatives)"),
                 \propose_model_button(span(style('font-size:75%'),
-                                           [ sup('\u2728'),/,
-                                             sub('\U0001F320')
+                                           [ sup('✨'),/,
+                                             sub('🌠')
                                            ]),
                                       propose_model_qd,
                                       "Propose model (mixed)")
@@ -238,7 +238,7 @@ save_model_button -->
                                  qspaces: get_jqspaces()}'),
                   'hx-target'('#status'),
                   title('Save as reference model')
-                ], '\U0001F4E4')).
+                ], '📤')).
 
 %!  right_controls(+Model)//
 %
@@ -460,7 +460,7 @@ refresh_model_button -->
                                  qspaces: get_jqspaces()}'),
                   'hx-target'('#qspace-controls'),
                   title('Reload qualitative model from Dynalearn')
-                ], '\U0001F504')).
+                ], '🔄')).
 
 
 %!  refresh_model(Request)
@@ -1177,10 +1177,10 @@ th_label(Key) -->
 h_label(d(1), 'Δ').
 h_label(d(2), 'Δ²').
 h_label(d(3), 'Δ³').
-h_label(value, '\U0001D4E5').
+h_label(value, '𝓥').
 
-v_label(plus) --> html(span(class(plus), '\u25B2')).
-v_label(min)  --> html(span(class(min),  '\u25BC')).
+v_label(plus) --> html(span(class(plus), '▲')).
+v_label(min)  --> html(span(class(min),  '▼')).
 v_label(zero) --> html(span(class(zero), '0')).
 
 %!  run_model(+Request)
@@ -1208,6 +1208,7 @@ run_model(Request) :-
     form_derivatives(Form, Derivatives),
     id_mapping(Model, IdMapping),
     qspaces(Model, JQspaces, QSpaces),
+    latex_to_prolog_ex(MlSource, Equations),
     Options = [ model(Model),
                 match(Derivatives),
                 iterations(Iterations),
@@ -1215,9 +1216,9 @@ run_model(Request) :-
                 track(Track),
                 sample(Sample),
                 id_mapping(IdMapping),
-                qspaces(QSpaces)
+                qspaces(QSpaces),
+                equations(Equations)
               ],
-    latex_to_prolog_ex(MlSource, Equations),
     call_time(simulate(terms(Equations), Series0, Options), Time),
     init_derivatives(Series0, Series, IdMapping),
     annotate_garp_states(Series, Shapes, Options),
