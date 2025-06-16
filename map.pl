@@ -807,6 +807,9 @@ opt_link_garp_states(Series, Series, _).
 %       The Garp model.  Used to find the Garp states.
 %     - garp_states(-States)
 %       Unify States with the retrieved Garp states.
+%     - equations(+Equations:list)
+%       The numeric model as a list of `X := Expr` terms. Used to
+%       extract 'Δt' to determine whether states are "close in time".
 
 link_garp_states(QSeries0, QSeries, Options) :-
     option(model(Model), Options, engine),
