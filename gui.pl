@@ -1495,6 +1495,9 @@ order_derivatives(Key-List, Key-Set) :-
     sort(List, Set).
 
 %!  annotate_garp_states(+Series, -Shapes, +Options) is det.
+%
+%   Given a numerical  simulation  in   Series,  derive  the qualitative
+%   states and link these to the output of the qualitative simulation.
 
 annotate_garp_states(Series, Shapes, Options) :-
     option(match(Derivatives), Options),
