@@ -344,14 +344,18 @@ se_isa(Instance, Super, SEList) :-
 %
 %   True when State can be reached from FromList.
 
+m_qstate_from(_, 1, [0]).
+m_qstate_from(ModelId, State, FromList) :-
+    m_qstate_from_(ModelId, State, FromList).
+
 :- if(current_prolog_flag(dynalearn, true)).
-m_qstate_from(ModelId, State, From) :-
+m_qstate_from_(ModelId, State, From) :-
     dynalearn_model(ModelId, ModelData),
     member(qstate_from(State, From), ModelData.results.qstate_graph).
 :- else.
-m_qstate_from(engine, State, From) =>
+m_qstate_from_(engine, State, From) =>
     engine:qstate_from(State, From).
-m_qstate_from(Model, State, From) =>
+m_qstate_from_(Model, State, From) =>
     ensure_loaded_model(Model, qstate_from/2),
     Model:qstate_from(State, From).
 :- endif.
@@ -853,6 +857,11 @@ link_garp_states(QSeries0, QSeries, Options) :-
     option(garp_states(GarpStates), Options, _),
     maplist(add_state(GarpStates), QSeries0, QSeries1),
     merge_states(QSeries1, GarpStates, QSeries, Options).
+
+%!  add_state(+GarpStates, +State0, -State) is det.
+%
+%   Add a property `garp_states` holding a  list of (numeric) Garp state
+%   Ids for Garp states that match State0.
 
 add_state(GarpStates, State0, State) :-
     include(matching_state(State0), GarpStates, Matching),
