@@ -883,10 +883,12 @@ merge_states(QSeries, GarpStates, Options) -->
     seq(BSeq),
     linked_state(Before, ATo),
     not_linked_states(Unmatched),
-    { Unmatched \== []
-    },
     peek_linked_state(After, ZTo),
-    { member(A, ATo),
+    { (   Unmatched \== []
+      ->  true
+      ;   \+ garp_valid_transition(ATo, ZTo, Options)
+      ),
+      member(A, ATo),
       member(Z, ZTo),
       garp_gap(A, Z, GarpStateNums, Options),
       sync_states(GarpStateNums, GarpStates, Before, Unmatched, After, Synced, Options),
@@ -900,6 +902,18 @@ merge_states(QSeries, _GarpStates, _Options) -->
 
 seq([]) --> [].
 seq([H|T]) --> [H], seq(T).
+
+%!  garp_valid_transition(+FromSet, +ToSet, +Options)
+%
+%   True if there is a state transition   from  any member of FromSet to
+%   any member of ToSet in the Garp state graph.
+
+garp_valid_transition(FromSet, ToSet, Options) :-
+    option(model(Model), Options, engine),
+    member(From, FromSet),
+    member(To, ToSet),
+    qstate_from(Model, To, From),
+    !.
 
 %!  garp_gap(+From, +To, -Seq, +Options) is nondet.
 %
@@ -942,15 +956,15 @@ sync_states([H], GarpStates, Before, Unmatched, After, [Synced], Options) :-
     append([[Before],Unmatched,[After]], Seq),
     memberchk(H-GState, GarpStates),
     mapdict(match_quantity(Seq, Qspaces), GState),
-    middle_element(Unmatched, Middle),
-    Synced = GState.put(#{t:Middle.t, garp_states:[H]}).
+    vtime_stamp(Before, Unmatched, After, T),
+    Synced = GState.put(#{t:T, garp_states:[H]}).
 
 match_quantity(_, _, t, _) =>                          % Limit the time?
     true.
 match_quantity(_, _, garp_states, _) =>
     true.
-match_quantity(Seq, QSpaces, Q, d(V,D1,D2,D3)) =>
-    maplist(get_dict(Q), Seq, DLs),
+match_quantity(Seq, QSpaces, Q, d(V,D1,D2,D3)),
+    maplist(get_dict(Q), Seq, DLs) =>
     maplist(arg(1), DLs, Values),
     match_values(V, Values, QSpaces.get(Q,[])),
     maplist(arg(2), DLs, D1s),
@@ -959,34 +973,88 @@ match_quantity(Seq, QSpaces, Q, d(V,D1,D2,D3)) =>
     match_derivatives(D2, D2s),
     maplist(arg(4), DLs, D3s),
     match_derivatives(D3, D3s).
+match_quantity(_Seq, _QSpaces, _Q, d(_V,_D1,_D2,_D3)) =>
+    true.                                              % not simulated
 
 match_values(V, _, _), var(V) => true.
-match_values(point(Pt), Values, QSpace),
-    append(_, [Below,point(Pt),Above|_], QSpace) =>
-    phrase(match_traverse_value(Below, point(Pt), Above), Values).
-match_values(point(Pt), Values, QSpace),
-    QSpace = [point(Pt),Above|_] =>
-    (   phrase((opt_seqof(point(Pt)),opt_seqof(Above)), Values)
+match_values(Pt, Values, QSpace),
+    phrase(i_transition(Below,Pt,Above), QSpace) =>
+    phrase(match_traverse_value(Below, Pt, Above), Values).
+match_values(Pt, Values, QSpace),
+    phrase(i_adjacent(Pt,Interval), QSpace) =>
+    (   phrase((opt_seqof(Pt),opt_seqof(Interval)), Values)
     ->  true
-    ;   phrase((opt_seqof(Above),opt_seqof(point(Pt))), Values)
+    ;   phrase((opt_seqof(Interval),opt_seqof(Pt)), Values)
     ->  true
     ).
-match_values(point(Pt), Values, QSpace),
-    append(_, [Below,point(Pt)], QSpace) =>
-    (   phrase((opt_seqof(Below),opt_seqof(point(Pt))), Values)
+match_values(Interval, Values, QSpace),
+    phrase(v_between(Below, Interval, Above), QSpace) =>
+    member(End, [Below, Above]),
+    (   phrase((opt_seqof(End),seqof(Interval)), Values)
     ->  true
-    ;   phrase((opt_seqof(point(Pt)),opt_seqof(Below)), Values)
+    ;   phrase((seqof(Interval),opt_seqof(End)), Values)
+    ->  true
+    ).
+match_values(Interval, Values, QSpace),
+    phrase(v_adjacent(Interval, End), QSpace) =>
+    (   phrase((opt_seqof(End),seqof(Interval)), Values)
+    ->  true
+    ;   phrase((seqof(Interval),opt_seqof(End)), Values)
     ->  true
     ).
 match_values(Interval, Values, _QSpace) =>
     phrase(seqof(Interval), Values),
     !.
 
+%!  i_transition(-Below,+Pt,-Above)//
+%
+%   True if Pt is a point between two intervals
+
+i_transition(Below,Pt,Above) -->
+    ..., [Below], point(Pt), [Above], ... .
+
+%!  i_adjacent(+Pt, -Interval)//
+%
+%   True if Pt is at the start or  end of a quantity space with Interval
+%   adjacent.
+
+i_adjacent(Pt, Interval) -->
+    point(Pt), [Interval], ... .
+i_adjacent(Pt, Interval) -->
+    ..., [Interval], point(Pt).
+
+%!  v_adjacent(+Interval, -Pt)//
+%
+%   True if Pt is above or below Interval
+
+v_adjacent(Interval, Pt) -->
+    { atom(Interval) },
+    ..., [Interval], point(Pt).
+v_adjacent(Interval, Pt) -->
+    { atom(Interval) },
+    point(Pt), [Interval], ... .
+
+v_between(Below, Interval,  Above) -->
+    { atom(Interval) },
+    ..., point(Below), [Interval], point(Above), ... .
+
+... --> [] ; [_], ... .
+
+
+point(point(P1)) -->
+    [point(P2)],
+    { eq_point(P1, P2) }.
+
+eq_point(Pt, Pt) => true.
+eq_point(Name=_, Name) => true.
+eq_point(Name, Name=_) => true.
+eq_point(_, _) => fail.
+
 match_derivatives(D, _DL), var(D) => true.
 match_derivatives(zero,  DL) =>
     phrase(match_traverse_derivative(min, zero, plus), DL).
 match_derivatives(PM,  DL) =>
-    phrase(seqof(PM), DL),
+    phrase(match_derivative(PM), DL),
     !.
 
 match_traverse_value(Below, point(Pt), Above) -->
@@ -1027,15 +1095,37 @@ match_traverse_derivative(Below, _, Above) -->
     seqof(Above),
     !.
 
-seqof(V) --> [V0], { \+ V \= V0 }, opt_seqof(V).
+match_derivative(PM) -->
+    opt_seqof(zero), seqof(PM),
+    !.
+match_derivative(PM) -->
+    seqof(PM), opt_seqof(zero),
+    !.
 
-opt_seqof(V) --> [V0], { \+ V \= V0 }, opt_seqof(V).
+%!  seqof(+Value)//
+%
+%   Match a non-empty sequence of Value.
+
+seqof(V) --> [V0], { match(V, V0) }, opt_seqof(V).
+
+%!  opt_seqof(+Value)//
+%
+%   Match a possibly empty sequence of Value.
+
+opt_seqof(V) --> [V0], { match(V, V0) }, opt_seqof(V).
 opt_seqof(_) --> [].
 
-middle_element(List, Element) :-
-    length(List, Len),
-    MidIndex is (Len - 1) // 2,
-    nth0(MidIndex, List, Element).
+match(V1, V2) :- \+ V1 \= V2, !.
+match(point(P1), point(P2)) :- eq_point(P1, P2).
+
+vtime_stamp(_Before, [U1|_], _After, T) =>
+    T = U1.t.
+vtime_stamp(Before, _, After, DT) =>
+    d(T1,D11,_,_) = Before.t,
+    d(T2,D12,_,_) = After.t,
+    normal_mid(T1, T2, Ti),
+    normal_mid(D11, D12, Di),
+    DT = d(Ti,Di,_,_).
 
 %!  linked_state(?State, ?To)// is semidet.
 %
