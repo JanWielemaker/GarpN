@@ -334,6 +334,22 @@ se_isa(Instance, Super, SEList) :-
     se_isa(Parent, Super, SEList).
 :- endif.
 
+%!  m_qstate_from(+ModelId, ?State, ?FromList) is nondet.
+%
+%   True when State can be reached from FromList.
+
+:- if(current_prolog_flag(dynalearn, true)).
+m_qstate_from(ModelId, State, From) :-
+    dynalearn_model(ModelId, ModelData),
+    member(qstate_from(State, From), ModelData.results.qstate_graph).
+:- else.
+m_qstate_from(engine, State, From) =>
+    engine:qstate_from(State, From).
+m_qstate_from(Model, State, From) =>
+    ensure_loaded_model(Model, qstate_from/2),
+    Model:qstate_from(State, From).
+:- endif.
+
 %!  exogenous(?Class)
 %
 %   True when Class identifies an exogenous object.
@@ -857,9 +873,7 @@ merge_states(QSeries, GarpStates, Options) -->
     peek_linked_state(After, ZTo),
     { member(A, ATo),
       member(Z, ZTo),
-      A1 is A+1,
-      Z1 is Z-1,
-      numlist(A1, Z1, GarpStateNums),
+      garp_gap(A, Z, GarpStateNums, Options),
       sync_states(GarpStateNums, GarpStates, Before, Unmatched, After, Synced, Options),
       !,
       append([BSeq, [Before], Synced], Replaced),
@@ -871,6 +885,26 @@ merge_states(QSeries, _GarpStates, _Options) -->
 
 seq([]) --> [].
 seq([H|T]) --> [H], seq(T).
+
+%!  garp_gap(+From, +To, -Seq, +Options) is nondet.
+%
+%   True when Seq is a list of Garp state (numbers) that link up From to
+%   To, _exluding_ From and To itself.
+
+garp_gap(From, To, Seq, Options) :-
+    option(model(Model), Options, engine),
+    qstate_from(Model, First, From),
+    qstate_from(Model, To, Last),
+    garp_sequence(First, Last, Seq, Model).
+
+garp_sequence(State, State, [State], _).
+garp_sequence(First, Last, [First|Seq], Model) :-
+    qstate_from(Model, State, First),
+    garp_sequence(State, Last, Seq, Model).
+
+qstate_from(Model, To, From) :-
+    m_qstate_from(Model, To, FTo),
+    member(From, FTo).
 
 %!  sync_states(+GarpStateNums, +GarpStates,
 %!              +Before, +Unmatched, +After,
