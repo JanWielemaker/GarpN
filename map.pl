@@ -887,8 +887,7 @@ merge_states(QSeries, GarpStates, Options) -->
     { (   Unmatched \== []
       ->  true
       ;   \+ garp_valid_transition(ATo, ZTo, Options),
-          \+ (member(X, ATo), memberchk(X, ZTo)),       % not a real transition
-          gtrace
+          \+ (member(X, ATo), memberchk(X, ZTo))        % not a real transition
       ),
       member(A, ATo),
       member(Z, ZTo),
