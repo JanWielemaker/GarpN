@@ -1141,8 +1141,11 @@ copy_arg(A, I, O) :-
 %   end time.
 
 simplify_qseries(Series0, Series, Options) :-
-    option(qspaces(QSpaces), Options),
-    insert_points(Series0, Series1, QSpaces),
+    (   option(insert_point_traversal(true), Options, true)
+    ->  option(qspaces(QSpaces), Options),
+        insert_points(Series0, Series1, QSpaces)
+    ;   Series1 = Series0
+    ),
     removes_equal_sequences(Series1, Series).
 
 removes_equal_sequences([], T) => T = [].
@@ -1159,6 +1162,11 @@ same_qstate(S1, S2),
     del_dict(t, S1, _, A),
     del_dict(t, S2, _, B) =>
     A =@= B.
+
+%!  insert_points(+SeriesIn, -SeriesOut, +QSpaces) is det.
+%
+%   Insert intermediate time points if  a   qualitative  value  passes a
+%   "point(Value)" between two time points in SeriesIn.
 
 insert_points([], [], _).
 insert_points([S1,S2|T0], [S1,Si|T], QSpaces) :-
@@ -1178,7 +1186,7 @@ insert_point(S1, S2, Si, QSpaces) :-
     mapdict(insert_value(S2, QSpaces, Done), S1, Si),
     Done == true.
 
-%!  insert_value(+State2, QSpaces, -Done, +Q, +V1, -Vi) is det.
+%!  insert_value(+State2, +QSpaces, -Done, +Q, +V1, -Vi) is det.
 
 :- det(insert_value/6).
 insert_value(S2, QSpaces, Done, Q, V1, Vi) :-
@@ -1196,7 +1204,6 @@ insert_value_(Q, QSpaces, d(V1,D11,D12,D13), d(V2,D21,D22,D23), R, Done) =>
     insert_value_d(D12, D22, D2i, Done),
     insert_value_d(D13, D23, D3i, Done).
 
-% TODO: Generalize over quantity spaces!
 insert_value_d(V, V, Vi, _Done) => Vi = V.
 insert_value_d(min, plus, Vi, Done) => Vi = zero, Done = true.
 insert_value_d(plus, min, Vi, Done) => Vi = zero, Done = true.
