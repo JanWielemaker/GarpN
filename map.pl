@@ -244,25 +244,31 @@ ensure_loaded_model(Model, PI) :-
     assertion(current_predicate(Model:PI)).
 :- endif.
 
-%!  qstate(+Model, ?Id, -Values, +Options) is nondet.
+%!  qstate(+ModelId, ?StateId, -Values, +Options) is nondet.
 %
-%   Extract qualitative states from a saved Garp simulation If no model
-%   is saved, we use the current model.
+%   Extract qualitative states from a saved  Garp simulation If no model
+%   is saved, we use the current model.  This predicate adds the virtual
+%   state `0` to represent the initial state.
+
+qstate(none, _Id, _Values, _Options) =>
+    fail.
+qstate(ModelId, StateId, Values, Options) =>
+    (   StateId = 0,
+        q_input_state(ModelId, Values0)
+    ;   qstate_(ModelId, StateId, Values0, Options)
+    ),
+    select_derivatives(Values0, Values, Options).
 
 :- if(current_prolog_flag(dynalearn, true)).
-qstate(none, _State, _Values, _Options) =>
-    fail.
-qstate(ModelId, State, Values, Options) =>
+qstate_(ModelId, State, Values, _Options) =>
     dynalearn_model(ModelId, ModelData),
-    member(qstate(State, Values0), ModelData.results.qstates),
-    select_derivatives(Values0, Values, Options).
+    member(qstate(State, Values), ModelData.results.qstates).
 :- else.
-qstate(engine, State, Values, Options) =>
+qstate_(engine, State, Values, Options) =>
     qstate(State, Values, Options).
-qstate(Model, State, Values, Options) =>
+qstate_(Model, State, Values, _Options) =>
     ensure_loaded_model(Model, qstate/2),
-    Model:qstate(State, Values0),
-    select_derivatives(Values0, Values, Options).
+    Model:qstate(State, Values).
 :- endif.
 
 select_derivatives(Values0, Values, Options) :-
@@ -278,7 +284,7 @@ keep_derivatives_(Match, K-V0, K-V) :-
     ;   keep_derivatives([0,1], V0, V)
     ).
 
-%!  q_input_state(+Model, -Dict)
+%!  q_input_state(+ModelId, -Dict)
 %
 %   True when Dict is a dict holding   the  (quantity space) start value
 %   for each quantity.
