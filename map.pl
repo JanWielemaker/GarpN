@@ -886,7 +886,8 @@ merge_states(QSeries, GarpStates, Options) -->
     peek_linked_state(After, ZTo),
     { (   Unmatched \== []
       ->  true
-      ;   \+ garp_valid_transition(ATo, ZTo, Options)
+      ;   \+ garp_valid_transition(ATo, ZTo, Options),
+          \+ (member(A, ATo), memberchk(Z, ZTo))       % not a real transition
       ),
       member(A, ATo),
       member(Z, ZTo),
