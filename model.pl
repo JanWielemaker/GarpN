@@ -3,7 +3,8 @@
             is_placeholder/1,           % @Term
             is_placeholder/2,           % @Term, -Type
             default_nrels/2,            % -NRels:list, +Options
-            is_expr/1                   % @Expr
+            is_expr/1,                  % @Expr
+            correspondences/2           % +ModelId, -Correspondences
           ]).
 :- use_module(library(terms)).
 :- use_module(library(lists)).
@@ -21,7 +22,7 @@
 
 */
 
-%!  propose_model(+Model, -Equations, +Options) is det.
+%!  propose_model(+ModelId, -Equations, +Options) is det.
 %
 %   Propose a numerical model based on the qualitative model indentified
 %   by Model (an identifier).  The model is based on
@@ -30,7 +31,7 @@
 %     - Exogenous input
 %     - The initial state
 %
-%   @arg Model is the model identifier.
+%   @arg ModelId is the model identifier.
 %   @arg Equations is a list of `X   := Expression` terms, where `X` are
 %   ground Prolog terms of the the form Prop(Entity) or 'ΔProp'(Entity).
 %   @arg Options supports
@@ -315,6 +316,14 @@ qrel_nrel([exogenous(Dep,exogenous_steady)],
           [Dep := c],
           [Dep := c, d(Dep) := 0]).
 */
+
+%!  correspondences(+ModelId, -Correspondences:list) is det.
+%
+%   True when Correspondences is a list   of correspondence relations in
+%   ModelId.
+
+correspondences(ModelId, Correspondences) :-
+    findall(Corr, (q_rel(ModelId, Corr), correspondence_rel(Corr)), Correspondences).
 
 %!  correspondence_rel(?Rel)
 %
