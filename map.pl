@@ -14,7 +14,8 @@
             m_qspace/4,                 % +ModelId, ?QspaceId, ?Qspace, ?Values
             qspace_point_value/2,       % +Name, -Number
             linked_state//2,            % ?State, ?To
-            not_linked_states//1        % -States
+            not_linked_states//1,       % -States
+            validate_correspondences/3  % +QSeriesIn, -QSeries, +Options
           ]).
 :- if(\+current_prolog_flag(dynalearn, true)).
 :- export(save_garp_results/1).
@@ -35,6 +36,7 @@
 
 :- use_module(gsim).
 :- use_module(csv_util).
+:- use_module(model, [correspondences/2]).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -733,7 +735,14 @@ to_qualitative_v(_, _, _, V, VQ) =>
 %   @arg QSpace is the value list defining the quantity space.
 %   Its values are atoms (internal names), point(Name) or
 %   point(Name=Value).
-%   @arg QValue is one of point(PointName) or IntervalName.
+%   @arg Exact is a bool.  If `false`, matching values is done using
+%   eq_approx/2, which allows for a 0.001 (1%%) flexibility.
+%   @arg QValue is one of
+%        - point(PointName)
+%        - IntervalName.
+%        - error(Error)
+%          The numeric value is outside the quantity space. Error is one
+%          of `underflow` or `overflow`.
 
 n_to_qualitative([Name], _, _Q, _V, VQ), atom(Name) =>
     VQ = Name.
@@ -1161,14 +1170,16 @@ not_linked_state(State) -->
     [State],
     { \+ State.get(garp_states) = [_|_] }.
 
-%!  q_series(+Model, -QSeries, +Options) is det.
+%!  q_series(+Source, -QSeries, +Options) is det.
 %
-%   Options
+%   True when QSeries is a list of   qualitative states that result from
+%   running the model described in Source.
 %
-%     - d(N)
-%     Add up to the Nth derivative.  Default 3.
+%   Options are passed to  nq_series/3.   Additionally,  this  predicate
+%   processes
+%
 %     - model(Model)
-%     (Saved) Garp model to compare against.
+%       (Saved) Garp model to compare against.
 
 q_series(Source, QSeries, Options) :-
     option(model(Model), Options, engine),
@@ -1451,3 +1462,45 @@ derivative_title(N, Lbl0) -->
     { format(string(Label), '~w (D~d)', [Lbl0, N])
     },
     [ Label ].
+
+
+                /*******************************
+                *       CORRESPONDENCES        *
+                *******************************/
+
+%!  validate_correspondences(+QSeriesIn, -QSeries, +Options) is det.
+%
+%   Validate  the  correspondence  relations.  If  a  correspondence  is
+%   violated add/extend the `errors` property of   the state(s) in which
+%   correspondence(s) are violated.
+
+:- det(validate_correspondences/3).
+validate_correspondences(QSeriesIn, QSeries, Options) :-
+    option(model(ModelID), Options),
+    correspondences(ModelID, Correspondences),
+    maplist(validate_correspondences_(Correspondences), QSeriesIn, QSeries).
+
+validate_correspondences_(Correspondences, QStateIn, QState) :-
+    include(violated_correspondense(QStateIn), Correspondences, Violated),
+    (   Violated == []
+    ->  QState = QStateIn
+    ;   q_add_error(violated_correspondences(Violated), QStateIn, QState)
+    ).
+
+violated_correspondense(QState, Corr) :-
+    \+ satisfied_correspondence(QState, Corr).
+
+satisfied_correspondence(QState, v_correspondence(Q1,V1,Q2,V2)) =>
+    (   QState.get(Q1) == V1
+    ->  QState.get(Q2) == V2
+    ;   QState.get(Q2) == V2
+    ->  QState.get(Q1) == V1
+    ;   true
+    ).
+satisfied_correspondence(_QState, Corr) =>
+    print_message(warning, satisfied_correspondence(Corr)).
+
+q_add_error(Error, State0, State), Errors = State0.get(errors) =>
+    State = State0.put(errors([Error|Errors])).
+q_add_error(Error, State0, State) =>
+    State = State0.put(errors([Error])).
