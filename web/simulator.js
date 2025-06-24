@@ -47,9 +47,29 @@ function clear_output()
   });
 }
 
-function setModel(name)
-{ document.getElementById("model").value = name;
+function setModel(name, opts)
+{ opts = opts||{};
+  document.getElementById("model").value = name;
   clear_output();
+
+  function setOpt(sel, value) {
+    if ( value ) {
+      const elem = document.querySelector(sel);
+      if ( elem )
+	elem.value = value;
+    }
+  }
+  function setText(sel, value) {
+    if ( value ) {
+      const elem = document.querySelector(sel);
+      if ( elem )
+	elem.textContent = value;
+    }
+  }
+
+  setOpt("input[name=\"iterations\"]", opts.iterations);
+  setOpt("select[name=\"method\"]",    opts.method);
+  setText("#model-name",               opts.title);
 }
 
 function currentModel()
@@ -104,6 +124,26 @@ function get_qspaces(elem)
 
 function get_jqspaces(elem)
 { return JSON.stringify(get_qspaces(elem));
+}
+
+function get_iterations() {
+  const elem = document.querySelector("input[name=\"iterations\"]");
+  return elem ? elem.value : 1000;
+}
+
+function get_method() {
+  const elem = document.querySelector("select[name=\"method\"]");
+  return elem ? elem.value : "euler";
+}
+
+function get_model_title(model) {
+  const elem = document.getElementById("model-menu");
+  if ( elem ) {
+    model = model || elem.value;
+    const opt = elem.querySelector(`option[value="${model}"]`);
+    if ( opt )
+      return opt.innerText.trim();
+  }
 }
 
 /**

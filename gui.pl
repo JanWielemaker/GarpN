@@ -71,7 +71,7 @@ home(_Request) :-
 home -->
     { Model = none
     },
-    html([ h1("Garp numerical simulator"),
+    html([ h1(["GarpN -- ", span(id('model-name'), "numerical simulator")]),
            div([ 'hx-ext'('response-targets'),
                  'hx-target-error'('#errors')
                ],
@@ -108,6 +108,10 @@ home -->
                        let SHA1;
                       |})
          ]).
+
+%!  refresh//
+%
+%   Trigger the model menu to load the current model.
 
 refresh -->
     js_script({|javascript||
@@ -234,8 +238,11 @@ save_model_button -->
     { http_link_to_id(save_model, [], HREF) },
     html(button([ 'hx-get'(HREF),
                   'hx-vals'('js:{model: currentModel(), \c
+                                 title: get_model_title(), \c
                                  ml_source: ml_value_string(), \c
-                                 qspaces: get_jqspaces()}'),
+                                 qspaces: get_jqspaces(), \c
+                                 iterations: get_iterations(), \c
+                                 method: get_method()}'),
                   'hx-target'('#status'),
                   title('Save as reference model')
                 ], '📤')).
@@ -325,17 +332,24 @@ set_model_handler(Request) :-
     set_model(Model).
 
 set_model(Model) :-
-    (   Model == none
-    ->  true
-    ;   numeric_model_file(Model, File),
+    (   Model \== none,
+        numeric_model_file(Model, File),
         exists_file(File)
     ->  read_model_to_terms(file(File), Terms0),
-        partition(is_qspace, Terms0, QSpaces, Terms),
-        Source = terms(Terms)
+        partition(is_equation, Terms0, Equations, Rest),
+        partition(is_qspace, Rest, QSpaces, Settings),
+        Source = terms(Equations)
     ;   Source = _,
-        QSpaces = []
+        QSpaces = [],
+        Settings = []
     ),
-    set_model(Model, Source, [saved_qspaces(QSpaces)]).
+    set_model(Model, Source,
+              [ saved_qspaces(QSpaces)
+              | Settings
+              ]).
+
+is_equation(_ := _) => true.
+is_equation(_) => fail.
 
 is_qspace(qspace(_Q,_Values)) => true.
 is_qspace(_) => fail.
@@ -349,13 +363,19 @@ is_qspace(_) => fail.
 
 set_model(Model, Source, Options) :-
     flush_dynalearn_model(Model),
+    option(iterations(Iterations), Options, 1000),
+    option(method(Method), Options, "euler"),
+    option(title(Title), Options, null),
+    Opts = #{iterations:Iterations,
+             method:Method,
+             title:Title},
     reply_htmx(
         [ \q_menu(Model, Source, Options),
           div([id('ml-model'), 'hx-swap-oob'(true)],
               \mathlive_model(Model, Source, Options)),
           div([id('qspace-controls'), 'hx-swap-oob'(true)],
               \qspace_controls(Model, Options)),
-          \js_script({|javascript(Model)||setModel(Model)|})
+          \js_script({|javascript(Model, Opts)||setModel(Model, Opts)|})
         ]).
 
 :- if(\+current_predicate(flush_dynalearn_model/1)).
@@ -492,8 +512,11 @@ refresh_model_button -->
 save_model(Request) :-
     http_parameters(Request,
                      [ model(Model, []),
+                       title(Title, [optional(true)]),
                        ml_source(LaTeX, []),
-                       qspaces(JQspaces, [default("[]")])
+                       qspaces(JQspaces, [default("[]")]),
+                       iterations(Iterations, [integer]),
+                       method(Method, [oneof([euler,rk4]), default(euler)])
                      ]),
     numeric_model_file(Model, File),
     latex_to_prolog_source(LaTeX, Source),
@@ -501,7 +524,12 @@ save_model(Request) :-
     setup_call_cleanup(
         open(File, write, Out, [encoding(utf8)]),
         (   format(Out, '~s', [Source]),
-            write_qspaces(Out, Prolog)
+            write_qspaces(Out, Prolog),
+            write_settings(Out,
+                           [ iterations(Iterations),
+                             method(Method),
+                             title(Title)
+                           ])
         ),
         close(Out)),
     reply_htmx('Saved model').
@@ -510,6 +538,15 @@ write_qspaces(Out, Prolog) :-
     format(Out, '~n% Quantity spaces~n~n', []),
     forall(member(QSpace, Prolog),
            portray_clause(Out, QSpace)).
+
+write_settings(Out, Settings) :-
+    format(Out, '~n% Settings~n~n', []),
+    maplist(write_setting(Out), Settings).
+
+write_setting(Out, Setting), ground(Setting) =>
+    portray_clause(Out, Setting).
+write_setting(_Out, _Setting) =>
+    true.
 
 %!  jqspaces_to_prolog(+Model, +JQspaces, -Prolog)
 %
