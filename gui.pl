@@ -30,6 +30,7 @@
 :- use_module(equations).
 :- use_module(model).
 :- use_module(identifiers).
+:- use_module(test).
 :- if(current_prolog_flag(dynalearn, true)).
 :- use_module(dynalearn).
 :- endif.
@@ -82,7 +83,8 @@ home -->
                        div([class('model-separator'), clear(both)], []),
                        div([ form(['hx-post'('/garp/htmx/run'),
                                    'hx-vals'('js:{"ml_source": ml_value_string(), \c
-                                                  "qspaces": get_jqspaces()}'),
+                                                  "qspaces": get_jqspaces(), \c
+                                                  "title": get_model_title()}'),
                                    'hx-target'('#results'),
                                    'hx-on-htmx-before-request'('clear_output()')
                                   ],
@@ -1226,7 +1228,8 @@ run_model(Request) :-
                       rulers(ShowRulers, [boolean, default(false)]),
                       ml_source(MlSource, []),
                       qspaces(JQspaces, []),
-                      model(Model, [])
+                      model(Model, []),
+                      title(Title, [optional(true)])
                     ],
                     [ form_data(Form)
                     ]),
@@ -1250,7 +1253,8 @@ run_model(Request) :-
               ],
     call_time(simulate(terms(Equations), Series0, Options), Time),
     init_derivatives(Series0, Series, IdMapping),
-    annotate_garp_states(Series, Shapes, Options),
+    nq_series(Series, QSeries, [link_garp_states(true)|Options]),
+    annotate_garp_states(QSeries, Shapes, Options),
     plotly_traces(Series, Traces, IdMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
@@ -1266,7 +1270,20 @@ run_model(Request) :-
                        \js_script({|javascript||initShapes("plotly")|})
                      ]),
                  div([id('mapping-table'),class(narrow)], [&(nbsp)]),
-                 \download_links(terms(Equations), Options)
+                 \download_links(terms(Equations), Options),
+                 \save_test_link(#{ model:       Model,
+                                    title:       Title,
+                                    parameters:  #{ iterations:  Iterations,
+                                                    sample:      Sample,
+                                                    method:      Method,
+                                                    derivatives: Derivatives
+                                                  },
+                                    web_data:    #{ jqspaces:    JQspaces,
+                                                    ml_source:   MlSource},
+                                    prolog_data: #{ qspaces:     QSpaces,
+                                                    equations:   Equations},
+                                    results:     #{ qseries:     QSeries }
+                                  })
                ]).
 
 %!  qspaces(+Model, +JQSpaces, -QSpaces) is det.
@@ -1524,17 +1541,16 @@ form_attr_derivative(Name=on, Key-2) :-
 order_derivatives(Key-List, Key-Set) :-
     sort(List, Set).
 
-%!  annotate_garp_states(+Series, -Shapes, +Options) is det.
+%!  annotate_garp_states(+QSeries, -Shapes, +Options) is det.
 %
-%   Given a numerical  simulation  in   Series,  derive  the qualitative
-%   states and link these to the output of the qualitative simulation.
+%   Given a qualitative simulation in  Series   linked  to  Garp states,
+%   generate a plotly shapes to indicate the mapping.
 
-annotate_garp_states(Series, Shapes, Options) :-
+annotate_garp_states(QSeries, Shapes, Options) :-
     option(match(Derivatives), Options),
     List = Derivatives._,
     List \== [],
     !,
-    nq_series(Series, QSeries, [link_garp_states(true)|Options]),
     plotly_shapes(QSeries, Shapes).
 annotate_garp_states(_, @(null), _).
 
@@ -1693,3 +1709,56 @@ download_garp(SHA1, _Request) :-
 
 state_into_dict(State-Dict0, Dict) :-
     Dict = Dict0.put(state, State).
+
+
+                /*******************************
+                *           TESTING            *
+                *******************************/
+
+:- http_handler(htmx('save-test'), save_test, []).
+
+:- dynamic
+    test_data/2.                        % Hash, WebData
+
+save_test_link(WebData) -->
+    { variant_sha1(WebData, SHA1),
+      asserta(test_data(SHA1, WebData)),
+      existing_test_files(WebData.model, Files)
+    },
+    html(div([ hr([]),
+               form([ 'hx-post'('/garp/htmx/save-test')
+                    ],
+                    [ input([ type(hidden), name(hash), value(SHA1) ]),
+                      table([ \existing_tests(Files, DefName),
+                              \test_input(DefName)
+                            ]),
+                      input([ type(submit), value('Save')])
+                    ]),
+               div(id('saved-test'), [])
+             ])).
+
+test_input(DefName) -->
+    html(tr([ td(label('Save data as test named')),
+              td(input([ name(test), value(DefName) ]))
+            ])).
+
+existing_tests([], default) -->
+    [].
+existing_tests(Tests, '') -->
+    html(tr([ td(label('Existing tests')),
+              td(\sequence(test, [', '], Tests))
+            ])).
+
+test(Name) -->
+    html(span(class('test'), Name)).
+
+save_test(Request) :-
+    http_parameters(Request,
+                    [ test(Name, []),
+                      hash(SHA1, [])
+                    ]),
+    (   test_data(SHA1, WebData),
+        save_test(Name, WebData)
+    ->  reply_htmx('Saved test data')
+    ;   reply_htmx('Saving failed')
+    ).

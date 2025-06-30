@@ -1,10 +1,9 @@
 :- module(garp_test,
-          [ save_test/2                 % +Test, +ModelId
+          [ save_test/2,                % +Test, +Data
+            existing_test_files/2       % ++Model, -TestFiles
           ]).
 :- use_module(dynalearn, [download_model/2]).
-:- use_module(gui, [numeric_model_file/2]).
-:- use_module(library(filesex),
-              [directory_file_path/3, make_directory_path/1, copy_file/2]).
+:- use_module(library(filesex), [directory_file_path/3]).
 
 /** <module> Manage automated tests
 
@@ -25,43 +24,49 @@ several files:
       generated_model(Mode, Model)
 */
 
-%!  save_test(+Test, +ModelId) is det.
+%!  save_test(+Test, +Data) is det.
 
-save_test(Test, ModelId) :-
-    save_dynalearn(Test, ModelId),
-    save_model(Test, ModelId),
-    save_results(Test, ModelId).
+save_test(Test, Data) :-
+    download_model(Data.model, Dynalearn),
+    Data1 = Data.put(#{dynalearn:Dynalearn}),
+    save_title(Data.model, Data.get(title,_)),
+    test_data_file(Data.model, Test, File),
+    setup_call_cleanup(
+        open(File, write, Out, [encoding(utf8)]),
+        print_term(Data1, [ output(Out),
+                            right_margin(78),
+                            fullstop(true),
+                            nl(true)
+                          ]),
+        close(Out)).
 
-%!  save_dynalearn(+Test, +ModelId) is det.
+test_data_file(Model, Test, TestPath) :-
+    model_test_directory(Model, ModelDir),
+    file_name_extension(Test, test, TestFile),
+    directory_file_path(ModelDir, TestFile, TestPath).
+
+save_title(Model, Title) :-
+    nonvar(Title),
+    model_test_directory(Model, ModelDir),
+    directory_file_path(ModelDir, 'Title.txt', File),
+    setup_call_cleanup(
+        open(File, write, Out, [encoding(utf8)]),
+        format(Out, '~w~n', [Title]),
+        close(Out)).
+
+model_test_directory(Model, ModelDir) :-
+    directory_file_path(tests, Model, ModelDir),
+    make_directory_path(ModelDir).
+
+%!  existing_test_files(++Model, -TestFiles) is det.
 %
-%   Save the JSON as downloaded from Dynalearn.
-%
-%   @tbd: Should we also save the converted model?
+%   True when TestFiles is a list of existing test files. The returned
+%   files have no extension.
 
-save_dynalearn(Test, ModelId) :-
-    test_file(Test, 'dynalearn.json', JSON),
-    download_model(ModelId, JSON).
+existing_test_files(Model, TestFiles) :-
+    model_test_directory(Model, ModelDir),
+    directory_files(ModelDir, Existing),
+    convlist(clean_extension(test), Existing, TestFiles).
 
-test_file(Test, File, Path) :-
-    test_directory(Test, Dir),
-    directory_file_path(Dir, File, Path).
-
-test_directory(Test, Dir) :-
-    directory_file_path(tests, Test, Dir),
-    make_directory_path(Dir).
-
-%!  save_model(++Test, ++ModelId) is det.
-%
-%   Save the final model. For  now,  we   use  the  saved numeric model.
-%   Should we merge this with the GUI?
-
-save_model(Test, ModelId) :-
-    test_file(Test, 'model.pl', ModelFile),
-    numeric_model_file(ModelId, ReferenceFile),
-    copy_file(ReferenceFile, ModelFile).
-
-%!  save_results(++Test, ++ModelId) is det.
-
-save_results(Test, ModelId) :-
-    test_file(Test, 'results.pl', ResultsFile).
-
+clean_extension(Ext, File, Base) :-
+    file_name_extension(Base, Ext, File).

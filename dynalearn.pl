@@ -81,20 +81,19 @@ get_model(Id, Model) :-
                json_object(dict)
              ]).
 
-%!  download_model(++Id, ++File) is det.
+%!  download_model(++Id, -String) is det.
 %
-%   Download the raw model from Dynalearn into File.
+%   Download the raw model from Dynalearn into String.
 
-download_model(ModelId, File) :-
+download_model(ModelId, Data) :-
     dynalearn_url(Base),
     format(string(Path), 'model/~a', [ModelId]),
     uri_edit([path(Path)], Base, URL),
     setup_call_cleanup(
         http_open(URL, In, []),
-        setup_call_cleanup(
-            open(File, write, Out, [encoding(utf8)]),
-            copy_stream_data(In, Out),
-            close(Out)),
+        ( set_stream(In, encoding(utf8)),
+          read_string(In, _, Data)
+        ),
         close(In)).
 
 
