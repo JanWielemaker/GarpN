@@ -346,9 +346,12 @@ se_isa(Instance, Super, SEList) :-
 %
 %   True when State can be reached from FromList.
 
-m_qstate_from(_, 1, [0]).
 m_qstate_from(ModelId, State, FromList) :-
-    m_qstate_from_(ModelId, State, FromList).
+    m_qstate_from_(ModelId, State, FromList0),
+    add_initial_state(FromList0, FromList).
+
+add_initial_state([], From) => From = [0].
+add_initial_state(From0, From) => From0 = From.
 
 :- if(current_prolog_flag(dynalearn, true)).
 m_qstate_from_(ModelId, State, From) :-
