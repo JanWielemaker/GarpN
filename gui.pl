@@ -1,5 +1,6 @@
 :- module(gui,
-          []).
+          [ numeric_model_file/2                              % ++Model, -File
+          ]).
 :- use_module(library(main)).
 :- use_module(library(http/http_server)).
 :- use_module(library(http/http_unix_daemon)).
@@ -381,6 +382,10 @@ set_model(Model, Source, Options) :-
 :- if(\+current_predicate(flush_dynalearn_model/1)).
 flush_dynalearn_model(_).
 :- endif.
+
+%!  numeric_model_file(++Model, -File) is det.
+%
+%   True when File is the file into which the reference model is saved.
 
 numeric_model_file(Model, File) :-
     format(atom(File), 'numeric/~w.pl', [Model]).

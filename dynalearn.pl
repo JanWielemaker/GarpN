@@ -1,11 +1,13 @@
 :- module(dynalearn,
           [ dynalearn_models/1,         % -Models
             dynalearn_model/2,          % ++Id, -Model
-            flush_dynalearn_model/1
+            flush_dynalearn_model/1,
+            download_model/2            % ++Id, ++File
           ]).
 :- use_module(library(uri)).
 :- use_module(library(http/http_client)).
 :- use_module(library(http/http_json), []). % plugin
+:- use_module(library(http/http_open)).
 :- use_module(library(apply)).
 :- use_module(library(dicts)).
 :- use_module(library(pairs)).
@@ -78,6 +80,24 @@ get_model(Id, Model) :-
              [ value_string_as(atom),
                json_object(dict)
              ]).
+
+%!  download_model(++Id, ++File) is det.
+%
+%   Download the raw model from Dynalearn into File.
+
+download_model(ModelId, File) :-
+    dynalearn_url(Base),
+    format(string(Path), 'model/~a', [ModelId]),
+    uri_edit([path(Path)], Base, URL),
+    setup_call_cleanup(
+        http_open(URL, In, []),
+        setup_call_cleanup(
+            open(File, write, Out, [encoding(utf8)]),
+            copy_stream_data(In, Out),
+            close(Out)),
+        close(In)).
+
+
 
 %!  prolog_model(+DLModel, -Terms, -IdMapping, -QSpaceMapping) is det
 %
