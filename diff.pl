@@ -18,8 +18,6 @@ diff_term(Gen, T1, _T2, Diff), Gen == T1 =>
     Diff = Gen.
 diff_term(Gen, T1, T2, Diff), var(Gen) =>
     Diff = '$diff$'(T1,T2).
-diff_term(bitvector(Gen), T1, T2, Diff), var(Gen) =>
-    Diff = '$diff$'(T1,T2).
 diff_term(Gen, T1, T2, Diff) =>
     compound_name_arguments(Gen, Name, ArgsGen),
     compound_name_arguments(T1, Name, ArgsT1),
