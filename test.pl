@@ -1,11 +1,17 @@
 :- module(garp_test,
           [ save_test/2,                % +Test, +Data
-            existing_test_files/2       % ++Model, -TestFiles
+            existing_test_files/2,      % ++Model, -TestFiles
+            run_test/2                  % ++File, +Options
           ]).
-:- use_module(library(filesex), [directory_file_path/3]).
-
+:- use_module(library(filesex), [directory_file_path/3, make_directory_path/1]).
 :- use_module(dynalearn, [download_model/2]).
+:- use_module(library(ansi_term), [ansi_format/3]).
+:- use_module(library(apply), [convlist/3]).
+:- use_module(library(pprint), [print_term/2]).
+:- use_module(library(readutil), [read_file_to_terms/3]).
+
 :- use_module(equations).
+:- use_module(map).
 :- use_module(diff).
 
 /** <module> Manage automated tests
@@ -96,12 +102,59 @@ run_test(File, Options) :-
     test_gui_import(TestDict, Options).
 
 test_gui_import(TestDict, Options) :-
-    test_gui_model_import(TestDict, Options).
+    test_gui_model_import(TestDict, Options),
+    test_gui_qspaces_import(TestDict, Options),
+    test_simulate(TestDict, Options).
+
+%!  test_gui_model_import(+TestDict, +Options)
+%
+%   Test parsing the LaTeX representation of the model into Prolog.
 
 test_gui_model_import(TestDict, _Options) :-
     latex_to_prolog_ex(TestDict.web_data.ml_source, Equations),
     Expected = TestDict.prolog_data.equations,
     expect(Equations == Expected).
+
+%!  test_gui_qspaces_import(+TestDict, +Options)
+%
+%   Test the translation of the quantity spaces from the JavaScript JSON
+%   representation.
+
+test_gui_qspaces_import(TestDict, _Options) :-
+    Model = TestDict.model,
+    JQspaces = TestDict.web_data.jqspaces,
+    QSpacesEx = TestDict.prolog_data.qspaces,
+    gui:qspaces(Model, JQspaces, QSpaces),
+    expect(QSpaces == QSpacesEx).
+
+%!  test_simulate(+TestDict, +Options)
+%
+%   Run the simulation
+
+test_simulate(TestDict, Options) :-
+    Model = TestDict.model,
+    #{ iterations:  Iterations,
+       sample:      Sample,
+       method:      Method,
+       derivatives: Derivatives } :< TestDict.parameters,
+    #{ qspaces:     QSpaces,
+       equations:   Equations} :< TestDict.prolog_data,
+    id_mapping(Model, IdMapping),
+    SimOptions = [ model(Model),
+                   match(Derivatives),
+                   iterations(Iterations),
+                   method(Method),
+                   track(initialized),
+                   sample(Sample),
+                   id_mapping(IdMapping),
+                   qspaces(QSpaces),
+                   equations(Equations)
+                 ].
+
+%!  expect(:Goal)
+%
+%   Expect Goal to be true.  Similar   to  assertion/1,  but attempts to
+%   print failures in a more readable way.
 
 expect(Goal), call(Goal) =>
     true.

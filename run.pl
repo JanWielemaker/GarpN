@@ -8,6 +8,7 @@
 :- ensure_loaded('../Garp3-v1.5.2/startup').
 :- use_module(garp3).
 :- endif.
+:- use_module(test).
 
 :- if(exists_source(library(in_make))).
 :- use_module(library(in_make)).
