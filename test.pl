@@ -2,8 +2,11 @@
           [ save_test/2,                % +Test, +Data
             existing_test_files/2       % ++Model, -TestFiles
           ]).
-:- use_module(dynalearn, [download_model/2]).
 :- use_module(library(filesex), [directory_file_path/3]).
+
+:- use_module(dynalearn, [download_model/2]).
+:- use_module(equations).
+:- use_module(diff).
 
 /** <module> Manage automated tests
 
@@ -24,6 +27,8 @@ several files:
       generated_model(Mode, Model)
 */
 
+:- set_prolog_flag(rational_syntax, compatibility).
+
 %!  save_test(+Test, +Data) is det.
 
 save_test(Test, Data) :-
@@ -36,7 +41,8 @@ save_test(Test, Data) :-
         print_term(Data1, [ output(Out),
                             right_margin(78),
                             fullstop(true),
-                            nl(true)
+                            nl(true),
+                            module(garp_test)
                           ]),
         close(Out)).
 
@@ -70,3 +76,41 @@ existing_test_files(Model, TestFiles) :-
 
 clean_extension(Ext, File, Base) :-
     file_name_extension(Base, Ext, File).
+
+                /*******************************
+                *        RUNNING TESTS         *
+                *******************************/
+
+:- meta_predicate
+    expect(0).
+
+%!  run_test(++File, +Options)
+%
+%
+
+run_test(File, Options) :-
+    read_file_to_terms(File, [TestDict],
+                       [ encoding(utf8),
+                         module(garp_test)
+                       ]),
+    test_gui_import(TestDict, Options).
+
+test_gui_import(TestDict, Options) :-
+    test_gui_model_import(TestDict, Options).
+
+test_gui_model_import(TestDict, _Options) :-
+    latex_to_prolog_ex(TestDict.web_data.ml_source, Equations),
+    Expected = TestDict.prolog_data.equations,
+    expect(Equations == Expected).
+
+expect(Goal), call(Goal) =>
+    true.
+expect(Goal) =>
+    unexpected(Goal).
+
+unexpected(_:Goal) =>
+    unexpected(Goal).
+unexpected(V == E) =>
+    ansi_format(error, 'Unexpected result:~n', []),
+    term_diff(V, E).
+
