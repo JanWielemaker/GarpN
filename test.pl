@@ -1,9 +1,12 @@
 :- module(garp_test,
           [ save_test/2,                % +Test, +Data
             existing_test_files/2,      % ++Model, -TestFiles
-            run_test/2                  % ++File, +Options
+            run_garp_tests/0,
+            run_garp_tests/1,           % +Options
+            run_garp_test/2             % ++File, +Options
           ]).
-:- use_module(library(filesex), [directory_file_path/3, make_directory_path/1]).
+:- use_module(library(filesex),
+              [directory_file_path/3, make_directory_path/1, directory_member/3]).
 :- use_module(library(ansi_term), [ansi_format/3]).
 :- use_module(library(apply), [convlist/3]).
 :- use_module(library(pprint), [print_term/2]).
@@ -97,14 +100,37 @@ clean_extension(Ext, File, Base) :-
                 *        RUNNING TESTS         *
                 *******************************/
 
+%!  run_garp_tests.
+%!  run_garp_tests(+Options).
+%
+%   Run saved GarpN tests.
+
+run_garp_tests :-
+    run_garp_tests([]).
+
+run_garp_tests(Options) :-
+    findall(Model-Test, garp_test(Model, Test), Pairs),
+    keysort(Pairs, PairsSorted),
+    group_pairs_by_key(PairsSorted, Keyed),
+    maplist(garp_test_model(Options), Keyed).
+
+garp_test_model(Options, Model-Tests) =>
+    progress(start_model(Model), Options),
+    maplist(garp_test_model_test(Options, Model), Tests).
+
+garp_test_model_test(Options, Model, Test) :-
+    progress(start_test(Model, Test), Options),
+    test_file(File, Model, Test),
+    run_garp_test(File, Options).
+
 :- meta_predicate
     expect(+, 0).
 
-%!  run_test(++File, +Options)
+%!  run_garp_test(++File, +Options)
 %
 %
 
-run_test(File, Options) :-
+run_garp_test(File, Options) :-
     read_file_to_terms(File, [TestDict],
                        [ encoding(utf8),
                          module(garp_test)
@@ -157,7 +183,7 @@ test_gui_qspaces_import(TestDict, _Options) :-
 %
 %   Run the simulation
 
-test_simulate(TestDict, _Options) :-
+test_simulate(TestDict, Options) :-
     Model = TestDict.model,
     #{ iterations:  Iterations,
        sample:      Sample,
@@ -180,7 +206,30 @@ test_simulate(TestDict, _Options) :-
     init_derivatives(Series0, Series, IdMapping),
     nq_series(Series, QSeries, [link_garp_states(true)|SimOptions]),
     QSeriesExp = TestDict.results.qseries,
-    expect("Qualitative series", QSeries =@= QSeriesExp).
+    expect("Qualitative series", QSeries =@= QSeriesExp),
+    report_garp_mapping_quality(QSeries, QSeriesExp, Options).
+
+report_garp_mapping_quality(QSeries, QSeriesExp, Options) :-
+    QSeries =@= QSeriesExp,
+    !,
+    report_garp_mapping_quality(QSeries, Options).
+
+report_garp_mapping_quality(QSeries, Options) :-
+    maplist(get_dict(garp_states), QSeries, Mapping),
+    partition(perfect, Mapping, Perfect, Imperfect),
+    partition(ambiguous, Imperfect, Ambiguous, Unmapped),
+    maplist(length,
+            [Perfect, Ambiguous, Unmapped],
+            [PerfectCnt, AmbiguousCnt, UnmappedCnt]),
+    progress(mapping_quality(PerfectCnt, AmbiguousCnt, UnmappedCnt), Options).
+
+perfect([_]).
+ambiguous([_,_|_]).
+
+
+                /*******************************
+                *            EXPECT            *
+                *******************************/
 
 %!  expect(++Msg, :Goal)
 %
@@ -198,3 +247,65 @@ unexpected(Msg, V == E) =>
     ansi_format(error, '~s: unexpected result:~n', [Msg]),
     term_diff(V, E).
 
+
+                /*******************************
+                *            FILES             *
+                *******************************/
+
+%!  garp_test(=Model, =Test) is nondet.
+%
+%   True when Test is a test for Model.
+
+garp_test(Model, Test) :-
+    directory_member(tests, File,
+                     [ recursive(true),
+                       extensions([test])
+                     ]),
+    test_file(File, Model, Test).
+
+%!  test_file(+File, -Model, -Test) is det.
+
+test_file(File, Model, Test), atomic(File) =>
+    split_string(File, "/", "/", Parts),
+    append(_, [Model,Base], Parts),
+    file_name_extension(Test, test, Base).
+test_file(File, Model, Test), atomic(Model), atomic(Test) =>
+    directory_file_path(tests, Model, ModelDir),
+    file_name_extension(Test, test, TestFile),
+    directory_file_path(ModelDir, TestFile, File).
+
+model_title(Model, Title) :-
+    directory_file_path(tests, Model, Dir),
+    directory_file_path(Dir, 'Title.txt', TitleFile),
+    read_file_to_string(TitleFile, Title0, [encoding(utf8)]),
+    split_string(Title0, "", "\n \t", [Title]).
+
+
+                /*******************************
+                *           FEEDBACK           *
+                *******************************/
+
+progress(Term, _Options) :-
+    print_message(informational, garp_test(Term)).
+
+:- multifile
+    prolog:message//1.
+
+prolog:message(garp_test(Msg)) -->
+    message(Msg).
+
+message(start_model(Model)) -->
+    { model_title(Model, Title)
+    },
+    [ 'Tests for ', ansi(code, '~w', [Title]), ' ...' ].
+message(start_test(_Model, Test)) -->
+    [ ' Test ', ansi(code, '~q', [Test]), ' ...' ].
+message(mapping_quality(PerfectCnt, 0, 0)) -->
+    [ '   ✅ Matched ~D states'-[PerfectCnt] ].
+message(mapping_quality(PerfectCnt, AmbiguousCnt, 0)) -->
+    [ '   🟡 Matched ~D states; ~D ambiguous'-[PerfectCnt,AmbiguousCnt] ].
+message(mapping_quality(PerfectCnt, AmbiguousCnt, UnmappedCnt)) -->
+    { PerfectCnt > (PerfectCnt+AmbiguousCnt+UnmappedCnt)*0.75 },
+    [ '   🟡 Matched ~D states; ~D ambiguous, ~D unmatched'-[PerfectCnt,AmbiguousCnt,UnmappedCnt] ].
+message(mapping_quality(PerfectCnt, AmbiguousCnt, UnmappedCnt)) -->
+    [ '   🔴 Matched ~D states; ~D ambiguous, ~D unmatched'-[PerfectCnt,AmbiguousCnt,UnmappedCnt] ].
