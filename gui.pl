@@ -1276,7 +1276,8 @@ run_model(Request) :-
                                     parameters:  #{ iterations:  Iterations,
                                                     sample:      Sample,
                                                     method:      Method,
-                                                    derivatives: Derivatives
+                                                    derivatives: Derivatives,
+                                                    track:       Track
                                                   },
                                     web_data:    #{ jqspaces:    JQspaces,
                                                     ml_source:   MlSource},
