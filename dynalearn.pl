@@ -1,7 +1,8 @@
 :- module(dynalearn,
           [ dynalearn_models/1,         % -Models
             dynalearn_model/2,          % ++Id, -Model
-            flush_dynalearn_model/1,
+            flush_dynalearn_model/1,    % ++Id
+            set_dynalearn_model/2,      % ++Id, +Model
             download_model/2            % ++Id, ++File
           ]).
 :- use_module(library(uri)).
@@ -39,6 +40,14 @@ dynalearn_models(Models) :-
 flush_dynalearn_model(Id) :-
     retractall(dynalearn_model_cache(Id, _)).
 
+%!  set_dynalearn_model(++Id, +Model) is det.
+%
+%   Set the model explicitly.  Used for testing.
+
+set_dynalearn_model(Id, Model) :-
+    retractall(dynalearn_model_cache(Id, _)),
+    asserta(dynalearn_model_cache(Id, Model)).
+
 %!  dynalearn_model(++Id, -Model) is det.
 
 dynalearn_model(Id, Model) :-
@@ -70,7 +79,10 @@ import_model(Model0, #{ results: Simulation,
 
 %!  get_model(++Id, -Model) is det.
 %
-%   Fetch the model with Id from DynaLearn
+%   Fetch the model with Id from DynaLearn.
+%
+%   @arg Id The model id (a UUID)
+%   @arg Model Parsed JSON dict from the Dynalearn reply.
 
 get_model(Id, Model) :-
     dynalearn_url(Base),
