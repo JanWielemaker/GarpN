@@ -612,10 +612,6 @@ local_extremes(_, [], []).
 %
 %   Where Series is a list of  dicts   holding  values, Qualitative is a
 %   list of qualitative states.
-%
-%   @tbd Deal with quatity spaces. Currently assumes all quantity spaces
-%   are {negative, zero, positive},  represented   as  `min`, `zero` and
-%   `plus`.
 
 series_qualitative(Series, Qualitative, Options) :-
     stable_from(Series, Asymptotes, Time, Options),
@@ -808,7 +804,7 @@ n_to_qualitative(List, Q, V, VQ) =>
 %   entire series?
 
 eq_approx(Reference, Value), Reference =:= 0 => abs(Value) < 1e-3.
-eq_approx(Reference, Value) => 1-abs(Value/Reference) < 1e-3.
+eq_approx(Reference, Value) => abs(1-abs(Value/Reference)) < 1e-3.
 
 %!  qspace_point_value(+Quantity, +Point, -Name, -Number) is det.
 
