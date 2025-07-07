@@ -407,7 +407,11 @@ propose_model(Request, Options) :-
     phrase(old_model(Model, MlSource, JQspaces), OldOptions),
     merge_options(Options, OldOptions, Options1),
     propose_flat_model(Model, Terms, Options1),
-    set_model(Model, terms(Terms), Options).
+    (   option(old_qspaces(Qspaces), Options1) % Dict Q -> QSpace
+    ->  NewOptions = [qspaces(Qspaces)|Options]
+    ;   NewOptions = Options
+    ),
+    set_model(Model, terms(Terms), NewOptions).
 
 %!  old_model(+Model, +MlSource, +JQSpaces)//
 %
@@ -769,7 +773,9 @@ incomplete_qspace(Model, QspaceId, Values) :-
     ).
 
 qspace_control(IdMapping, Options, QspaceId-Values) -->
-    { (   option(saved_qspaces(QSpaces), Options),
+    { (   option(qspaces(Qspaces), Options)
+      ->  Savedvalues = Qspaces.get(QspaceId, [])
+      ;   option(saved_qspaces(QSpaces), Options),
           Q = IdMapping.get(QspaceId),
           memberchk(qspace(Q, Savedvalues), QSpaces)
       ->  true
