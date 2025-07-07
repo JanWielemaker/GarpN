@@ -425,7 +425,7 @@ old_model(Model, MlSource, JQSpaces) -->
 old_qspaces(Model, JQSpaces) -->
     { nonvar(JQSpaces),
       !,
-      qspaces(Model, JQSpaces, QSpaces)
+      qspaces(Model, JQSpaces, QSpaces, [partial(true)])
     },
     [ old_qspaces(QSpaces) ].
 old_qspaces(_Model, _JQSpaces) -->
@@ -1294,11 +1294,26 @@ run_model(Request) :-
                ]).
 
 %!  qspaces(+Model, +JQSpaces, -QSpaces) is det.
+%!  qspaces(+Model, +JQSpaces, -QSpaces, +Options) is det.
 %
-%   @arg QSpaces is a dict Quantity -> QualitativeValues.
+%   Convert JQSpaces, the  values  as  received   from  the  GUI  into
+%   quantity spaces.
+%
+%   Options:
+%
+%     - partial(true)
+%       Ignore empty points, just returning as much as is filled
+%       by the user.
+%
+%   @arg QSpaces is  a  dict   `Quantity  ->  QualitativeValues`,  where
+%   `QualitativeValues` is a list of   alternating intervals (atoms) and
+%   point(Name=Value).
 
 qspaces(Model, JQSpaces, QSpaces) :-
-    jqspaces(JQSpaces, QPoints),
+    qspaces(Model, JQSpaces, QSpaces, []).
+
+qspaces(Model, JQSpaces, QSpaces, Options) :-
+    jqspaces(JQSpaces, QPoints, Options),
     validate_qspace_points(QPoints),
     findall(Q-Values, qspace(Model, QPoints, Q, Values), Pairs),
     dict_pairs(QSpaces, #, Pairs).
@@ -1317,23 +1332,43 @@ num_points([point(Name)|T0], [Num|T1], [point(Name=Num)|T]) :-
 num_points([H|T0], T1, [H|T]) :-
     num_points(T0, T1, T).
 
-jqspaces(JQSpaces, QPoints) :-
+%!  jqspaces(+JQSpaces, -QSpaces, +Options) is det.
+%
+%   Convert a description of the quantity   spaces  as received from the
+%   GUI to our quatity space representation.  Options
+%
+%     - partial(true)
+%       Omit quantity spaces that are not filled.
+
+jqspaces(JQSpaces, QPoints, Options) :-
     atom_json_dict(JQSpaces, List,
                    [ value_string_as(atom)
                    ]),
-    maplist(jqspace, List, QList),
+    convlist(jqspace(Options), List, QList),
     dict_pairs(QPoints, #, QList).
 
-jqspace(Dict, QSpace-Points) :-
+%!  jqspace(+Options, +Dict, -QSpaceAndPoints) is semidet.
+%
+%   @arg QSpaceAndPoints is a term  `QSpaceId-QSpace`, where `QSpace` is
+%   a list of numeric values for the  "points" in the quantity space. If
+%   the partial(true) option is given, the  conversion fails silently if
+%   the  GUI  value  is   `''`.   Otherwise    the   point   is  set  to
+%   error(AtomValue).
+
+jqspace(Options, Dict, QSpace-Points) :-
     _{ qspace_id:QSpace,
        values:AValues
      } :< Dict,
-     maplist(input_to_number, AValues, Points).
+     maplist(input_to_number(Options), AValues, Points).
 
-input_to_number(AValue, Number) :-
+input_to_number(_, AValue, Number) :-
     atom_number(AValue, Number),
     !.
-input_to_number(AValue, error(AValue)).
+input_to_number(Options, '', _) :-
+    option(partial(true), Options),
+    !,
+    fail.
+input_to_number(_, AValue, error(AValue)).
 
 validate_qspace_points(QPoints) :-
     foldsubterms(qspace_error, QPoints, [], Errors),
