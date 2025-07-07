@@ -248,6 +248,9 @@ unexpected(Msg, _:Goal) =>
 unexpected(Msg, V == E) =>
     ansi_format(error, '~s: unexpected result:~n', [Msg]),
     term_diff(V, E).
+unexpected(Msg, V =@= E) =>
+    ansi_format(error, '~s: unexpected result:~n', [Msg]),
+    term_diff(V, E).
 
 
                 /*******************************
