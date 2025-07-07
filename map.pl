@@ -877,11 +877,22 @@ link_garp_states(QSeries0, QSeries, Options) :-
 
 add_state(GarpStates, State0, State) :-
     include(matching_state(State0), GarpStates, Matching),
-    pairs_keys(Matching, StateIds),
+    remove_less_instantiated_maps(Matching, Matching1),
+    pairs_keys(Matching1, StateIds),
     State = State0.put(garp_states, StateIds).
 
 matching_state(State, _Id-GarpState) :-
     \+ \+ State >:< GarpState.
+
+remove_less_instantiated_maps(Pairs0, Pairs) :-
+    select(_Q1-S1, Pairs0, Pairs1),
+    select(Q2-S2, Pairs1, Pairs2),
+    subsumes_term(S1, S2),
+    !,
+    remove_less_instantiated_maps([Q2-S2|Pairs2], Pairs).
+remove_less_instantiated_maps(Pairs, Pairs).
+
+
 
 %!  merge_states(+QSeries0, +GarpStates, -QSeries, Options) is det.
 %
