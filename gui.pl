@@ -24,6 +24,7 @@
 :- use_module(library(http/json)).
 :- use_module(library(listing)).
 :- use_module(library(terms)).
+:- use_module(library(debug)).
 
 :- use_module(gsim).
 :- use_module(map).
@@ -34,6 +35,7 @@
 :- use_module(test).
 :- if(current_prolog_flag(dynalearn, true)).
 :- use_module(dynalearn).
+
 :- endif.
 
 http:location(garp, root(garp), []).
@@ -64,7 +66,7 @@ home(Request) :-
                     ],
                     [ \home(Options),
                       \scripts,
-                      \refresh
+                      \refresh(Options)
                     ]).
 
 home(Options) -->
@@ -126,11 +128,28 @@ scripts -->
                    src('/garp/plotly-2.32.0.min.js')], [])
          ]).
 
-%!  refresh//
+%!  refresh(+Options)//
 %
 %   Trigger the model menu to load the current model.
 
-refresh -->
+refresh(Options) -->
+    { option(test(Test), Options),
+      option(model(Model), Options),
+      !,
+      http_link_to_id(set_model, [test(Test), model(Model)], Href)
+    },
+    html(a([ href(Href),
+             'hx-get'(Href),
+             'hx-target'('#quantity_controls'),
+             id('test-trigger')
+           ],
+           [])),
+    js_script({|javascript||
+               addEventListener("DOMContentLoaded", (ev) => {
+	       htmx.trigger("#test-trigger", 'click')
+               });
+              |}).
+refresh(_Options) -->
     js_script({|javascript||
                addEventListener("DOMContentLoaded", (ev) => {
                  document.getElementById("model-menu").dispatchEvent(new Event("change"));
@@ -338,7 +357,7 @@ mathlive_model(Model, Source, Options) ==>
 :- http_handler(htmx(analyze), analyze, []).
 :- http_handler(htmx(run), run_model, []).
 :- http_handler(htmx('mapping-table'), mapping_table, []).
-:- http_handler(htmx('set-model'),     set_model_handler, []).
+:- http_handler(htmx('set-model'),     set_model_handler, [id(set_model)]).
 :- http_handler(htmx('save-model'),    save_model, []).
 :- http_handler(htmx('load-model'),    load_model, []).
 :- http_handler(htmx('wipe-model'),    wipe_model, []).
@@ -351,10 +370,25 @@ mathlive_model(Model, Source, Options) ==>
 %   Change the model
 
 set_model_handler(Request) :-
-    http_parameters(Request, [ model(Model, []) ]),
-    set_model(Model).
+    http_parameters(Request,
+                    [ model(Model, []),
+                      test(Test, [optional(true)])
+                    ]),
+    include(ground, [test(Test)], Options),
+    set_model(Model, Options).
 
-set_model(Model) :-
+%!  set_model(+Model, +Options) is det.
+%
+%   Restore a model in the GUI. This   triggered  from the model menu as
+%   well as for restoring a test scenario.
+
+set_model(Model, Options) :-
+    option(test(Test), Options),
+    !,
+    load_test(Model, Test, Source, Settings),
+    set_model(Model, Source, Settings).
+set_model(Model, Options) :-
+    debug(test, 'set_model(~q, ~q)', [Model, Options]),
     (   Model \== none,
         numeric_model_file(Model, File),
         exists_file(File)
@@ -499,7 +533,7 @@ load_model(Request) :-
     http_parameters(Request,
                      [ model(Model, [])
                      ]),
-    set_model(Model).
+    set_model(Model, []).
 
 :- if(current_prolog_flag(dynalearn, true)).
 :- http_handler(htmx('refresh-model'), refresh_model, []).

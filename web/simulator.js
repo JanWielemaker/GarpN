@@ -69,7 +69,7 @@ function setModel(name, opts)
 
   setOpt("input[name=\"iterations\"]", opts.iterations);
   setOpt("select[name=\"method\"]",    opts.method);
-  setText("#model-name",               opts.title);
+  setText("#model-name",               opts.title||get_model_title(name));
 }
 
 function currentModel()

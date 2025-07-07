@@ -3,7 +3,8 @@
             existing_test_files/2,      % ++Model, -TestFiles
             run_garp_tests/0,
             run_garp_tests/1,           % +Options
-            run_garp_test/2             % ++File, +Options
+            run_garp_test/2,            % ++File, +Options
+            load_test/4                 % +Model, +Test, -Source, -Settings
           ]).
 :- use_module(library(filesex),
               [directory_file_path/3, make_directory_path/1, directory_member/3]).
@@ -59,7 +60,9 @@ save_test(Test, Data) :-
     Model = Data.model,
     download_model(Model, DynalearnJSON),
     dynalearn_model(Model, Dynalearn),
-    Data1 = Data.put(#{ dynalearn:
+    get_time(Now),
+    Data1 = Data.put(#{ saved: Now,
+                        dynalearn:
                           #{ json: DynalearnJSON,
                              prolog:Dynalearn
                            }
@@ -106,6 +109,28 @@ existing_test_files(Model, TestFiles) :-
 
 clean_extension(Ext, File, Base) :-
     file_name_extension(Base, Ext, File).
+
+%!  load_test(+Model, +Test, -Source, -Settings) is det.
+%
+%   Load a test back as it was saved for the test.
+
+load_test(Model, Test, Source,
+          [ qspaces(QSpaces),
+            iterations(Iterations),
+            method(Method),
+            title(Title)
+          ]) :-
+    test_file(File, Model, Test),
+    read_file_to_terms(File, [TestDict],
+                       [ encoding(utf8),
+                         module(garp_test)
+                       ]),
+    Source     = terms(TestDict.prolog_data.equations),
+    Title      = TestDict.title,
+    Iterations = TestDict.parameters.iterations,
+    Method     = TestDict.parameters.method,
+    QSpaces    = TestDict.prolog_data.qspaces.
+
 
                 /*******************************
                 *        RUNNING TESTS         *
