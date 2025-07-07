@@ -8,18 +8,23 @@
 :- use_module(library(filesex),
               [directory_file_path/3, make_directory_path/1, directory_member/3]).
 :- use_module(library(ansi_term), [ansi_format/3]).
-:- use_module(library(apply), [convlist/3]).
+:- use_module(library(apply), [convlist/3, maplist/2, maplist/3, partition/4]).
 :- use_module(library(pprint), [print_term/2]).
-:- use_module(library(readutil), [read_file_to_terms/3]).
+:- use_module(library(readutil), [read_file_to_terms/3, read_file_to_string/3]).
 :- use_module(library(statistics), [call_time/2]).
 :- use_module(library(http/json), [atom_json_dict/3]).
-
+:- use_module(library(http/http_dispatch), [http_handler/3, http_link_to_id/3]).
 :- use_module(equations).
 :- use_module(gsim).
 :- use_module(dynalearn,
               [download_model/2, dynalearn_model/2, set_dynalearn_model/2]).
+:- use_module(gui, [scripts//0]).
 :- use_module(map).
 :- use_module(diff).
+:- use_module(library(lists), [append/3]).
+:- use_module(library(pairs), [group_pairs_by_key/2]).
+:- use_module(library(http/html_write), [reply_html_page/2, html/3]).
+:- use_module(library(dcg/high_order), [sequence/4]).
 
 /** <module> Manage automated tests
 
@@ -109,10 +114,13 @@ run_garp_tests :-
     run_garp_tests([]).
 
 run_garp_tests(Options) :-
+    tests_by_model(ByModel),
+    maplist(garp_test_model(Options), ByModel).
+
+tests_by_model(ByModel) :-
     findall(Model-Test, garp_test(Model, Test), Pairs),
     keysort(Pairs, PairsSorted),
-    group_pairs_by_key(PairsSorted, Keyed),
-    maplist(garp_test_model(Options), Keyed).
+    group_pairs_by_key(PairsSorted, ByModel).
 
 garp_test_model(Options, Model-Tests) =>
     progress(start_model(Model), Options),
@@ -284,6 +292,51 @@ model_title(Model, Title) :-
     directory_file_path(Dir, 'Title.txt', TitleFile),
     read_file_to_string(TitleFile, Title0, [encoding(utf8)]),
     split_string(Title0, "", "\n \t", [Title]).
+
+                /*******************************
+                *          WEB ACCESS          *
+                *******************************/
+
+:- http_handler(garp(tests), show_tests, []).
+
+show_tests(_Request) :-
+    reply_html_page([ title('GarpN -- tests'),
+                      link([rel(stylesheet), href('/garp/simulator.css')]),
+                      link([rel(icon), type('image/png'), sizes('32x32'),
+                            href('https://www.swi-prolog.org/icons/favicon.ico')])
+                    ],
+                    [ \show_tests,
+                      \scripts
+                    ]).
+
+show_tests -->
+    { tests_by_model(ByModel)
+    },
+    html([ h1('GarpN -- Tests'),
+           ul(\sequence(model_tests, ByModel))
+         ]).
+
+model_tests(Model-Tests) -->
+    { model_title(Model, Title) },
+    html([ li(b(Title)),
+           ul(\sequence(model_test(Model), Tests))
+         ]).
+
+model_test(Model, Test) -->
+    { http_link_to_id(home, [model(Model), test(Test)], ViewModel)
+    },
+    html(li([ a([ href(ViewModel),
+                  title('View model'),
+                  class(button)
+                ],
+                '👁️'),
+              a([ title('Run test'),
+                  class(button)
+                ],
+                '▶️'),
+              ' ',
+              Test
+            ])).
 
 
                 /*******************************

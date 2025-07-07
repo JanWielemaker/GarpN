@@ -395,3 +395,7 @@ div.ml-error span.latex {
     font-size: 80%;
     margin-left: 1ex;
 }
+
+a.button {
+      text-decoration: none;
+}

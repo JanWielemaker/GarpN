@@ -1,5 +1,6 @@
 :- module(gui,
-          [ numeric_model_file/2                              % ++Model, -File
+          [ numeric_model_file/2,                             % ++Model, -File
+            scripts//0
           ]).
 :- use_module(library(main)).
 :- use_module(library(http/http_server)).
@@ -40,7 +41,7 @@ http:location(htmx, garp(htmx), []).
 
 :- http_handler(root(.),    http_redirect(see_other, garp(home)), []).
 :- http_handler(garp(.),    http_redirect(see_other, garp(home)), []).
-:- http_handler(garp(home), home, []).
+:- http_handler(garp(home), home, [id(home)]).
 :- http_handler(garp(.),
                 http_reply_from_files(web, [not_found(404)]),
                 [prefix]).
@@ -50,28 +51,24 @@ http:location(htmx, garp(htmx), []).
 :- http_handler(garp(health), server_health,
                 [id(server_health)]).
 
-home(_Request) :-
+home(Request) :-
+    http_parameters(Request,
+                    [ model(Model, [default(none)]),
+                      test(Test, [optional(true)])
+                    ]),
+    include(ground, [model(Model),test(Test)], Options),
     reply_html_page([ title('GarpN: the Garp numerical simulator'),
                       link([rel(stylesheet), href('/garp/simulator.css')]),
                       link([rel(icon), type('image/png'), sizes('32x32'),
                             href('https://www.swi-prolog.org/icons/favicon.ico')])
                     ],
-                    [ \home,
-                      script([type('text/javascript'),
-                              src('/garp/node_modules/htmx.org/dist/htmx.js')], []),
-                      script([type('text/javascript'),
-                              src('/garp/node_modules/htmx.org/dist/ext/response-targets.js')], []),
-                      script([type('text/javascript'),
-                              src('/garp/node_modules/htmx.org/dist/ext/json-enc.js')], []),
-                      script([type('text/javascript'),
-                              src('/garp/simulator.js')], []),
-                      script([type('text/javascript'),
-                              src('/garp/plotly-2.32.0.min.js')], []),
+                    [ \home(Options),
+                      \scripts,
                       \refresh
                     ]).
 
-home -->
-    { Model = none
+home(Options) -->
+    { option(model(Model), Options, none)
     },
     html([ h1(["GarpN -- ", span(id('model-name'), "numerical simulator")]),
            div([ 'hx-ext'('response-targets'),
@@ -112,6 +109,23 @@ home -->
                       |})
          ]).
 
+%!  scripts//
+%
+%   Emit the scripts
+
+scripts -->
+    html([ script([type('text/javascript'),
+                   src('/garp/node_modules/htmx.org/dist/htmx.js')], []),
+           script([type('text/javascript'),
+                   src('/garp/node_modules/htmx.org/dist/ext/response-targets.js')], []),
+           script([type('text/javascript'),
+                   src('/garp/node_modules/htmx.org/dist/ext/json-enc.js')], []),
+           script([type('text/javascript'),
+                   src('/garp/simulator.js')], []),
+           script([type('text/javascript'),
+                   src('/garp/plotly-2.32.0.min.js')], [])
+         ]).
+
 %!  refresh//
 %
 %   Trigger the model menu to load the current model.
@@ -123,21 +137,21 @@ refresh -->
                });
               |}).
 
-%!  model_menus(+Default)//
+%!  model_menus(+ModelId)//
 %
 %   Add the menus above the model. One for loading an existing model and
 %   one to (re-)start the numerical model.
 
-model_menus(Default) -->
+model_menus(ModelId) -->
     html(div(class('model-menus'),
-             [ \model_menu(Default),
+             [ \model_menu(ModelId),
                \init_model_menu
              ])).
 
 :- if(current_prolog_flag(dynalearn, true)).
 % Fill menu from Dynalearn
 
-model_menu(_Default) -->
+model_menu(SelectedModelId) -->
     { dynalearn_models(Models)
     },
     html(select([ 'hx-get'('/garp/htmx/set-model'),
@@ -147,15 +161,21 @@ model_menu(_Default) -->
                   name(model)
                 ],
                 [ option(value(none), 'Please select a model from Dynalearn')
-                | \sequence(dl_project, Models.result)
+                | \sequence(dl_project(SelectedModelId), Models.result)
                 ])).
 
-dl_project(Project) -->
-    sequence(dl_model(Project.project_code), Project.models).
+dl_project(SelectedModelId, Project) -->
+    sequence(dl_model(SelectedModelId, Project.project_code), Project.models).
 
-dl_model(Project, Model) -->
-    html(option([value(Model.id)],
+dl_model(SelectedModelId, Project, Model) -->
+    { selected(SelectedModelId, Model.id, Options)
+    },
+    html(option([value(Model.id)|Options],
                 '[~w] ~w (~w)'-[Project, Model.title, Model.user])).
+
+selected(ModelId, ModelId, [selected(selected)]).
+selected(_, _, []).
+
 
 :- else.
 % Fill menu from local files, using local Garp
