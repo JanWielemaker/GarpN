@@ -14,6 +14,14 @@
 :- use_module(library(statistics), [call_time/2]).
 :- use_module(library(http/json), [atom_json_dict/3]).
 :- use_module(library(http/http_dispatch), [http_handler/3, http_link_to_id/3]).
+:- use_module(library(lists), [append/3]).
+:- use_module(library(pairs), [group_pairs_by_key/2]).
+:- use_module(library(http/html_write), [reply_html_page/2, html/3]).
+:- use_module(library(dcg/high_order), [sequence/4]).
+:- use_module(library(http/http_parameters), [http_parameters/2]).
+:- use_module(library(streams), [with_output_to/3]).
+:- use_module(library(http/htmx), [reply_htmx/1]).
+
 :- use_module(equations).
 :- use_module(gsim).
 :- use_module(dynalearn,
@@ -21,10 +29,8 @@
 :- use_module(gui, [scripts//0]).
 :- use_module(map).
 :- use_module(diff).
-:- use_module(library(lists), [append/3]).
-:- use_module(library(pairs), [group_pairs_by_key/2]).
-:- use_module(library(http/html_write), [reply_html_page/2, html/3]).
-:- use_module(library(dcg/high_order), [sequence/4]).
+:- use_module(library(pcre), [re_split/3]).
+:- use_module(library(dcg/basics), [remainder/3]).
 
 /** <module> Manage automated tests
 
@@ -124,10 +130,13 @@ tests_by_model(ByModel) :-
 
 garp_test_model(Options, Model-Tests) =>
     progress(start_model(Model), Options),
-    maplist(garp_test_model_test(Options, Model), Tests).
+    maplist(garp_test_model_test_r(Options, Model), Tests).
 
-garp_test_model_test(Options, Model, Test) :-
+garp_test_model_test_r(Options, Model, Test) :-
     progress(start_test(Model, Test), Options),
+    garp_test_model_test(Model, Test, Options).
+
+garp_test_model_test(Model, Test, Options) :-
     test_file(File, Model, Test),
     run_garp_test(File, Options).
 
@@ -258,7 +267,10 @@ unexpected(Msg, V == E) =>
     term_diff(V, E).
 unexpected(Msg, V =@= E) =>
     ansi_format(error, '~s: unexpected result:~n', [Msg]),
-    term_diff(V, E).
+    \+ \+ ( numbervars(V, 0, _, [singletons(true)]),
+            numbervars(E, 0, _, [singletons(true)]),
+            term_diff(V, E)
+          ).
 
 
                 /*******************************
@@ -298,6 +310,7 @@ model_title(Model, Title) :-
                 *******************************/
 
 :- http_handler(garp(tests), show_tests, []).
+:- http_handler(htmx(test),  run_test,   [id(run_test)]).
 
 show_tests(_Request) :-
     reply_html_page([ title('GarpN -- tests'),
@@ -319,24 +332,83 @@ show_tests -->
 model_tests(Model-Tests) -->
     { model_title(Model, Title) },
     html([ li(b(Title)),
-           ul(\sequence(model_test(Model), Tests))
+           ul(style('list-style-type:none'), \sequence(model_test(Model), Tests))
          ]).
 
 model_test(Model, Test) -->
-    { http_link_to_id(home, [model(Model), test(Test)], ViewModel)
+    { http_link_to_id(home, [model(Model), test(Test)], ViewModel),
+      http_link_to_id(run_test, [model(Model), test(Test)], RunTest),
+      variant_sha1(Model+Test, Hash),
+      atom_concat(r, Hash, TestResultId),
+      atom_concat('#', TestResultId, HXTarget)
     },
     html(li([ a([ href(ViewModel),
                   title('View model'),
                   class(button)
                 ],
                 '👁️'),
-              a([ title('Run test'),
+              a([ href(RunTest),
+                  'hx-get'(RunTest),
+                  'hx-target'(HXTarget),
+                  title('Run test'),
                   class(button)
                 ],
                 '▶️'),
               ' ',
-              Test
+              Test,
+              div(id(TestResultId), [])
             ])).
+
+%!  run_test(+Request) is det.
+%
+%   Run a test, presenting the results in the browser.
+
+run_test(Request) :-
+    http_parameters(Request,
+                    [ model(Model, []),
+                      test(Test, [])
+                    ]),
+    with_output_to(string(Ansi),
+                   ignore(garp_test_model_test(Model, Test, [])),
+                   [ capture([user_output,user_error]),
+                     color(true)
+                   ]),
+    ansi_to_html(Ansi, HTML),
+    reply_htmx(pre(HTML)).
+
+%!  ansi_to_html(+Ansi, -HTML) is det.
+%
+%   Convert ANSI color sequences to HTML.
+
+ansi_to_html(Ansi, HTML) :-
+    re_split("\e\\[\\d+(;\\d+)*m", Ansi, Parts),
+    phrase(to_html(HTML), Parts).
+
+to_html([Plain,Span|T]) -->
+    [Plain],
+    [Start, Text, "\e[0m"], !,
+    {to_style(Start, Text, Span)},
+    to_html(T).
+to_html(Last) --> remainder(Last).
+
+to_style(Start, Text, Span) :-
+    string_concat("\e[", S1, Start),
+    string_concat(S2, "m", S1),
+    split_string(S2, ";", "", Parts),
+    maplist(number_string, Args, Parts),
+    sgr_style(Args, Text, Span).
+
+sgr_style([], Text, Text).
+sgr_style([1|T], Text, Span) :-
+    !,
+    sgr_style(T, b(style('white-space:pre-wrap;'),Text), Span).
+sgr_style([FG|T], Text, Span) :-
+    between(30,39,FG),
+    Color is FG-30,
+    ansi_term:ansi_color(Name, Color),
+    format(string(Style), 'white-space:pre-wrap;color:~w;', [Name]),
+    sgr_style(T, span(style(Style), Text), Span).
+
 
 
                 /*******************************
@@ -367,3 +439,4 @@ message(mapping_quality(PerfectCnt, AmbiguousCnt, UnmappedCnt)) -->
     [ '   🟡 Matched ~D states; ~D ambiguous, ~D unmatched'-[PerfectCnt,AmbiguousCnt,UnmappedCnt] ].
 message(mapping_quality(PerfectCnt, AmbiguousCnt, UnmappedCnt)) -->
     [ '   🔴 Matched ~D states; ~D ambiguous, ~D unmatched'-[PerfectCnt,AmbiguousCnt,UnmappedCnt] ].
+
