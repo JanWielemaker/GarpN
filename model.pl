@@ -40,7 +40,7 @@
 %     - old_model(+Model)
 %     - old_qspaces(+QSpaces)
 %       These two options provide the current qualitative model.  They
-%       will be used to perserve as much as possible of the current
+%       are used to preserve as much as possible of the current
 %       model.
 
 propose_model(Model, Equations, Options0) :-
@@ -165,12 +165,11 @@ dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % Div = A/B
           NRel),
     exclude(is_prop(Div), QRels1, QRels2),
     dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
-dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % multiple prop on a target
+dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % one or more prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, prop, Prob),
     partition(is_prop(Dep), QRels1, Props, QRels2),
-    prop_nrel([Prob|Props], NRel0, Options),
-    mkrel(DQ, VQs, NRel0, NRel),
+    prop_nrel(DQ, [Prob|Props], VQs, NRel, Options),
     dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
 dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % multiple integrals on target
     select(Integral, QRels, QRels1),
@@ -353,17 +352,38 @@ is_prop(Dep, prop,      prop_pos(Dep,_From)).
 is_prop(Dep, prop,      prop_neg(Dep,_From)).
 is_prop(Dep, exogenous, exogenous(Dep,_Class)).
 
-%!  prop_nrel(+Props, -NRel, +Options) is det.
+%!  prop_nrel(+DQ, +Props, +VQs, -NRel, +Options) is det.
 %
-%   Generate a numeric relation NRel that handles all P relations
-%   to a single dependency.
+%   Generate a numeric relation NRel that handles   all P relations to a
+%   single dependency.
 
-prop_nrel(Props, Dep := Expr, _Options) :-
+prop_nrel(DQ0, Props, VQs, Dep := Expr, Options) :-
+    option(model(Model), Options, engine),
+    q_input_state(Model, Input),
+    prop_dq_mode(DQ0, Props, VQs, DQ),
     Props = [H|_],
     is_prop(Dep, H),
-    maplist(one_prop, Props, Parts),
+    maplist(one_prop_r(DQ, [input_state(Input)|Options]), Props, Parts),
     sum_expressions(Parts, Sum),
     join_sum(Sum, Dep, Expr).
+
+one_prop_r(DQ, Options, Prop, Expr) :-
+    one_prop(DQ, Prop, Expr, Options).
+
+%!  prop_dq_mode(+DQM, +Props, +VQs, -DQ) is det.
+%
+%   Find the translation mode for Props.   As  our conversion depends on
+%   this, we must do this upfront, rather than relying on mkrel/4.
+
+prop_dq_mode(d, _, _, d).
+prop_dq_mode(q, _, _, q).
+prop_dq_mode(m, Props, VQs, Mode) :-
+    include(is_prop(_,prop), Props, RealProps),
+    maplist(arg(2), RealProps, Infs),
+    (   maplist(has_value(VQs), Infs)
+    ->  Mode = q
+    ;   Mode = d
+    ).
 
 sum_expressions(Parts, Sum) :-
     partition(is_neg, Parts, NegParts, PosParts),
@@ -378,8 +398,26 @@ seq_to_sum([H|T], Sum) =>
     seq_to_sum(T, Sum0),
     join_sum(H, Sum0, Sum).
 
-one_prop(prop_pos(_, Infl),   Expr) => Expr = c*Infl.
-one_prop(prop_neg(_, Infl),   Expr) => Expr = -(c*Infl).
+%!  one_prop(+DQ, +Prop, -Relation, +Options)
+%
+%   Decide on the formula for translating Prop. The translation depends
+%   on
+%
+%     - The translation mode (d/q)
+%     - The value space on both sides (if known)
+%     - The initial value on both sides (if known)
+%
+%   Options processed:
+%
+%     - input_state(+InputState)
+%       Dict for _Q_ -> d(V,D1,D2,D3) initial values
+%     - model(+ModelId)
+%       Model from which to extract the quantity spaces
+
+one_prop(q, prop_pos(_, Infl), Expr, _Options) => Expr = Expr + c*Infl.
+one_prop(q, prop_neg(_, Infl), Expr, _Options) => Expr = Expr - c*Infl.
+one_prop(d, prop_pos(_, Infl), Expr, _Options) => d(Expr) = c*d(Infl).
+one_prop(d, prop_neg(_, Infl), Expr, _Options) => d(Expr) = -(c*d(Infl)).
 
 join_sum(-(Expr), Sum0, Sum) => Sum = Sum0-Expr.
 join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
