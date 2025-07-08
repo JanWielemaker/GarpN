@@ -46,11 +46,12 @@
 
 propose_model(Model, Equations, Options0) :-
     opt_id_mapping(Model, Options0, Options1),
-    Options = [model(Model)|Options1],
+    qspaces(Model, QSpaces, Options1),
+    Options = [model(Model),qspaces(QSpaces)|Options1],
     findall(QRel, (q_rel(Model, QRel), \+correspondence_rel(QRel)), QRels),
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
-    valued_quantities(Model, VQs),
+    valued_quantities(QSpaces, VQs),
     qrel2nrel(Rels, VQs, NRels, Options),
     integrals(VQs, NRels, IRels, Options),
     init_nrels(Model, QRels, NRels, Init, Options), % Use input scenario
@@ -489,16 +490,44 @@ has_value_equation(NRels, Q) :-
 
 integral(Q, Q := Q + d(Q)).
 
-%!  valued_quantities(+Model, -Qs:list(atom)) is det.
+%!  qspaces(+Model, -QSpaces, +Options)
+%
+%   Find an as complete as possible quantity  space mapping. We have the
+%   option `old_qspaces` and the model quantity   spaces.  The final set
+%   must be compatible with the model, using   as  much as possible from
+%   the old quantity spaces.
+
+qspaces(Model, QSpaces, Options) :-
+    findall(Q-QSpace, qspace(Model, Q, QSpace, Options), Pairs),
+    dict_pairs(QSpaces, _, Pairs).
+
+qspace(Model, Q, QSpace, Options) :-
+    m_qspace(Model, Q, _QSpaceName, ModelValues),
+    (   option(old_qspaces(OldQspaces), Options),
+        OldValues = OldQspaces.get(Q)
+    ->  maplist(join_qspace_point(OldValues), ModelValues, QSpace)
+    ;   QSpace = ModelValues
+    ).
+
+join_qspace_point(_, Interval, Value),
+    atom(Interval) =>
+    Value = Interval.
+join_qspace_point(Old, point(Name), Value),
+    memberchk(point(Name=Value), Old) =>
+    Value = point(Name=Value).
+join_qspace_point(_, Model, Value) =>
+    Value = Model.
+
+%!  valued_quantities(+QSpaces, -Qs:list(atom)) is det.
 %
 %   True when Qs is a list of quantity identifiers for quantities with a
 %   value.
 
-valued_quantities(Model, Qs) :-
-    findall(Q, qspace_with_points(Model, Q), Qs).
+valued_quantities(QSpaces, Qs) :-
+    findall(Q, qspace_with_points(QSpaces, Q), Qs).
 
-qspace_with_points(Model, Q) :-
-    m_qspace(Model, Q, _QSpaceName, Values),
+qspace_with_points(QSpaces, Q) :-
+    Values = QSpaces.Q,
     memberchk(point(_), Values).
 
 %!  default_nrels(-NRels:list, +Options) is det.
