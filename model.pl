@@ -44,7 +44,8 @@
 %       model.
 
 propose_model(Model, Equations, Options0) :-
-    opt_id_mapping(Model, Options0, Options),
+    opt_id_mapping(Model, Options0, Options1),
+    Options = [model(Model)|Options1],
     findall(QRel, (q_rel(Model, QRel), \+correspondence_rel(QRel)), QRels),
     findall(exogenous(Q,Class), q_exogenous(Model, Q, Class), Exos),
     append(QRels, Exos, Rels),
@@ -85,12 +86,19 @@ qrel2nrel(QRels, VQs, NRels, Options) :-
 %   stops if we find an element that   leaves  nothing unmapped. Is this
 %   ok? I.e., can we have multiple meaningful mappings?
 %
+%   Options processed:
+%
+%     - mode(+Mode)
+%       One of `quantities`, `derivatives` or `mixed`
+%     - model(+ModelId)
+%       Identifier for the model being converted
+%
 %   @arg Left are unmapped QRels elements.
 %   @arg NLeft is the length of Left.
 
 qrel2nrel(QRels, VQs, Left, NRels, NLeft, Options) :-
     mode_indicator(DQ, Options),
-    qrel2nrel(DQ, QRels, VQs, Left, NRels),
+    dq_qrel2nrel(DQ, QRels, VQs, Left, NRels, Options),
     length(Left, NLeft),
     (   NLeft =:= 0
     ->  !
@@ -101,7 +109,7 @@ mode_indicator(DQ, Options), option(mode(quantities),  Options) => DQ = q.
 mode_indicator(DQ, Options), option(mode(derivatives), Options) => DQ = d.
 mode_indicator(DQ, Options), option(mode(mixed),       Options) => DQ = m.
 
-%!  qrel2nrel(+DQ, +QRels, +VQs, -Left, -NRels) is nondet.
+%!  dq_qrel2nrel(+DQ, +QRels, +VQs, -Left, -NRels, +Options) is nondet.
 %
 %   True when NRels  is  a  set   of  numerical  relations  covering the
 %   qualitative  relation  set  QRels.  Left  are  QRels  that  are  not
@@ -124,13 +132,13 @@ mode_indicator(DQ, Options), option(mode(mixed),       Options) => DQ = m.
 %     - Otherwise use the `q` mode.  Add an integration relation
 %       for all involved quantities with a quantity space.
 
-qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Diff = A-B
+dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % Diff = A-B
     select(equal(min(A,B), Diff), QRels, QRels1),
     !,
     mkrel(DQ, VQs, Diff := A - B, NRel),
     exclude(is_prop(Diff), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Sum = A-B
+    dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
+dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % Sum = A-B
     select(equal(plus(A,B), Sum), QRels, QRels1),
     !,
     mkrel(DQ, VQs,
@@ -138,8 +146,8 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Sum = A-B
           d(Sum) := d(A) + d(B),
           NRel),
     exclude(is_prop(Sum), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Mult = A*B
+    dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
+dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % Mult = A*B
     select(equal(mult(A,B), Mult), QRels, QRels1),
     !,
     mkrel(DQ, VQs,
@@ -147,8 +155,8 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Mult = A*B
           d(Mult) := d(A) * d(B),
           NRel),
     exclude(is_prop(Mult), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Div = A/B
+    dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
+dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % Div = A/B
     select(equal(diw(A,B), Div), QRels, QRels1),
     !,
     mkrel(DQ, VQs,
@@ -156,36 +164,36 @@ qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % Div = A/B
           d(Div) := d(A) / d(B),
           NRel),
     exclude(is_prop(Div), QRels1, QRels2),
-    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple prop on a target
+    dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
+dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % multiple prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, Prob),
     partition(is_prop(Dep), QRels1, Props, QRels2),
     Props \== [],
-    prop_nrel([Prob|Props], NRel0),
+    prop_nrel([Prob|Props], NRel0, Options),
     mkrel(DQ, VQs, NRel0, NRel),
-    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels]) :- % multiple integrals on target
+    dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
+dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % multiple integrals on target
     select(Integral, QRels, QRels1),
     is_inf_by(Dep, Integral),
     partition(is_inf_by(Dep), QRels1, Integrals, QRels2),
     Integrals \== [],
     inf_by_nrel(DQ, VQs, [Integral|Integrals], NRel),
-    qrel2nrel(DQ, QRels2, VQs, Left, NRels).
-qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
+    dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
+dq_qrel2nrel(DQ, QRels, VQs, Left, NRels, Options) :-
     select(exogenous(Dep,Class), QRels, QRels1),
     !,
     exogenous_equation(Class, Dep, Rels),
     append(Rels, NRels1, NRels),
-    qrel2nrel(DQ, QRels1, VQs,Left, NRels1).
-qrel2nrel(DQ, QRels, VQs, Left, NRels) :-
+    dq_qrel2nrel(DQ, QRels1, VQs,Left, NRels1, Options).
+dq_qrel2nrel(DQ, QRels, VQs, Left, NRels, Options) :-
     qrel_nrel(Qsubgraph, NQRels, DRels),
     select_graph(Qsubgraph, QRels, QRels1),
     !,
     mkrel(DQ, VQs, NQRels, DRels, Rels),
     append(Rels, NRels1, NRels),
-    qrel2nrel(DQ, QRels1, VQs, Left, NRels1).
-qrel2nrel(_DQ, Left, _VQs, Left, []).
+    dq_qrel2nrel(DQ, QRels1, VQs, Left, NRels1, Options).
+dq_qrel2nrel(_DQ, Left, _VQs, Left, [], _Options).
 
 %!  select_graph(+SubGraph, +Graph, -Rest) is nondet.
 %
@@ -354,7 +362,12 @@ is_prop(Dep, prop_pos(Dep,_)).
 is_prop(Dep, prop_neg(Dep,_)).
 is_prop(Dep, exogenous(Dep,_)).
 
-prop_nrel(Props, Dep := Expr) :-
+%!  prop_nrel(+Props, -NRel, +Options) is det.
+%
+%   Generate a numeric relation NRel that handles all P relations
+%   to a single dependency.
+
+prop_nrel(Props, Dep := Expr, _Options) :-
     Props = [H|_],
     is_prop(Dep, H),
     maplist(one_prop, Props, Parts),
