@@ -167,9 +167,8 @@ dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % Div = A/B
     dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
 dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % multiple prop on a target
     select(Prob, QRels, QRels1),
-    is_prop(Dep, Prob),
+    is_prop(Dep, prop, Prob),
     partition(is_prop(Dep), QRels1, Props, QRels2),
-    Props \== [],
     prop_nrel([Prob|Props], NRel0, Options),
     mkrel(DQ, VQs, NRel0, NRel),
     dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
@@ -313,17 +312,6 @@ qrel_nrel([inf_pos_by(I,D)],
 qrel_nrel([inf_neg_by(I,D)],
           [I := I - D*'Δt'],
           [d(I) := -D*'Δt']).
-qrel_nrel([prop_pos(Dep,Infl)],
-          [Dep := Dep + c*Infl],
-          [d(Dep) := c*d(Infl)]).
-qrel_nrel([prop_neg(Dep,Infl)],
-          [Dep := Dep - c*Infl],
-          [d(Dep) := -(c*d(Infl))]).
-/*
-qrel_nrel([exogenous(Dep,exogenous_steady)],
-          [Dep := c],
-          [Dep := c, d(Dep) := 0]).
-*/
 
 %!  correspondences(+ModelId, -Correspondences:list) is det.
 %
@@ -358,9 +346,12 @@ is_expr(mult(_,_)) => true.
 is_expr(diw(_,_)) => true.
 is_expr(_) => false.
 
-is_prop(Dep, prop_pos(Dep,_From)).
-is_prop(Dep, prop_neg(Dep,_From)).
-is_prop(Dep, exogenous(Dep,_Class)).
+is_prop(Dep, QRel) :-
+    is_prop(Dep, _, QRel).
+
+is_prop(Dep, prop,      prop_pos(Dep,_From)).
+is_prop(Dep, prop,      prop_neg(Dep,_From)).
+is_prop(Dep, exogenous, exogenous(Dep,_Class)).
 
 %!  prop_nrel(+Props, -NRel, +Options) is det.
 %
