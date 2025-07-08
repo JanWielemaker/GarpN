@@ -12,11 +12,12 @@
 :- use_module(library(apply)).
 :- use_module(library(aggregate)).
 :- use_module(library(option)).
+:- use_module(library(pairs)).
+:- use_module(library(debug)).
 
 :- use_module(map).
 :- use_module(gsim).
 :- use_module(identifiers).
-:- use_module(library(pairs)).
 
 /** <module> Propose a (partial) numeric model from Garp
 
@@ -168,6 +169,7 @@ dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % Div = A/B
 dq_qrel2nrel(DQ, QRels, VQs, Left, [NRel|NRels], Options) :- % one or more prop on a target
     select(Prob, QRels, QRels1),
     is_prop(Dep, prop, Prob),
+    !,
     partition(is_prop(Dep), QRels1, Props, QRels2),
     prop_nrel(DQ, [Prob|Props], VQs, NRel, Options),
     dq_qrel2nrel(DQ, QRels2, VQs, Left, NRels, Options).
@@ -357,18 +359,21 @@ is_prop(Dep, exogenous, exogenous(Dep,_Class)).
 %   Generate a numeric relation NRel that handles   all P relations to a
 %   single dependency.
 
-prop_nrel(DQ0, Props, VQs, Dep := Expr, Options) :-
+prop_nrel(DQ0, Props, VQs, DQDep := Sum, Options) :-
     option(model(Model), Options, engine),
     q_input_state(Model, Input),
     prop_dq_mode(DQ0, Props, VQs, DQ),
     Props = [H|_],
     is_prop(Dep, H),
-    maplist(one_prop_r(DQ, [input_state(Input)|Options]), Props, Parts),
-    sum_expressions(Parts, Sum),
-    join_sum(Sum, Dep, Expr).
+    dq_quant(DQ, Dep, DQDep),
+    maplist(one_prop_r(DQ, [input_state(Input)|Options]), Props, Exprs),
+    sum_expressions(Exprs, Dep, Sum).
 
 one_prop_r(DQ, Options, Prop, Expr) :-
     one_prop(DQ, Prop, Expr, Options).
+
+dq_quant(q, Dep, Dep).
+dq_quant(d, Dep, d(Dep)).
 
 %!  prop_dq_mode(+DQM, +Props, +VQs, -DQ) is det.
 %
@@ -385,10 +390,33 @@ prop_dq_mode(m, Props, VQs, Mode) :-
     ;   Mode = d
     ).
 
-sum_expressions(Parts, Sum) :-
-    partition(is_neg, Parts, NegParts, PosParts),
+%!  sum_expressions(+Exprs, +Dep, -Sum)
+%
+%   Given a list of
+
+sum_expressions(Exprs, Dep, Sum) :-
+    phrase(expr_parts(Exprs), Parts),
+    partition(==(Dep), Parts, Deps, Parts1),
+    assertion(\+ memberchk(-Dep, Parts1)),
+    partition(is_neg, Parts1, NegParts, PosParts),
     append(NegParts, PosParts, NegFirst),
-    seq_to_sum(NegFirst, Sum).
+    seq_to_sum(NegFirst, Sum0),
+    (   Deps == []
+    ->  Sum = Sum0
+    ;   join_sum(Sum0, Dep, Sum)
+    ).
+
+expr_parts([]) ==> [].
+expr_parts([H|T]) ==> expr_parts_1(H, +), expr_parts(T).
+
+expr_parts_1(A+B, PM) ==> expr_parts_1(A, PM), expr_parts_1(B, PM).
+expr_parts_1(A-B, PM) ==> {npm(PM, NPM)}, expr_parts_1(A, PM), expr_parts_1(B, NPM).
+expr_parts_1(-A,  PM) ==> {npm(PM, NPM)}, expr_parts_1(A, NPM).
+expr_parts_1(X, -)    ==> [-X].
+expr_parts_1(X, +)    ==> [X].
+
+npm(-,+).
+npm(+,-).
 
 is_neg(-(_)).
 
@@ -397,6 +425,9 @@ seq_to_sum([One], Sum) =>
 seq_to_sum([H|T], Sum) =>
     seq_to_sum(T, Sum0),
     join_sum(H, Sum0, Sum).
+
+join_sum(-Expr, Sum0, Sum) => Sum = Sum0-Expr.
+join_sum(Expr, Sum0, Sum)  => Sum = Sum0+Expr.
 
 %!  one_prop(+DQ, +Prop, -Relation, +Options)
 %
@@ -414,13 +445,10 @@ seq_to_sum([H|T], Sum) =>
 %     - model(+ModelId)
 %       Model from which to extract the quantity spaces
 
-one_prop(q, prop_pos(_, Infl), Expr, _Options) => Expr = Expr + c*Infl.
-one_prop(q, prop_neg(_, Infl), Expr, _Options) => Expr = Expr - c*Infl.
-one_prop(d, prop_pos(_, Infl), Expr, _Options) => d(Expr) = c*d(Infl).
-one_prop(d, prop_neg(_, Infl), Expr, _Options) => d(Expr) = -(c*d(Infl)).
-
-join_sum(-(Expr), Sum0, Sum) => Sum = Sum0-Expr.
-join_sum(Expr, Sum0, Sum)    => Sum = Sum0+Expr.
+one_prop(q, prop_pos(Dep, Infl), Expr, _Options) => Expr = Dep + c*Infl.
+one_prop(q, prop_neg(Dep, Infl), Expr, _Options) => Expr = Dep - c*Infl.
+one_prop(d, prop_pos(_,   Infl), Expr, _Options) => Expr = c*d(Infl).
+one_prop(d, prop_neg(_,   Infl), Expr, _Options) => Expr = -(c*d(Infl)).
 
 %!  is_inf_by(?Dep, +Relation) is semidet.
 
@@ -431,11 +459,11 @@ inf_by_nrel(DQ, VQs, Integrals, Dep := Expr) :-
     Integrals = [H|_],
     is_inf_by(Dep, H),
     maplist(one_inf_by, Integrals, Parts),
-    sum_expressions(Parts, Sum),
+    sum_expressions(Parts, Dep, Sum),
     (   DQ == d,
         nrel_all_valued(Dep+Sum, VQs)
     ->  Expr = Sum
-    ;   sum_expressions([Sum*'Δt', Dep], Expr)
+    ;   sum_expressions([Sum*'Δt', Dep], Dep, Expr)
     ).
 
 one_inf_by(inf_pos_by(_, D), Expr) => Expr = c(1)*D.
