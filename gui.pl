@@ -72,7 +72,7 @@ home(Request) :-
 home(Options) -->
     { option(model(Model), Options, none)
     },
-    html([ h1(["GarpN -- ", span(id('model-name'), "numerical simulator")]),
+    html([ h2(["GarpN -- ", span(id('model-name'), "numerical simulator")]),
            div([ 'hx-ext'('response-targets'),
                  'hx-target-error'('#errors')
                ],
@@ -98,7 +98,8 @@ home(Options) -->
                                                   \right_controls(Model))
                                             ])
                                   ])
-                           ])
+                           ]),
+                       \links
                      ]),
                  div(id(results), []),
                  div(id(script), [])
@@ -1712,9 +1713,18 @@ stats(Series, Time) -->
     html(div(class([stats,narrow]),
              'Generated ~D samples in ~3f seconds'-[Count, Time.cpu])).
 
+links -->
+    { http_link_to_id(show_tests, [], TestLink)
+    },
+    html([ div(class(links),
+               [ div(class(title), 'Links'),
+                 a(href(TestLink), 'Show tests')
+               ])
+         ]).
+
 
 		 /*******************************
-		 *            DOWNLOAD		*
+		 *            DOWNLOAD	  *
 		 *******************************/
 
 :- dynamic

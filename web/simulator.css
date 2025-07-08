@@ -399,3 +399,15 @@ div.ml-error span.latex {
 a.button {
       text-decoration: none;
 }
+
+div.links {
+    margin-top: 3em;
+    border-top: 1px solid #888;
+    background: #ddd;
+    padding: 5pt 2em;
+}
+
+div.links div.title {
+    font-weight: bold;
+    margin-bottom: 1ex;
+}

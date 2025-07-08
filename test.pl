@@ -334,7 +334,7 @@ model_title(Model, Title) :-
                 *          WEB ACCESS          *
                 *******************************/
 
-:- http_handler(garp(tests), show_tests, []).
+:- http_handler(garp(tests), show_tests, [id(show_tests)]).
 :- http_handler(htmx(test),  run_test,   [id(run_test)]).
 
 show_tests(_Request) :-
