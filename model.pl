@@ -443,13 +443,84 @@ join_sum(Expr, Sum0, Sum)  => Sum = Sum0+Expr.
 %
 %     - input_state(+InputState)
 %       Dict for _Q_ -> d(V,D1,D2,D3) initial values
-%     - model(+ModelId)
-%       Model from which to extract the quantity spaces
+%     - qspaces(+Qspaces)
+%       Dict for _Q_ -> _QSpace_, where _QSpace_ is an alternating
+%       list of intervals and points.  Points may be point(Name) or
+%       point(Name=Value).
 
-one_prop(q, prop_pos(Dep, Infl), Expr, _Options) => Expr = Dep + c*Infl.
-one_prop(q, prop_neg(Dep, Infl), Expr, _Options) => Expr = Dep - c*Infl.
-one_prop(d, prop_pos(_,   Infl), Expr, _Options) => Expr = c*d(Infl).
-one_prop(d, prop_neg(_,   Infl), Expr, _Options) => Expr = -(c*d(Infl)).
+one_prop(DQ, Prop, Expr, Options) :-
+    prop_value_descr(1, Prop, DepVal, Options),
+    prop_value_descr(2, Prop, InflVal, Options),
+    one_prop(Prop, DQ, DepVal, InflVal, Expr).
+
+prop_value_descr(Arg, Prop, Val, Options) :-
+    arg(Arg, Prop, Q),
+    q_value_descr(Q, Val, Options).
+
+%!  q_value_descr(+Q, -QSpace, +Options) is det.
+%
+%   Generate a value and initialization description for Q. QSpace is one
+%   of
+%
+%     - []
+%       Nothing is known
+%     - A sublist of `[-,0,+]`, where each element is optionally
+%       wrapped in i(_).  For example `[0,i(+)]`.  This means Q
+%       starts possitive and is 0 or possitive.
+
+q_value_descr(Q, QSpace, Options) :-
+    option(qspace(QSpaces), Options),
+    QSpace0 = QSpaces.get(Q),
+    (   option(input_state(IState), Options),
+        d(V,_D1,_D2,_D3) = IState.get(Q)
+    ->  true
+    ;   V = []
+    ),
+    simplify_qspace(QSpace0, V, QSpace),
+    !.
+q_value_descr(_, [], _Options).
+
+simplify_qspace(QSpace0, V, QSpace) :-
+    append(Pre, [point(Pt)|Post], QSpace0),
+    is_zero(Pt),
+    !,
+    simple_qspace(Pre, point(Pt), Post, V, QSpace).
+
+is_zero(zero) => true.
+is_zero(_Name=Value), Value =:= 0 => true.
+is_zero(Value), Value =:= 0 => true.
+is_zero(_) => false.
+
+% Start at zero
+simple_qspace([], Zero, [], I, QSpace), eq_init(I, Zero) => QSpace = [i(0)].
+simple_qspace([], Zero, _,  I, QSpace), eq_init(I, Zero) => QSpace = [i(0),+].
+simple_qspace(_,  Zero, [], I, QSpace), eq_init(I, Zero) => QSpace = [-,i(0)].
+simple_qspace(_,  Zero, _,  I, QSpace), eq_init(I, Zero) => QSpace = [-,i(0),+].
+% start negative
+simple_qspace(Ng, _,    [], I, QSpace), init_in(I, Ng)   => QSpace = [i(-),0].
+simple_qspace(Ng, _,    _,  I, QSpace), init_in(I, Ng)   => QSpace = [i(-),0,+].
+% start positive
+simple_qspace([], _,   Pos, I, QSpace), init_in(I, Pos)  => QSpace = [0,i(+)].
+simple_qspace(_,  _,   Pos, I, QSpace), init_in(I, Pos)  => QSpace = [-,0,i(+)].
+
+init_in(Init, Seq) :-
+    member(V, Seq),
+    eq_init(Init, V),
+    !.
+
+eq_init(Init, Init) => true.
+eq_init(point(Name), point(Name=_)) => true.
+eq_init(_, _) => false.
+
+%!  one_prop(+Prop, +DQ, +DepVal, +InflVal, -Expr) is det.
+%
+%   Finally, we take Marco Kragten's table to propose an equation.
+
+% fall back
+one_prop(prop_pos(Dep, Infl), q, _, _, Expr) => Expr = Dep + c*Infl.
+one_prop(prop_neg(Dep, Infl), q, _, _, Expr) => Expr = Dep - c*Infl.
+one_prop(prop_pos(_,   Infl), d, _, _, Expr) => Expr = c*d(Infl).
+one_prop(prop_neg(_,   Infl), d, _, _, Expr) => Expr = -(c*d(Infl)).
 
 %!  is_inf_by(?Dep, +Relation) is semidet.
 
