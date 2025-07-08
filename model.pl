@@ -358,9 +358,9 @@ is_expr(mult(_,_)) => true.
 is_expr(diw(_,_)) => true.
 is_expr(_) => false.
 
-is_prop(Dep, prop_pos(Dep,_)).
-is_prop(Dep, prop_neg(Dep,_)).
-is_prop(Dep, exogenous(Dep,_)).
+is_prop(Dep, prop_pos(Dep,_From)).
+is_prop(Dep, prop_neg(Dep,_From)).
+is_prop(Dep, exogenous(Dep,_Class)).
 
 %!  prop_nrel(+Props, -NRel, +Options) is det.
 %
