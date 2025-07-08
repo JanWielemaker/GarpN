@@ -17,7 +17,7 @@
 :- use_module(library(http/http_dispatch), [http_handler/3, http_link_to_id/3]).
 :- use_module(library(lists), [append/3]).
 :- use_module(library(pairs), [group_pairs_by_key/2]).
-:- use_module(library(http/html_write), [reply_html_page/2, html/3]).
+:- use_module(library(http/html_write), [reply_html_page/2, html//1, html/4]).
 :- use_module(library(dcg/high_order), [sequence/4]).
 :- use_module(library(http/http_parameters), [http_parameters/2]).
 :- use_module(library(streams), [with_output_to/3]).
