@@ -351,8 +351,21 @@ show_tests -->
     { tests_by_model(ByModel)
     },
     html([ h1('GarpN -- Tests'),
+           \help,
            ul(\sequence(model_tests, ByModel))
          ]).
+
+help -->
+    html({|html||
+<p style="font-size:90%">
+This page lists the saved tests.   The simulator allow saving a <em>run</em> on
+a model by name.   That saves the model as well as several intermediate results
+and the final mapping to the qualitative Garp model.  The saved test appears
+below.   The 👁️ button opens the simulator using the model and parameters with
+which the test was saved.  The ▶️ button re-runs the scenario.   If reports any
+differences in the output and gives an indication on the quality of the match
+between the qualitative and quantitative model.
+         |}).
 
 model_tests(Model-Tests) -->
     { model_title(Model, Title) },
