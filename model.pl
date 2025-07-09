@@ -451,7 +451,7 @@ join_sum(Expr, Sum0, Sum)  => Sum = Sum0+Expr.
 one_prop(DQ, Prop, Expr, Options) :-
     prop_value_descr(1, Prop, DepVal, Options),
     prop_value_descr(2, Prop, InflVal, Options),
-    one_prop(Prop, DQ, DepVal, InflVal, Expr).
+    one_prop(Prop, DQ, InflVal, DepVal, Expr).
 
 prop_value_descr(Arg, Prop, Val, Options) :-
     arg(Arg, Prop, Q),
@@ -512,15 +512,29 @@ eq_init(Init, Init) => true.
 eq_init(point(Name), point(Name=_)) => true.
 eq_init(_, _) => false.
 
-%!  one_prop(+Prop, +DQ, +DepVal, +InflVal, -Expr) is det.
+%!  one_prop(+Prop, +DQ, +InflVal, +DepVal, -Expr) is det.
 %
-%   Finally, we take Marco Kragten's table to propose an equation.
+%   Finally, we take Marco Kragten's table   to  propose an equation. In
+%   this table, we see _Q1_ -> _Q2_, which   is InflVal -> DepVal in the
+%   arguments above.
 
+% one_prop(Prop,           DQ, Q1,       Q2,       Expr)
+% 4
+one_prop(prop_pos(_Q2, Q1), q, [i(0),+], [0,i(+)], Expr) => Expr =  c + c*Q1.
+one_prop(prop_pos(_Q2, Q1), q, [0,i(+)], [i(0),+], Expr) => Expr = -c + c*Q1.
 % fall back
-one_prop(prop_pos(Dep, Infl), q, _, _, Expr) => Expr = Dep + c*Infl.
-one_prop(prop_neg(Dep, Infl), q, _, _, Expr) => Expr = Dep - c*Infl.
-one_prop(prop_pos(_,   Infl), d, _, _, Expr) => Expr = c*d(Infl).
-one_prop(prop_neg(_,   Infl), d, _, _, Expr) => Expr = -(c*d(Infl)).
+one_prop(prop_pos(_Q2, Q1), q, _, _, Expr) => Expr = c*Q1.
+one_prop(prop_neg(_Q2, Q1), q, _, _, Expr) => Expr = -(c*Q1).
+% Derivative mode
+one_prop(prop_pos(_,  Q1),  d, _, _, Expr) => Expr = c*d(Q1).
+one_prop(prop_neg(_,  Q1),  d, _, _, Expr) => Expr = -(c*d(Q1)).
+
+/* Old
+one_prop(prop_pos(Q2, Q1), q, _, _, Expr) => Expr = Q2 + c*Q1.
+one_prop(prop_neg(Q2, Q1), q, _, _, Expr) => Expr = Q2 - c*Q1.
+one_prop(prop_pos(_,  Q1), d, _, _, Expr) => Expr = c*d(Q1).
+one_prop(prop_neg(_,  Q1), d, _, _, Expr) => Expr = -(c*d(Q1)).
+*/
 
 %!  is_inf_by(?Dep, +Relation) is semidet.
 
