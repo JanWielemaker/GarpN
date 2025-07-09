@@ -98,11 +98,11 @@ home(Options) -->
                                                   \right_controls(Model))
                                             ])
                                   ])
-                           ]),
-                       \links
+                           ])
                      ]),
                  div(id(results), []),
-                 div(id(script), [])
+                 div(id(script), []),
+                 \links
                ]),
            \js_script({|javascript||
                        let data;
