@@ -13,7 +13,7 @@
 :- use_module(library(pprint), [print_term/2]).
 :- use_module(library(readutil), [read_file_to_terms/3, read_file_to_string/3]).
 :- use_module(library(statistics), [call_time/2]).
-:- use_module(library(http/json), [atom_json_dict/3]).
+:- use_module(library(json), [atom_json_dict/3]).
 :- use_module(library(http/http_dispatch), [http_handler/3, http_link_to_id/3]).
 :- use_module(library(lists), [append/3]).
 :- use_module(library(pairs), [group_pairs_by_key/2]).

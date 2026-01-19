@@ -21,7 +21,7 @@
 :- use_module(library(dcg/high_order)).
 :- use_module(library(exceptions)).
 :- use_module(library(filesex)).
-:- use_module(library(http/json)).
+:- use_module(library(json)).
 :- use_module(library(listing)).
 :- use_module(library(terms)).
 :- use_module(library(debug)).
