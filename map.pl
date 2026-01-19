@@ -3,7 +3,7 @@
             id_mapping/2,               % +Model, -Mapping
             q_series/3,                 % +Model, -QSeries, +Options
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
-            q_series_table/3,           % +QSeries, -Table, +IdMapping
+            q_series_table/4,           % +QSeries, -Table, +IdMapping, +Options
             nq_series/3,                % +Series, -QSeries, +Options
             qstate/4,                   % +Model, ?Id, -Values, +Options
             zero_asymptote/2,           % +Values, +Options
@@ -1395,75 +1395,91 @@ point_name(N, Name), atom(N) => Name = N.
 		 *              CSV		*
 		 *******************************/
 
-%!  q_series_table(+Qseries, -Table, +IdMapping)
+%!  q_series_table(+Qseries, -Table, +IdMapping, +Options)
 %
 %   Translate a qualitative series into CSV format.
 
-q_series_table(QSeries, [Title|Rows], IdMapping) :-
+q_series_table(QSeries, [Title|Rows], IdMapping, Options) :-
     QSeries = [First|_],
     dict_keys(First, Keys0),
     order_keys(IdMapping, Keys0, Keys),
-    phrase(q_title_row(Keys, First, IdMapping), TitleCells),
+    option(match(Match), Options, #{}),
+    phrase(q_title_row(Keys, First, IdMapping, Match), TitleCells),
     Title =.. [row|TitleCells],
-    maplist(q_sample_row(Keys), QSeries, Rows).
+    maplist(q_sample_row(Keys, Match), QSeries, Rows).
 
-q_sample_row(Keys, QSample, Row) :-
-    phrase(q_sample_cols(Keys, QSample), Cells),
+q_sample_row(Keys, Match, QSample, Row) :-
+    phrase(q_sample_cols(Keys, QSample, Match), Cells),
     Row =.. [row|Cells].
 
-q_sample_cols([], _) -->
+q_sample_cols([], _, _) -->
     !.
-q_sample_cols([H|T], QSample) -->
-    q_sample_cell(QSample.H),
-    q_sample_cols(T, QSample).
+q_sample_cols([H|T], QSample, Match) -->
+    { DColumns = Match.get(H,[0,1]) },
+    q_sample_cell(QSample.H, DColumns),
+    q_sample_cols(T, QSample, Match).
 
-q_sample_cell(V) -->
+q_sample_cell(V, DColumns) -->
     { compound(V),
       compound_name_arguments(V, d, Args)
     },
     !,
-    sequence(one, Args).
-q_sample_cell(H) -->
+    q_dcells(Args, 0, DColumns).
+q_sample_cell(H, _) -->
     { is_list(H),
       !,
       atomics_to_string(H, ",", V)
     },
     [V].
-q_sample_cell(H) -->
+q_sample_cell(H, _) -->
     { float(H),
       !,
       round_float(4, H, V)
     },
     [V].
-q_sample_cell(H) -->
+q_sample_cell(H, _) -->
     [H].
 
-q_title_row([], _, _) --> [].
-q_title_row([H|T], First, IdMapping) -->
-    q_title_cell(H, First, IdMapping),
-    q_title_row(T, First, IdMapping).
+q_title_row([], _, _, _) --> [].
+q_title_row([H|T], First, IdMapping, Match) -->
+    { DColumns = Match.get(H,[0,1]) },
+    q_title_cell(H, First, IdMapping, DColumns),
+    q_title_row(T, First, IdMapping, Match).
 
-q_title_cell(Key, Sample, IdMapping) -->
+q_title_cell(Key, Sample, IdMapping, DColumns) -->
     { compound(Sample.Key),
       compound_name_arguments(Sample.Key, d, Args),
       !,
       key_label(IdMapping, Key, Lbl0)
     },
-    derivative_titles(Args, 0, Lbl0).
-q_title_cell(Key, _Sample, IdMapping) -->
+    derivative_titles(Args, 0, Lbl0, DColumns).
+q_title_cell(Key, _Sample, IdMapping, _DColumns) -->
     { key_label(IdMapping, Key, Label)
     },
     [Label].
 
+q_dcells([], _, _) -->
+    [].
+q_dcells([H|T], N, DColumns) -->
+    (   {memberchk(N, DColumns)}
+    ->  one(H)
+    ;   []
+    ),
+    {N2 is N+1},
+    q_dcells(T, N2, DColumns).
+
 one(C) --> {var(C)}, !, [*].
 one(C) --> [C].
 
-derivative_titles([], _, _) -->
+derivative_titles([], _, _, _) -->
     [].
-derivative_titles([_|T], N, Lbl0) -->
-    derivative_title(N,Lbl0),
+derivative_titles([_|T], N, Lbl0, DColumns) -->
+    (   { memberchk(N, DColumns) }
+    ->  derivative_title(N,Lbl0)
+    ;   []
+    ),
     {N2 is N+1},
-    derivative_titles(T, N2, Lbl0).
+    derivative_titles(T, N2, Lbl0, DColumns).
 
 derivative_title(0, Lbl0) -->
     !,
