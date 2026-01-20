@@ -777,6 +777,12 @@ step(euler, S0, S) =>
 %
 %   This predicate asserts a clause for   euler_step/2  that computes S1
 %   from S0.
+%
+%   A single Euler step can  be  computed   two  ways.  By  default, the
+%   equations are ordered and subsequent equations   use  the results of
+%   earlier equations. So, using equations Eq1 and  Eq2, we do S0*Eq1 ->
+%   Sa, Sa*Eq2 -> S1.  With  the   Prolog  flag  `garp_eval_batch`,  all
+%   equations act on S0.
 
 compile_formulas(rk4(DTName, _DT), Formulas, Ref) =>
     step_state_dicts([DTName-_, t-_|Formulas], S0, S),
@@ -784,6 +790,11 @@ compile_formulas(rk4(DTName, _DT), Formulas, Ref) =>
     maplist(eval(S0, S), Normal, EvalNormal),
     maplist(eval_delta(S0, S), Deltas, EvalDelta),
     append(EvalNormal, EvalDelta, Eval),
+    assert_step(S0, S, Eval, Ref).
+compile_formulas(euler, Formulas, Ref),
+    current_prolog_flag(garp_eval_batch, true) =>
+    step_state_dicts(Formulas, S0, S),
+    maplist(eval_batch(S0,S), Formulas, Eval),
     assert_step(S0, S, Eval, Ref).
 compile_formulas(euler, Formulas, Ref) =>
     step_state_dicts(Formulas, S0, S),
@@ -832,8 +843,8 @@ eval_delta(S0, S, Key-formula(δ(Of), Bindings), Eval) =>
 %!           is det.
 %
 %   Sequential     evaluation     of      formulas.       Note      tbat
-%   add_derivative_equations/2   guarantees   that   derivative   (δ(Q))
-%   equations always for follow the equation for Q.
+%   add_derivative_equations/2 guarantees that  a   derivative  equation
+%   (δ(Q)) always follows the equation for Q.
 %
 %   @arg S0 is the step input state
 %   @arg S is the step output state
@@ -863,6 +874,30 @@ eval_seq_(S0, S, Key-formula(Expr, Bindings), Eval, I0, I) =>
     S1 >:< Bindings,
     get_dict(Key, S, Value),
     I = I0.put(Key, Value).
+
+%!  eval_batch(+S0, +S, +Formula, -Eval) is det.
+%
+%   Batch evaluation of formulas. This implies   that every formula gets
+%   its input value from the previous state rather than after evaluating
+%   the previous formula.
+
+:- det(eval_batch/4).
+eval_batch(S0, S, Formula, Eval) :-
+    copy_term(Formula, Formula1),
+    eval_batch_(S0, S, Formula1, Eval).
+
+eval_batch_(S0, S, Key-formula(δ(Of), Bindings), Eval) =>
+    get_dict(OfKey, Bindings, OfB),
+    assertion(Of == OfB),
+    get_dict(Key, S, D1),
+    get_dict(OfKey, S, V1),
+    get_dict(OfKey, S0, V0),
+    Eval = ( D1 is V1-V0 ).
+eval_batch_(S0, S, Key-formula(Expr, Bindings), Eval) =>
+    Eval = (Value is Expr),
+    S0 >:< Bindings,
+    get_dict(Key, S, Value).
+
 
 %!  clean_formulas(+Ref)
 %
