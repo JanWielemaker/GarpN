@@ -3,7 +3,8 @@
             id_mapping/2,               % +Model, -Mapping
             q_series/3,                 % +Model, -QSeries, +Options
             link_garp_states/3,         % +QSeries0, -QSeries, +Options
-            q_series_table/4,           % +QSeries, -Table, +IdMapping, +Options
+            q_series_table/5,           % +Model, +QSeries, -Table,
+                                        % +IdMapping, +Options
             nq_series/3,                % +Series, -QSeries, +Options
             qstate/4,                   % +Model, ?Id, -Values, +Options
             zero_asymptote/2,           % +Values, +Options
@@ -16,7 +17,7 @@
             linked_state//2,            % ?State, ?To
             not_linked_states//1,       % -States
             validate_correspondences/3, % +QSeriesIn, -QSeries, +Options
-            q_partial_ordering/3        % +ModelId, -Ordering:list(list(atom)), +Options
+            q_partial_ordering/3        % +ModelId, -Ordering, +Options
           ]).
 :- if(\+current_prolog_flag(dynalearn, true)).
 :- export(save_garp_results/1).
@@ -1427,17 +1428,17 @@ point_name(N, Name), atom(N) => Name = N.
 		 *              CSV		*
 		 *******************************/
 
-%!  q_series_table(+Qseries, -Table, +IdMapping, +Options)
+%!  q_series_table(+Model, +Qseries, -Table, +IdMapping, +Options)
 %
 %   Translate a qualitative series into CSV format.
 
-q_series_table(QSeries, [Title|Rows], IdMapping, Options) :-
+q_series_table(Model, QSeries, [Title|Rows], IdMapping, Options) :-
     (   QSeries = [_,Sample|_]
     ->  true
     ;   QSeries = [Sample|_]
     ),
     dict_keys(Sample, Keys0),
-    order_keys(IdMapping, Keys0, Keys),
+    order_keys(Model, IdMapping, Keys0, Keys),
     option(match(Match), Options, #{}),
     phrase(q_title_row(Keys, Sample, IdMapping, Match), TitleCells),
     Title =.. [row|TitleCells],

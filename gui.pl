@@ -736,7 +736,7 @@ q_menu(Model, Source, Options) -->
           maplist(key_quantity(IdMapping), Keys, Quantities0),
           sort(Quantities0, Quantities1),
           delete(Quantities1, t, Quantities2),
-          order_keys(IdMapping, Quantities2, Quantities)
+          order_keys(Model, IdMapping, Quantities2, Quantities)
         },
         html(table(class(quantities),
                    [ tr([ th([class(quantity), rowspan(2)], 'Quantity'),
@@ -1031,7 +1031,8 @@ state_table(States, Options) -->
       ;   maplist(dict_keys, StatesPlain, KeysL),
           append(KeysL, AllKeys),
           sort(AllKeys, Keys0),
-          order_keys(IdMapping, Keys0, Keys)
+          option(model(Model), Options, _),
+          order_keys(Model, IdMapping, Keys0, Keys)
       ),
       (   option(match(DerDict), Options)
       ->  true
@@ -1316,7 +1317,7 @@ run_model(Request) :-
     init_derivatives(Series0, Series, IdMapping),
     nq_series(Series, QSeries, [link_garp_states(true)|Options]),
     annotate_garp_states(QSeries, Shapes, Options),
-    plotly_traces(Series, Traces, IdMapping),
+    plotly_traces(Model, Series, Traces, IdMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
                  div([ id(plot),
@@ -1456,16 +1457,16 @@ plot(Target, Title, Traces, Shapes) -->
                plot = Plotly.newPlot(Target, data, layout);
               |}).
 
-%!  select_traces(+Series, -Selected, +IdMapping) is det.
+%!  select_traces(+Model, +Series, -Selected, +IdMapping) is det.
 %
 %   Find the traces we want to display.  Selected is a list of one of
 %   `Key`, d1(Key), d2(Key) or d3(Key).
 
-select_traces(Series, Traces, IdMapping) :-
+select_traces(Model, Series, Traces, IdMapping) :-
     Series = [First|_],
     dict_keys(First, Keys0),
     delete(Keys0, t, Keys1),
-    order_keys(IdMapping, Keys1, Keys),
+    order_keys(Model, IdMapping, Keys1, Keys),
     key_traces(Keys, Series, Traces).
 
 key_traces([], _, []).
@@ -1504,7 +1505,7 @@ d_next(0, 1, _).
 d_next(1, 2, true).
 d_next(2, 3, true).
 
-%!  plotly_traces(+Series, -Traces, +IdMapping) is det.
+%!  plotly_traces(+Model, +Series, -Traces, +IdMapping) is det.
 %
 %   Generate the Plotly traces from Series.
 %
@@ -1512,11 +1513,11 @@ d_next(2, 3, true).
 %   d(V,D1,D2,D3),  where  any  of  these  may  be  unbound  or  contain
 %   non-normal floats.
 
-plotly_traces(Series, Traces, IdMapping) :-
-    select_traces(Series, Selected, IdMapping),
-    plotly_traces(Series, Selected, Traces, IdMapping).
+plotly_traces(Model, Series, Traces, IdMapping) :-
+    select_traces(Model, Series, Selected, IdMapping),
+    plotly_traces(Model, Series, Selected, Traces, IdMapping).
 
-plotly_traces(Series, Selected, Traces, IdMapping) :-
+plotly_traces(_Model, Series, Selected, Traces, IdMapping) :-
     maplist(range(Series), Selected, Ranges),
     pairs_keys_values(Ranges, Mins, Maxs),
     min_list_normal(Mins, Min),
@@ -1767,7 +1768,7 @@ download_csv(SHA1, _Request) :-
     option(id_mapping(IdMapping), Options, _{}),
     Series = [First|_],
     dict_keys(First, Keys0),
-    order_keys(IdMapping, Keys0, Keys),
+    order_keys(Model, IdMapping, Keys0, Keys),
     dicts_to_compounds(Series, Keys, dict_fill(-), Compounds0),
     maplist(round_float_row(4), Compounds0, Compounds),
     format('Content-type: text/csv~n~n'),
@@ -1784,7 +1785,7 @@ download_map(SHA1, _Request) :-
     saved(SHA1, Model, Options),
     q_series(Model, QSeries, [link_garp_states(true)|Options]),
     option(id_mapping(IdMapping), Options, _{}),
-    q_series_table(QSeries, Table, IdMapping, Options),
+    q_series_table(Model, QSeries, Table, IdMapping, Options),
     mapsubterms(csv_map, Table, CSVTable),
     format('Content-type: text/csv~n~n'),
     csv_write_stream(current_output, CSVTable,
@@ -1809,7 +1810,7 @@ download_garp(SHA1, _Request) :-
             Pairs),
     maplist(state_into_dict, Pairs, Data),
     option(id_mapping(IdMapping), Options, _{}),
-    q_series_table(Data, Table, IdMapping, Options),
+    q_series_table(Model, Data, Table, IdMapping, Options),
     mapsubterms(csv_map, Table, CSVTable),
     format('Content-type: text/csv~n~n'),
     csv_write_stream(current_output, CSVTable,
