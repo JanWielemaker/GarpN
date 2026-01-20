@@ -1400,11 +1400,14 @@ point_name(N, Name), atom(N) => Name = N.
 %   Translate a qualitative series into CSV format.
 
 q_series_table(QSeries, [Title|Rows], IdMapping, Options) :-
-    QSeries = [First|_],
-    dict_keys(First, Keys0),
+    (   QSeries = [_,Sample|_]
+    ->  true
+    ;   QSeries = [Sample|_]
+    ),
+    dict_keys(Sample, Keys0),
     order_keys(IdMapping, Keys0, Keys),
     option(match(Match), Options, #{}),
-    phrase(q_title_row(Keys, First, IdMapping, Match), TitleCells),
+    phrase(q_title_row(Keys, Sample, IdMapping, Match), TitleCells),
     Title =.. [row|TitleCells],
     maplist(q_sample_row(Keys, Match), QSeries, Rows).
 
@@ -1416,7 +1419,7 @@ q_sample_cols([], _, _) -->
     !.
 q_sample_cols([H|T], QSample, Match) -->
     { DColumns = Match.get(H,[0,1]) },
-    q_sample_cell(QSample.H, DColumns),
+    q_sample_cell(QSample.get(H,d(_,_,_,_)), DColumns),
     q_sample_cols(T, QSample, Match).
 
 q_sample_cell(V, DColumns) -->
