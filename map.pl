@@ -15,7 +15,8 @@
             qspace_point_value/2,       % +Name, -Number
             linked_state//2,            % ?State, ?To
             not_linked_states//1,       % -States
-            validate_correspondences/3  % +QSeriesIn, -QSeries, +Options
+            validate_correspondences/3, % +QSeriesIn, -QSeries, +Options
+            q_partial_ordering/3        % +ModelId, -Ordering:list(list(atom)), +Options
           ]).
 :- if(\+current_prolog_flag(dynalearn, true)).
 :- export(save_garp_results/1).
@@ -364,6 +365,37 @@ m_qstate_from_(Model, State, From) =>
     ensure_loaded_model(Model, qstate_from/2),
     Model:qstate_from(State, From).
 :- endif.
+
+%!  q_partial_ordering(+ModelId, -Ordering:list(list(atom)), +Options)
+%!                     is det.
+%
+%   Estabilish a partial ordering of quantities based on the first state
+%   in which they have a value.
+
+q_partial_ordering(ModelId, Ordering, Options) :-
+    findall(State-Values,
+            qstate(ModelId, State, Values, [d(1)|Options]),
+            Pairs),
+    maplist(state_into_dict, Pairs, Data0),
+    dicts_to_same_keys(Data0, q_unknown, Data),
+    Data = [First|_],
+    dict_keys(First, Keys),
+    map_list_to_pairs(known_at(Data), Keys, Pairs),
+    keysort(Pairs, SortedPairs),
+    group_pairs_by_key(SortedPairs, Keyed),
+    pairs_values(Keyed, Ordering).
+
+state_into_dict(State-Dict0, Dict) :-
+    Dict = Dict0.put(state, State).
+
+q_unknown(_Key, _Dict, d(_,_,_,_)).
+
+known_at(Data, Key, Nth) :-
+    nth0(Nth, Data, Record),
+    d(V,_,_,_) = Record.get(Key),
+    nonvar(V),
+    !.
+known_at(_, _, infinite(arg)).  % compounds are @> atomics
 
 %!  exogenous(?Class)
 %
