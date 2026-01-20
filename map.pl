@@ -381,8 +381,8 @@ q_partial_ordering(ModelId, Ordering, Options) :-
     dicts_to_same_keys(Data0, q_unknown, Data),
     Data = [First|_],
     dict_keys(First, Keys),
-    map_list_to_pairs(known_at(Data), Keys, Pairs),
-    keysort(Pairs, SortedPairs),
+    map_list_to_pairs(changed_at(First, Data), Keys, KeyPairs),
+    keysort(KeyPairs, SortedPairs),
     group_pairs_by_key(SortedPairs, Keyed),
     pairs_values(Keyed, Ordering).
 
@@ -391,12 +391,13 @@ state_into_dict(State-Dict0, Dict) :-
 
 q_unknown(_Key, _Dict, d(_,_,_,_)).
 
-known_at(Data, Key, Nth) :-
+changed_at(First, Data, Key, Nth) :-
+    d(V0,_,_,_) = First.get(Key, _),
     nth0(Nth, Data, Record),
-    d(V,_,_,_) = Record.get(Key),
-    nonvar(V),
+    d(V1,_,_,_) = Record.get(Key),
+    V1 \=@= V0,
     !.
-known_at(_, _, infinite(arg)).  % compounds are @> atomics
+changed_at(_, _, _, infinite(arg)).  % compounds are @> atomics
 
 %!  exogenous(?Class)
 %

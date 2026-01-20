@@ -28,18 +28,27 @@ key_label(_, Key, Key).
 
 %!  order_keys(+Model, +IdMapping, +Keys, -Ordered) is det.
 
-order_keys(_Model, IdMapping, Keys0, Keys) :-
-    map_list_to_pairs(csv_column_rank(IdMapping), Keys0, Pairs),
+order_keys(Model, IdMapping, Keys0, Keys) :-
+    (   nonvar(Model),
+        q_partial_ordering(Model, Ordering, [])
+    ->  true
+    ;   Ordering = []
+    ),
+    map_list_to_pairs(csv_column_rank(IdMapping, Ordering), Keys0, Pairs),
     keysort(Pairs, PairsS),
     pairs_values(PairsS, Keys).
 
-csv_column_rank(_IdMapping, t,           Rank) => Rank = 1-1.
-csv_column_rank(_IdMapping, state,       Rank) => Rank = 1-1.
-csv_column_rank(_IdMapping, garp_states, Rank) => Rank = 4-1.
-csv_column_rank(IdMapping,  Key,         Rank),
+csv_column_rank(_IdMapping, _, t,           Rank) => Rank = 1-1.
+csv_column_rank(_IdMapping, _, state,       Rank) => Rank = 1-1.
+csv_column_rank(_IdMapping, _, garp_states, Rank) => Rank = 4-1.
+csv_column_rank(_IdMapping, O, Key,         Rank),
+    nth1(I, O, Keys),
+    memberchk(Key, Keys) =>
+    Rank = 2-I.
+csv_column_rank(IdMapping,  _, Key,         Rank),
     key_obj_attr(IdMapping, Key, Obj, Attr) =>
     Rank = 2-t(Obj-Attr).
-csv_column_rank(_IdMapping, Key,         Rank) =>
+csv_column_rank(_IdMapping, _, Key,         Rank) =>
     Rank = 3-Key.
 
 %!  key_obj_attr(+IdMapping, +Key, -Obj:atom, -Attr:atom) is det.
