@@ -1,7 +1,7 @@
 :- module(gsim,
           [ read_model/5,          % +Source, -Formulas, -Constants, -State0,
                                    % +Opts
-            order_formulas/2,      % +Formulas, -Ordering
+            order_formulas/3,      % +Formulas, -Ordering, +Options
             simulate/3,            % +ModelSrc, -Series, +Options
             init_derivatives/3,    % +Series, -DSeries, +IdMapping
             add_derivative/2,      % +Nth, +Series
@@ -492,7 +492,7 @@ q_term_id(Options, Term, Id) :-
 %    - Any _source_ of the dependency graph.
 
 formulas_needs_init(Formulas, NeedsInit) :-
-    formulas_partial_ordering(Formulas, Layers, SelfLoops),
+    formulas_partial_ordering(Formulas, Layers, SelfLoops, []),
     Layers = [First|_],
     append(First, SelfLoops, NeedsInit0),
     sort(NeedsInit0, NeedsInit).
@@ -512,8 +512,8 @@ set_var_to_nan(_, V), var(V) =>
     V = 0.			% dubious
 set_var_to_nan(_, _) => true.
 
-%!  formulas_partial_ordering(+Formulas:pairs, -Layers, -SelfLoops) is
-%!                           det.
+%!  formulas_partial_ordering(+Formulas:pairs, -Layers, -SelfLoops,
+%!                            +Options) is det.
 %
 %   Create  a  partial  ordering  of  the    formulas   based  on  their
 %   dependencies.
@@ -524,7 +524,7 @@ set_var_to_nan(_, _) => true.
 %   @arg DeletedVertices are the vertices that needed to be deleted
 %   from the graph to make it acyclic.
 
-formulas_partial_ordering(Formulas, Layers, SelfLoops) :-
+formulas_partial_ordering(Formulas, Layers, SelfLoops, _Options) :-
     formulas_ugraph(Formulas, UGRaph),
     ugraph_remove_cycles(UGRaph, UGRaph1, SelfLoops),
     ugraph_layers(UGRaph1, Layers).
@@ -692,13 +692,14 @@ initial_value(Formulas, Constants, State0, Key, Key-Value) :-
     !.
 initial_value(_Formulas, _Constants, _State0, Key, Key-_).
 
-%!  order_formulas(+Formulas:dict, -Ordering:list(list(var))) is det.
+%!  order_formulas(+Formulas:dict, -Ordering:list(list(var)), +Options)
+%!                 is det.
 %
 %   Generate a partial ordering of  Formulas  as   a  list  of layers of
 %   variables (keys of the dict).
 
-order_formulas(Formulas, Layers) :-
-    formulas_partial_ordering(Formulas, Layers, _SelfLoops).
+order_formulas(Formulas, Layers, Options) :-
+    formulas_partial_ordering(Formulas, Layers, _SelfLoops, Options).
 
 
                 /*******************************

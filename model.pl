@@ -33,8 +33,7 @@
 %     - The initial state
 %
 %   @arg ModelId is the model identifier.
-%   @arg Equations is a list of `X   := Expression` terms, where `X` are
-%   ground Prolog terms of the the form Prop(Entity) or 'ΔProp'(Entity).
+%   @arg Equations is a dict as returned by order_equations/4.
 %   @arg Options supports
 %     - mode(+Mode)
 %       One of `quantities`, `derivatives` or `mixed`
@@ -890,7 +889,7 @@ order_equations(Equations, Formulas, Ordered, Options) :-
     group_pairs_by_key(ByClass, Grouped),
     selectchk(model-ModelEq, Grouped, GroupedRest),
     map_list_to_pairs(equation_term_id(Options), ModelEq, IdPaired),
-    order_formulas(Formulas, Layers),
+    order_formulas(Formulas, Layers, Options),
     maplist(layer_equations(IdPaired), Layers, LayeredEquations0),
     exclude(==([]), LayeredEquations0, LayeredEquations),
     dict_pairs(Ordered, #, [model-LayeredEquations|GroupedRest]).
