@@ -492,7 +492,7 @@ q_term_id(Options, Term, Id) :-
 %    - Any _source_ of the dependency graph.
 
 formulas_needs_init(Formulas, NeedsInit) :-
-    formulas_partial_odering(Formulas, Layers, SelfLoops),
+    formulas_partial_ordering(Formulas, Layers, SelfLoops),
     Layers = [First|_],
     append(First, SelfLoops, NeedsInit0),
     sort(NeedsInit0, NeedsInit).
@@ -512,7 +512,7 @@ set_var_to_nan(_, V), var(V) =>
     V = 0.			% dubious
 set_var_to_nan(_, _) => true.
 
-%!  formulas_partial_odering(+Formulas:pairs, -Layers, -SelfLoops) is
+%!  formulas_partial_ordering(+Formulas:pairs, -Layers, -SelfLoops) is
 %!                           det.
 %
 %   Create  a  partial  ordering  of  the    formulas   based  on  their
@@ -524,7 +524,7 @@ set_var_to_nan(_, _) => true.
 %   @arg DeletedVertices are the vertices that needed to be deleted
 %   from the graph to make it acyclic.
 
-formulas_partial_odering(Formulas, Layers, SelfLoops) :-
+formulas_partial_ordering(Formulas, Layers, SelfLoops) :-
     formulas_ugraph(Formulas, UGRaph),
     ugraph_remove_cycles(UGRaph, UGRaph1, SelfLoops),
     ugraph_layers(UGRaph1, Layers).
@@ -698,7 +698,7 @@ initial_value(_Formulas, _Constants, _State0, Key, Key-_).
 %   variables (keys of the dict).
 
 order_formulas(Formulas, Layers) :-
-    formulas_partial_odering(Formulas, Layers, _SelfLoops).
+    formulas_partial_ordering(Formulas, Layers, _SelfLoops).
 
 
                 /*******************************
