@@ -516,11 +516,16 @@ set_var_to_nan(_, _) => true.
 %!                            +Options) is det.
 %
 %   Create  a  partial  ordering  of  the    formulas   based  on  their
-%   dependencies.
+%   dependencies. Note that the dependencies   are  typically cyclic and
+%   thus we have to break the cycles.  This consists of two steps. First
+%   we remove the _self cycles_ as  these   are  evident. Next we remove
+%   some arbitrary cycle.
 %
-%   @arg Formulas is a dict Var:formula(Prolog,Bindings)
-%   @arg Layers is a list of lists of variables representing a partial
-%   ordering in the dependencies.
+%   @arg Formulas is a dict `Var:formula(Prolog,Bindings)`.  Note that
+%   `Var` here means the (atom) name of a quantity or constant.
+%   @arg Layers is a list of lists of variables (atoms) representing a
+%   partial ordering in the dependencies.  The first layer contains all
+%   constants.
 %   @arg DeletedVertices are the vertices that needed to be deleted
 %   from the graph to make it acyclic.
 
