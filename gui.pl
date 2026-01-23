@@ -33,9 +33,9 @@
 :- use_module(model).
 :- use_module(identifiers).
 :- use_module(test).
+:- use_module(debug).
 :- if(current_prolog_flag(dynalearn, true)).
 :- use_module(dynalearn).
-
 :- endif.
 
 http:location(garp, root(garp), []).
@@ -59,6 +59,7 @@ home(Request) :-
                       test(Test, [optional(true)])
                     ]),
     include(ground, [model(Model),test(Test)], Options),
+    set_model(Model),
     reply_html_page([ title('GarpN: the Garp numerical simulator'),
                       link([rel(stylesheet), href('/garp/simulator.css')]),
                       link([rel(icon), type('image/png'), sizes('32x32'),
@@ -384,6 +385,7 @@ set_model_handler(Request) :-
 %   well as for restoring a test scenario.
 
 set_model(Model, Options) :-
+    set_model(Model),
     option(test(Test), Options),
     !,
     load_test(Model, Test, Source, Settings),
