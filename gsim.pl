@@ -529,14 +529,24 @@ set_var_to_nan(_, _) => true.
 %   @arg DeletedVertices are the vertices that needed to be deleted
 %   from the graph to make it acyclic.
 
+:- det(formulas_partial_ordering/4).
+formulas_partial_ordering(Formulas, Layers, SelfLoops, Options) :-
+    option(model(ModelId), Options),
+    q_partial_ordering(ModelId, QLayers, Options),
+    formulas_partial_ordering_(Formulas, Layers, SelfLoops, nondet),
+    consistent_ordering(QLayers, Layers),
+    !.
 formulas_partial_ordering(Formulas, Layers, SelfLoops, _Options) :-
+    formulas_partial_ordering_(Formulas, Layers, SelfLoops, det).
+
+formulas_partial_ordering_(Formulas, Layers, SelfLoops, Det) :-
     formulas_ugraph(Formulas, UGRaph),
-    ugraph_remove_cycles(UGRaph, UGRaph1, SelfLoops),
+    ugraph_remove_cycles(UGRaph, UGRaph1, SelfLoops, Det),
     ugraph_layers(UGRaph1, Layers).
 
-ugraph_remove_cycles(UGRaph0, UGRaph, SelfLoops) :-
+ugraph_remove_cycles(UGRaph0, UGRaph, SelfLoops, Det) :-
     ugraph_remove_self_cycles(UGRaph0, UGRaph1, SelfLoops),
-    ugraph_remove_other_cycles(UGRaph1, UGRaph).
+    ugraph_remove_other_cycles(UGRaph1, UGRaph, Det).
 
 ugraph_remove_self_cycles([], [], []).
 ugraph_remove_self_cycles([V-E0|T0], [V-E|T], [V|LT]) :-
@@ -546,16 +556,19 @@ ugraph_remove_self_cycles([V-E0|T0], [V-E|T], [V|LT]) :-
 ugraph_remove_self_cycles([VE|T0], [VE|T], SL) :-
     ugraph_remove_self_cycles(T0, T, SL).
 
-ugraph_remove_other_cycles(UGRaph0, UGRaph) :-
+ugraph_remove_other_cycles(UGRaph0, UGRaph, _) :-
     ugraph_layers(UGRaph0, _), !,
     UGRaph = UGRaph0.
-ugraph_remove_other_cycles(UGRaph0, UGRaph) :-
+ugraph_remove_other_cycles(UGRaph0, UGRaph, Det) :-
     findall(Cycle, ugraph_cycle(UGRaph0, Cycle), AllCycles),
     sort(AllCycles, Cycles),
     shortest_cycle(Cycles, ShortestCycle),
-    once(cycle_edge(ShortestCycle, Edge)),        % TODO: Smart select
+    (   Det == det
+    ->  once(cycle_edge(ShortestCycle, Edge))
+    ;   cycle_edge(ShortestCycle, Edge)
+    ),
     del_edges(UGRaph0, [Edge], UGRaph1),
-    ugraph_remove_other_cycles(UGRaph1, UGRaph).
+    ugraph_remove_other_cycles(UGRaph1, UGRaph, Det).
 
 cycle_edge(List, F-T) :-
     List = [H|_],
@@ -603,6 +616,38 @@ formula_edges(Left-formula(_Right,Bindings), Edges) :-
     maplist(mk_edge(Left), RVars, Edges).
 
 mk_edge(LVar, RVal, RVal-LVar).
+
+%!  consistent_ordering(+QLayers, +Layers) is semidet.
+%
+%   True when the simulation derived quantity ordering QLayers (computed
+%   by q_partial_ordering/3) is consistent with   the dependency derived
+%   order. As we can break cycles  in multiple ways, multiple dependency
+%   based orders are possible. We define consistency  as "if Q2 is after
+%   Q1 in the Garp model and both appear  in the numeric model, the same
+%   relation should apply".
+%
+%   @arg QLayers is a list of lists of quantities extracted and ordered
+%   from the Garp simulation.
+%   @arg Layers has the same format, but contains all quantities,
+%   including constants from the numerical simulation and is ordered
+%   based on dependencies derived from the formulas.
+
+consistent_ordering(QLayers, Layers) :-
+    forall(( q_layer(Lq1, QLayers, Q1),
+             q_layer(Lq2, QLayers, Q2),
+             Lq2 > Lq1
+           ),
+           (   q_layer(Ln1, Layers, Q1),
+               q_layer(Ln2, Layers, Q2)
+           ->  Ln2 > Ln1
+           ;   true
+           )).
+
+q_layer(Layer, Layers, Q) :-
+    nth0(Layer, Layers, QL),
+    member(Q, QL).
+
+
 
 
 %!  intern_constants(+Constants:pairs, -DTExpr, +FormualsIn:pairs,
