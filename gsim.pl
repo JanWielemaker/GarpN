@@ -92,7 +92,8 @@ simulate(From, Series, Options) :-
     add_tracking(Formulas, Constants, State0, State, [method(Method)|Options]),
     intern_constants(Constants, DTExpr, Formulas, Formulas1),
     method_params(Method, DTExpr, Constants, Formulas1, Formulas2, MethodP),
-    steps(0, Count, MethodP, Sample, Formulas2, State, Series).
+    layer_formulas(Formulas2, LayeredFormulas, Options),
+    steps(0, Count, MethodP, Sample, LayeredFormulas, State, Series).
 
 %!  read_model(+Source, -Formulas:pairs, -Constants:pairs, -State0:dict,
 %!             +Options) is det.
@@ -649,8 +650,36 @@ q_layer(Layer, Layers, Q) :-
     nth0(Layer, Layers, QL),
     member(Q, QL).
 
+%!  layer_formulas(+Formulas:list, -Layers:list(list), +Options) is
+%!                 det.
+%
+%   Organise Formulas into a list of   sub-sets of Formulas according to
+%   the causal ordering derived by Garp.
 
+layer_formulas(Formulas, Layers, Options) :-
+    option(model(ModelId), Options),
+    q_partial_ordering(ModelId, QLayers, Options),
+    !,
+    select(t-formula(X+Dt,Bindings), Formulas, Formulas1),
+    layer_formulas_(QLayers, Formulas1, Layers0),
+    length(Layers0, NLayers),
+    Dt1 is Dt/NLayers,
+    maplist(append([t-formula(X+Dt1,Bindings)]), Layers0, Layers).
+layer_formulas(Formulas, [Formulas], _).
 
+layer_formulas_([], [], []) :-
+    !.
+layer_formulas_([], Formulas, [Formulas]).
+layer_formulas_([H|T], Formulas0, Layers) :-
+    partition(formula_targets(H), Formulas0, Layer, Formulas1),
+    (   Layer == []
+    ->  LayerT = Layers
+    ;   Layers = [Layer|LayerT]
+    ),
+    layer_formulas_(T, Formulas1, LayerT).
+
+formula_targets(QLayer, Var-_Expression) :-
+    memberchk(Var, QLayer).
 
 %!  intern_constants(+Constants:pairs, -DTExpr, +FormualsIn:pairs,
 %!                   -Formuals:pairs) is det.
@@ -772,14 +801,17 @@ order_formulas(Formulas, Layers, Options) :-
 %   @arg Series is a list of dicts with the same state as
 %        `State` but different values.
 
-steps(I, N, Method, Sample, Formulas, State, Series) :-
+steps(I, N, Method, Sample, FormulaLayers, State, Series) :-
     complete_state(State),
+    dict_keys(State, Keys),
     setup_call_cleanup(
-        compile_formulas(Method, Formulas, Ref),
-        steps_(I, N, Method, Sample, State, Series),
-        clean_formulas(Ref)).
+        foldl(compile_formulas(Method, Keys), FormulaLayers, Refs, 0, _),
+        ( length(Refs, NLayers),
+          steps_(I, N, NLayers, Method, Sample, State, Series)
+        ),
+        maplist(clean_formulas, Refs)).
 
-steps_(I, N, Method, Sample, State, Series) :-
+steps_(I, N, NLayers, Method, Sample, State, Series) :-
     I < N,
     !,
     (   (   I mod Sample =:= 0
@@ -788,37 +820,39 @@ steps_(I, N, Method, Sample, State, Series) :-
     ->  Series = [State|SeriesT]
     ;   SeriesT = Series
     ),
-    step(Method, State, State1),
+    SubStep is I mod NLayers,
+    step(SubStep, Method, State, State1),
     I1 is I+1,
-    steps_(I1, N, Method, Sample, State1, SeriesT).
-steps_(_, _, _, _, _, []).
+    steps_(I1, N, NLayers, Method, Sample, State1, SeriesT).
+steps_(_, _, _, _, _, _, []).
 
-%!  step(+Method, +S0, -S) is det.
+%!  step(+N, +Method, +S0, -S) is det.
 %
 %   @see https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
 
-step(rk4(DT,H), Ys, Y) =>
+step(N, rk4(DT,H), Ys, Y) =>
     del_dict(t, Ys, T0, Y0),
     H2 is H/2,
     T2 is T0+H/2,
     Te is T0+H,
-    eval_d(T0, DT, H, Y0, K1),
+    eval_d(N, T0, DT, H, Y0, K1),
     slope(Y0, K1, H2, Y1),                         % Y1 is Y0+K1*H/2
-    eval_d(T2, DT, H, Y1, K2),
+    eval_d(N, T2, DT, H, Y1, K2),
     slope(Y0, K2, H2, Y2),
-    eval_d(T2, DT, H, Y2, K3),
+    eval_d(N, T2, DT, H, Y2, K3),
     slope(Y0, K3, H, Y3),
-    eval_d(Te, DT, H, Y3, K4),
+    eval_d(N, Te, DT, H, Y3, K4),
     sum_dict_list([K1,2*K2,2*K3,K4], K),
     H6 is H/6,
     slope(Y0, K, H6, Yt),
     Y = Yt.put(t, Te).
-step(euler, S0, S) =>
-    euler_step(S0, S).
+step(N, euler, S0, S) =>
+    euler_step(N, S0, S).
 
-:- thread_local euler_step/2.
+:- thread_local euler_step/3.                      % +SubStep, +State0, -State
 
-%!  compile_formulas(+Method, +Formulas:pairs, -ClauseRef) is det.
+%!  compile_formulas(+Method, +Keys, +Formulas:pairs, -ClauseRef) is
+%!                   det.
 %
 %   Compile Formulas to a clause for   euler_step/2.  When using RK4, we
 %   must re-add the time formulas for  eval_d/5   to  work.  We have two
@@ -837,47 +871,75 @@ step(euler, S0, S) =>
 %   Sa, Sa*Eq2 -> S1.  With  the   Prolog  flag  `garp_eval_batch`,  all
 %   equations act on S0.
 
-compile_formulas(rk4(DTName, _DT), Formulas, Ref) =>
-    step_state_dicts([DTName-_, t-_|Formulas], S0, S),
+:- set_prolog_flag(garp_eval_batch, true).
+
+compile_formulas(rk4(DTName, _DT), Keys, Formulas, Ref, N, N1) =>
+    N1 is N+1,
+    step_state_dicts([DTName, t|Keys], S0, S),
     partition(is_delta_formula, Formulas, Deltas, Normal),
     maplist(eval(S0, S), Normal, EvalNormal),
     maplist(eval_delta(S0, S), Deltas, EvalDelta),
     append(EvalNormal, EvalDelta, Eval),
-    assert_step(S0, S, Eval, Ref).
-compile_formulas(euler, Formulas, Ref),
+    equal_keys(Keys, Formulas, S0, S),
+    assert_step(N, S0, S, Eval, Ref).
+compile_formulas(euler, Keys, Formulas, Ref, N, N1),
     current_prolog_flag(garp_eval_batch, true) =>
-    step_state_dicts(Formulas, S0, S),
+    N1 is N+1,
+    step_state_dicts(Keys, S0, S),
     maplist(eval_batch(S0,S), Formulas, Eval),
-    assert_step(S0, S, Eval, Ref).
-compile_formulas(euler, Formulas, Ref) =>
-    step_state_dicts(Formulas, S0, S),
+    equal_keys(Keys, Formulas, S0, S),
+    assert_step(N, S0, S, Eval, Ref).
+compile_formulas(euler, Keys, Formulas, Ref, N, N1) =>
+    N1 is N+1,
+    step_state_dicts(Keys, S0, S),
     foldl(eval_seq(S0,S), Formulas, Eval, #{}, _),
-    assert_step(S0, S, Eval, Ref).
+    equal_keys(Keys, Formulas, S0, S),
+    assert_step(N, S0, S, Eval, Ref).
 
-%!  step_state_dicts(+Formulas, -S0, -S) is det.
+%!  step_state_dicts(+Keys:list, -S0, -S) is det.
 %
 %   True when S0 and S are two dicts with the same keys as the left side
 %   of each formula and unbound values.   The  generated stepping clause
 %   links these two dicts using a set of arithmetic expressions.
 
-step_state_dicts(Formulas, S0, S) :-
-    dict_pairs(FDict, _, Formulas),
-    dict_same_keys(FDict, S0),
-    dict_same_keys(FDict, S).
+step_state_dicts(Keys, S0, S) :-
+    maplist(var_pair, Keys, Pairs),
+    dict_pairs(S0, _, Pairs),
+    dict_same_keys(S0, S).
 
-%!  assert_step(+S0, +S, +Eval, -Ref) is det.
+var_pair(Key, Key-_).
+
+equal_keys([], _, _, _).
+equal_keys([H|T], Formulas, S0, S) :-
+    memberchk(H-_, Formulas),
+    !,
+    equal_keys(T, Formulas, S0, S).
+equal_keys([H|T], Formulas, S0, S) :-
+    get_dict(H, S0, Var),
+    get_dict(H, S, Var),
+    equal_keys(T, Formulas, S0, S).
+
+%!  assert_step(+N, +S0, +S, +Eval, -Ref) is det.
 %
 %   Generate the euler_step/2 clause. Ref is   the clause reference that
 %   is used to clean up the clause.
 
-assert_step(S0, S, Eval, Ref) :-
+assert_step(N, S0, S, Eval, Ref) :-
     comma_list(Body, Eval),
-    assertz((euler_step(S0, S) :- Body), Ref),
+    assertz((euler_step(N, S0, S) :- Body), Ref),
     (   debugging(euler_step_clause)
-    ->  portray_clause(user_error, (euler_step(S0, S) :- Body))
+    ->  \+ \+ ( numbervars(S0+S+Body, 0, _),
+                format(user_error, "euler_step(~d, ~p, ~p) :-~n", [N, S0, S]),
+                format_body(Body) )
     ;   true
     ),
     ieee_floats.
+
+format_body((A,B)) =>
+    format(user_error, "    ~p,~n", [A]),
+    format_body(B).
+format_body(A) =>
+    format(user_error, "    ~p.~n", [A]).
 
 eval(S0, S, Key-formula(Expr, Bindings), Eval) =>
     Eval = (Value is Expr),
@@ -976,7 +1038,7 @@ is_delta_formula(_) => fail.
 
 
 
-%!  eval_d(+T, +DT, +H, +Y0, -K) is det.
+%!  eval_d(+SubStep, +T, +DT, +H, +Y0, -K) is det.
 %
 %   K is the derivative of Formulas at T and Y0.
 %
@@ -984,11 +1046,11 @@ is_delta_formula(_) => fail.
 %   @arg H is the interval we use.  This is irrelevant as we
 %   divide by it again.
 
-:- det(eval_d/5).
-eval_d(T, DT, H, Y0, K) :-
+:- det(eval_d/6).
+eval_d(N, T, DT, H, Y0, K) :-
     dict_pairs(Extra, _, [DT-H,t-T]),
     Y1 = Y0.put(Extra),
-    euler_step(Y1, Y2),
+    euler_step(N, Y1, Y2),
     del_dict(DT, Y2, _, Y2a),
     del_dict(t, Y2a, _, Y2b),
     derivative_(Y0,Y2b,H,K).
