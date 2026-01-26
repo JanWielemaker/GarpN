@@ -15,6 +15,8 @@
 :- use_module(library(lists)).
 :- use_module(library(dcg/high_order)).
 
+:- use_module(map).
+
 %!  key_label(+IdMapping, +Key, -Label) is det.
 
 key_label(_, t, "Time") :-
@@ -22,9 +24,28 @@ key_label(_, t, "Time") :-
 key_label(_, garp_states, "Garp states") :-
     !.
 key_label(IdMapping, Key, Label) :-
+    one_object_attr(Key, IdMapping, Attr),
+    !,
+    attr_symbol(Attr, Label).
+key_label(IdMapping, Key, Label) :-
     format(atom(Label), '~w', [IdMapping.get(Key)]),
     !.
 key_label(_, Key, Key).
+
+one_object_attr(Key, IdMapping, Attr) :-
+    Term = IdMapping.get(Key),
+    Term =.. [Attr,Obj],
+    forall(T2 = IdMapping.get(Key),
+           (   compound(T2)
+           ->  T2 =.. [_,Obj]
+           ;   true
+           )).
+
+attr_symbol(Attr, Id) :-
+    split_string(Attr, "()", "", [_, SId, ""]),
+    !,
+    atom_string(Id, SId).
+attr_symbol(Attr, Attr).
 
 %!  order_keys(+Model, +IdMapping, +Keys, -Ordered) is det.
 
