@@ -371,7 +371,10 @@ m_qstate_from_(Model, State, From) =>
 %!                     is det.
 %
 %   Estabilish a partial ordering of quantities based on the first state
-%   in which they have a value.
+%   in which they have a value.  Options:
+%
+%     - constants(remove)
+%       Remove constants quantities from the set.
 
 q_partial_ordering(ModelId, Ordering, Options) :-
     findall(State-Values,
@@ -384,7 +387,11 @@ q_partial_ordering(ModelId, Ordering, Options) :-
     map_list_to_pairs(changed_at(First, Data), Keys, KeyPairs),
     keysort(KeyPairs, SortedPairs),
     group_pairs_by_key(SortedPairs, Keyed),
-    pairs_values(Keyed, Ordering).
+    (   option(constants(remove), Options)
+    ->  delete(Keyed, 0-_, Keyed1)
+    ;   Keyed1 = Keyed
+    ),
+    pairs_values(Keyed1, Ordering).
 
 state_into_dict(State-Dict0, Dict) :-
     Dict = Dict0.put(state, State).
@@ -397,7 +404,11 @@ changed_at(First, Data, Key, Nth) :-
     d(V1,_,_,_) = Record.get(Key),
     V1 \=@= V0,
     !.
-changed_at(_, _, _, infinite(arg)).  % compounds are @> atomics
+changed_at(First, _Data, Key, 0) :-  % number are @< atoms
+    d(V0,_,_,_) = First.get(Key, _),
+    nonvar(V0),
+    !.
+changed_at(_, _, _, infinite(arg)).  % compounds are @> atoms
 
 %!  exogenous(?Class)
 %
@@ -1518,14 +1529,17 @@ derivative_titles([_|T], N, Lbl0, DColumns) -->
     {N2 is N+1},
     derivative_titles(T, N2, Lbl0, DColumns).
 
-derivative_title(0, Lbl0) -->
-    !,
+derivative_title(0, Lbl0) ==>
     [ Lbl0 ].
-derivative_title(N, Lbl0) -->
-    { format(string(Label), '~w (D~d)', [Lbl0, N])
+derivative_title(N, Lbl0) ==>
+    { d_label(N, DL),
+      format(string(Label), '~w~w', [DL, Lbl0])
     },
     [ Label ].
 
+d_label(1, 'Δ').
+d_label(2, 'Δ²').
+d_label(3, 'Δ³').
 
                 /*******************************
                 *       CORRESPONDENCES        *

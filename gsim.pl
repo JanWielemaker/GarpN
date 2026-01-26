@@ -530,12 +530,14 @@ set_var_to_nan(_, _) => true.
 %   from the graph to make it acyclic.
 
 :- det(formulas_partial_ordering/4).
+/*
 formulas_partial_ordering(Formulas, Layers, SelfLoops, Options) :-
     option(model(ModelId), Options),
-    q_partial_ordering(ModelId, QLayers, Options),
+    q_partial_ordering(ModelId, QLayers, [constants(remove)|Options]),
     formulas_partial_ordering_(Formulas, Layers, SelfLoops, nondet),
     consistent_ordering(QLayers, Layers),
     !.
+*/
 formulas_partial_ordering(Formulas, Layers, SelfLoops, _Options) :-
     formulas_partial_ordering_(Formulas, Layers, SelfLoops, det).
 
