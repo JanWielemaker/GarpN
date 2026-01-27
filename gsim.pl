@@ -20,7 +20,6 @@
 :- use_module(library(debug)).
 :- use_module(library(dicts)).
 :- use_module(library(apply_macros), []).
-:- use_module(library(listing), [portray_clause/2]).
 :- use_module(library(prolog_code), [comma_list/2]).
 :- use_module(library(dcg/high_order), [sequence/4]).
 :- use_module(library(ordsets), [ord_intersection/3]).
@@ -92,8 +91,7 @@ simulate(From, Series, Options) :-
     add_tracking(Formulas, Constants, State0, State, [method(Method)|Options]),
     intern_constants(Constants, DTExpr, Formulas, Formulas1),
     method_params(Method, DTExpr, Constants, Formulas1, Formulas2, MethodP),
-    layer_formulas(Formulas2, LayeredFormulas, Options),
-    steps(0, Count, MethodP, Sample, LayeredFormulas, State, Series).
+    steps(Count, MethodP, Sample, Formulas2, State, Series, Options).
 
 %!  read_model(+Source, -Formulas:pairs, -Constants:pairs, -State0:dict,
 %!             +Options) is det.
@@ -651,7 +649,7 @@ q_layer(Layer, Layers, Q) :-
     member(Q, QL).
 
 %!  layer_formulas(+Formulas:list, -Layers:list(list), +Options) is
-%!                 det.
+%!                 semidet.
 %
 %   Organise Formulas into a list of   sub-sets of Formulas according to
 %   the causal ordering derived by Garp.
@@ -659,13 +657,12 @@ q_layer(Layer, Layers, Q) :-
 layer_formulas(Formulas, Layers, Options) :-
     option(model(ModelId), Options),
     q_partial_ordering(ModelId, QLayers, Options),
-    !,
+    $,
     select(t-formula(X+Dt,Bindings), Formulas, Formulas1),
     layer_formulas_(QLayers, Formulas1, Layers0),
     length(Layers0, NLayers),
     Dt1 is Dt/NLayers,
     maplist(append([t-formula(X+Dt1,Bindings)]), Layers0, Layers).
-layer_formulas(Formulas, [Formulas], _).
 
 layer_formulas_([], [], []) :-
     !.
@@ -787,12 +784,12 @@ order_formulas(Formulas, Layers, Options) :-
                 *          SIMULATOR           *
                 *******************************/
 
-%!  steps(+I, +N, +Method, +Sample, +Formulas, +State, -Series) is det.
+%!  steps(+N, +Method, +Sample, +Formulas, +State, -Series,
+%!        +Options) is det.
 %
 %   Run the actual simulation.
 %
-%   @arg I numbers the simulation steps (0..)
-%   @arg N ends the simulation
+%   @arg Number of iterations
 %   @arg Method is one of `euler` or rk4(DTName, DT)
 %   @arg Sample indicates that we create the output Series
 %   by sampling every N iterations.
@@ -801,30 +798,43 @@ order_formulas(Formulas, Layers, Options) :-
 %   @arg Series is a list of dicts with the same state as
 %        `State` but different values.
 
-steps(I, N, Method, Sample, FormulaLayers, State, Series) :-
-    complete_state(State),
-    dict_keys(State, Keys),
+steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
+    layer_formulas(Formulas, FormulaLayers, Options),
+    complete_state(State0),
+    dict_keys(State0, Keys),
     setup_call_cleanup(
         foldl(compile_formulas(Method, Keys), FormulaLayers, Refs, 0, _),
         ( length(Refs, NLayers),
-          steps_(I, N, NLayers, Method, Sample, State, Series)
+          steps_(0, NLayers, NLayers, Method, Sample,
+                 State0, State1, Series, TSeries)
         ),
-        maplist(clean_formulas, Refs)).
+        maplist(clean_formulas, Refs)),
+    flat_steps(NLayers, Count, Method, Sample, Formulas, State1, TSeries).
+steps(Count, Method, Sample, Formulas, State0, Series, _Options) :-
+    flat_steps(0, Count, Method, Sample, Formulas, State0, Series).
 
-steps_(I, N, NLayers, Method, Sample, State, Series) :-
-    I < N,
+flat_steps(I, Count, Method, Sample, Formulas, State0, Series) :-
+    complete_state(State0),
+    dict_keys(State0, Keys),
+    setup_call_cleanup(
+        compile_formulas(Method, Keys, Formulas, Ref, 0, _),
+        steps_(I, Count, 1, Method, Sample, State0, _State, Series, []),
+        clean_formulas(Ref)).
+
+steps_(I, Count, NLayers, Method, Sample, State0, State, Series, TSeries) :-
+    I < Count,
     !,
     (   (   I mod Sample =:= 0
-        ;   I =:= N-1
+        ;   I =:= Count-1
         )
-    ->  Series = [State|SeriesT]
+    ->  Series = [State0|SeriesT]
     ;   SeriesT = Series
     ),
     SubStep is I mod NLayers,
-    step(SubStep, Method, State, State1),
+    step(SubStep, Method, State0, State1),
     I1 is I+1,
-    steps_(I1, N, NLayers, Method, Sample, State1, SeriesT).
-steps_(_, _, _, _, _, _, []).
+    steps_(I1, Count, NLayers, Method, Sample, State1, State, SeriesT, TSeries).
+steps_(_, _, _, _, _, State, State, Series, Series).
 
 %!  step(+N, +Method, +S0, -S) is det.
 %
