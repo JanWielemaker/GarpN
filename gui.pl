@@ -1769,8 +1769,8 @@ download_csv(SHA1, _Request) :-
     simulate(Model, Series, Options),
     option(id_mapping(IdMapping), Options, _{}),
     option(model(ModelId), Options, _),
-    Series = [First|_],
-    dict_keys(First, Keys0),
+    sample(Series, Sample),
+    dict_keys(Sample, Keys0),
     order_keys(ModelId, IdMapping, Keys0, Keys),
     dicts_to_compounds(Series, Keys, dict_fill(-), Compounds0),
     maplist(round_float_row(4), Compounds0, Compounds),
@@ -1779,6 +1779,12 @@ download_csv(SHA1, _Request) :-
     Title =.. [row|Labels],
     csv_write_stream(current_output, [Title|Compounds],
                      [ separator(0',)]).
+
+sample(Series, Sample) :-
+    nth1(10, Series, Sample),
+    !.
+sample(Series, Sample) :-
+    last(Series, Sample).
 
 %!  download_map(+SHA1, +Request) is det.
 %
