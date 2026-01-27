@@ -29,6 +29,7 @@
 
 :- use_module(model).
 :- use_module(identifiers).
+:- use_module(debug).
 
 % :- set_prolog_flag(optimise, true).
 
@@ -938,18 +939,52 @@ assert_step(N, S0, S, Eval, Ref) :-
     comma_list(Body, Eval),
     assertz((euler_step(N, S0, S) :- Body), Ref),
     (   debugging(euler_step_clause)
-    ->  \+ \+ ( numbervars(S0+S+Body, 0, _),
-                format(user_error, "euler_step(~d, ~p, ~p) :-~n", [N, S0, S]),
+    ->  \+ \+ ( name_vars(S0, S),
+                numbervars(S0+S+Body, 0, _),
+                format(user_error,
+                       "euler_step(~d, ~n~11|~p, ~n~11|~p) :-~n",
+                       [N, S0, S]),
                 format_body(Body) )
     ;   true
     ),
     ieee_floats.
+
+name_vars(S0, S) :-
+    mapdict(name_var, S0, S).
+
+name_var(Key, V0, V) :-
+    (   key_var_name(Key, Name)
+    ->  atom_concat(Name, 0, Name0),
+        atom_concat(Name, 1, Name1),
+        ignore(V0 = '$VAR'(Name0)),
+        ignore(V = '$VAR'(Name1))
+    ;   true
+    ).
+
+key_var_name(t, 'T') :-
+    !.
+key_var_name(Key, Name) :-
+    quantity_label(Key, Label),
+    atom_chars(Label, Chars),
+    maplist(varname_char, Chars, [Cl|PlChars]),
+    upcase_atom(Cl, Cu),
+    atom_chars(Name, [Cu|PlChars]).
+
+varname_char(Char, Char) :-
+    char_type(Char, csym),
+    !.
+varname_char(_, '_').
 
 format_body((A,B)) =>
     format(user_error, "    ~p,~n", [A]),
     format_body(B).
 format_body(A) =>
     format(user_error, "    ~p.~n", [A]).
+
+%!  eval(+S0, +S, +FormulaPair, -Eval) is det.
+%
+%   True when Eval is the body term to evaluate FormulaPair for updating
+%   S based on S0.
 
 eval(S0, S, Key-formula(Expr, Bindings), Eval) =>
     Eval = (Value is Expr),
