@@ -28,7 +28,6 @@
 :- use_module(library(option)).
 :- use_module(library(pairs)).
 :- use_module(library(dicts)).
-:- use_module(library(dcg/high_order)).
 :- use_module(library(lists)).
 :- use_module(library(debug)).
 :- use_module(library(listing)).
@@ -39,6 +38,7 @@
 :- use_module(gsim).
 :- use_module(csv_util).
 :- use_module(model, [correspondences/2]).
+:- use_module(identifiers).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -375,6 +375,9 @@ m_qstate_from_(Model, State, From) =>
 %
 %     - constants(remove)
 %       Remove constants quantities from the set.
+%     - derivatives(+Bool)
+%       If `true`, include derivative keys using the key identifier
+%       'Δ'+Key.
 
 q_partial_ordering(ModelId, Ordering, Options) :-
     findall(State-Values,
@@ -382,9 +385,15 @@ q_partial_ordering(ModelId, Ordering, Options) :-
             Pairs),
     maplist(state_into_dict, Pairs, Data0),
     dicts_to_same_keys(Data0, q_unknown, Data),
-    Data = [First|_],
-    dict_keys(First, Keys),
-    map_list_to_pairs(changed_at(First, Data), Keys, KeyPairs),
+    Data = [Initial|_States],
+    dict_keys(Initial, Keys0),
+    delete(Keys0, state, Keys),
+    (   option(derivatives(true), Options)
+    ->  maplist(term_derivative, Keys, DKeys),
+        append(Keys, DKeys, AllKeys)
+    ;   AllKeys = Keys
+    ),
+    map_list_to_pairs(changed_at(Data), AllKeys, KeyPairs),
     keysort(KeyPairs, SortedPairs),
     group_pairs_by_key(SortedPairs, Keyed),
     (   option(constants(remove), Options)
@@ -398,17 +407,41 @@ state_into_dict(State-Dict0, Dict) :-
 
 q_unknown(_Key, _Dict, d(_,_,_,_)).
 
-changed_at(First, Data, Key, Nth) :-
-    d(V0,_,_,_) = First.get(Key, _),
-    nth0(Nth, Data, Record),
+%!  changed_at(+Data, +Key, -Changed) is det.
+%
+%   Determine the first state where Key changed value.   For derivative
+%   keys we look at the first state where t
+
+:- det(changed_at/3).
+changed_at(Data, DKey, Nth) :-
+    sub_atom(DKey, 0, _, _, 'Δ'),
+    term_derivative(Key, DKey),
+    nextto(Nth, Record0, Record, Data),
+    d(_,D0,_,_) = Record0.get(Key, _),
+%    nonvar(D0),
+    d(_,D1,_,_) = Record.get(Key),
+    D1 \=@= D0,
+    !.
+changed_at(Data, Key, Nth) :-
+    nextto(Nth, Record0, Record, Data),
+    d(V0,_,_,_) = Record0.get(Key, _),
     d(V1,_,_,_) = Record.get(Key),
     V1 \=@= V0,
     !.
-changed_at(First, _Data, Key, 0) :-  % number are @< atoms
+changed_at([First|_], Key, 0) :-     % number are @< atoms
     d(V0,_,_,_) = First.get(Key, _),
     nonvar(V0),
     !.
-changed_at(_, _, _, infinite(arg)).  % compounds are @> atoms
+changed_at(_, _, infinite(arg)).     % compounds are @> atoms
+
+nextto(N, X, Y, List) :-
+    nextto(0, N, X, Y, List).
+
+nextto(N, N, X, Y, [X,Y|_]).
+nextto(N0, N, X, Y, [_|Zs]) :-
+    N1 is N0+1,
+    nextto(N1, N, X, Y, Zs).
+
 
 %!  exogenous(?Class)
 %
