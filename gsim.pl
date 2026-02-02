@@ -734,24 +734,52 @@ layer_formulas(Formulas, Layers, Options) :-
                        ]),
     $,
     select(t-formula(X+Dt,Bindings), Formulas, Formulas1),
-    layer_formulas_(QLayers, Formulas1, Layers0),
-    length(Layers0, NLayers),
+    layer_formulas_(QLayers, Formulas1, Layers0, Options),
+    flatten_layers(Layers0, Layers1),
+    delete(Layers1, [], Layers2), % delete empty layers
+    length(Layers2, NLayers),
     Dt1 is Dt/NLayers,
-    maplist(append([t-formula(X+Dt1,Bindings)]), Layers0, Layers).
+    maplist(append([t-formula(X+Dt1,Bindings)]), Layers2, Layers).
 
-layer_formulas_([], [], []) :-
+layer_formulas_([], [], [], _) :-
     !.
-layer_formulas_([], Formulas, [Formulas]).
-layer_formulas_([H|T], Formulas0, Layers) :-
+layer_formulas_([], Formulas, [Formulas], _Options).
+layer_formulas_([H|T], Formulas0, [d(DerLayer,Layer)|LayerT], Options) :-
     partition(formula_targets(H), Formulas0, Layer, Formulas1),
-    (   Layer == []
-    ->  LayerT = Layers
-    ;   Layers = [Layer|LayerT]
-    ),
-    layer_formulas_(T, Formulas1, LayerT).
+    partition(derivatives_first(Layer, Options),
+              Formulas1, DerLayer, Formulas2),
+    layer_formulas_(T, Formulas2, LayerT, Options).
 
 formula_targets(QLayer, Var-_Expression) :-
     memberchk(Var, QLayer).
+
+derivatives_first(QLayer, Options, DVar-_DExpression) :-
+    member(QVar-_QExpression, QLayer),
+    key_is_derivative_of(DVar, QVar, Options).
+
+flatten_layers([d([],QL0)|T], Layers) :-
+    !,
+    flatten_layers_([d([],QL0)|T], Layers).
+flatten_layers([d(DL,QL0)|T], [DL|Layers]) :-
+    flatten_layers_([d([],QL0)|T], Layers).
+
+flatten_layers_([], []).
+flatten_layers_([d(_,QL)], [QL]) :-
+    !.
+flatten_layers_([d(_DL0,QL0),d(DL1,QL1)|T], [QL|Layers]) :-
+    append(QL0, DL1, QL),
+    flatten_layers_([d(DL1,QL1)|T], Layers).
+
+%!  key_is_derivative_of(+DKey, +QKey, +Options) is semidet.
+%
+%   True if DKey is a key for the derivative of QKey.
+
+key_is_derivative_of(D, Q, Options) :-
+    option(id_mapping(IdMapping), Options, #{}),
+    term_key(TD, D, IdMapping),
+    term_key(TQ, Q, IdMapping),
+    term_derivative(TQ, TDVar),
+    TDVar == TD.
 
 %!  intern_constants(+Constants:pairs, -DTExpr, +FormualsIn:pairs,
 %!                   -Formuals:pairs) is det.
