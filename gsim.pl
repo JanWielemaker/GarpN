@@ -89,7 +89,8 @@ simulate(From, Series, Options) :-
     option(constants(Constants), Options, _),
     must_be(positive_integer, Count),
     must_be(positive_integer, Sample),
-    read_model(From, Formulas, Constants, State0, Options),
+    read_model(From, Formulas, Constants, State0,
+               [insert_causal_steps(true)|Options]),
     add_tracking(Formulas, Constants, State0, State, [method(Method)|Options]),
     intern_constants(Constants, DTExpr, Formulas, Formulas1),
     method_params(Method, DTExpr, Constants, Formulas1, Formulas2, MethodP),
@@ -114,7 +115,8 @@ read_model(From, Formulas, Constants, State, Options) :-
     maplist(intern_model_term(Quantities1), Terms2, Terms3),
     validate_model(Terms3, Options),
     split_formulas(Terms3, Formulas0, Init),
-    initialise_model(Formulas0, Init, Formulas, Constants, State, Options).
+    insert_causal_steps(Formulas0, Formulas1, Options),
+    initialise_model(Formulas1, Init, Formulas, Constants, State, Options).
 
 is_qspace(qspace(_Q,_Values)) => true.
 is_qspace(_) => fail.
@@ -178,6 +180,51 @@ insert_derivative_equations([H|T0], Required, [H|T]) :-
 
 d_equation(DQ, DQ := δ(Q)) :-
     term_derivative(Q, DQ).
+
+%!  insert_causal_steps(+Formulas0, -Formulas, +Options) is det.
+%
+%   For each formula `X := X+C*Δt` and  `C   :=  ...`, add `ΔX` := C and
+%   change to `X := ΔX+C*Δt`.
+
+insert_causal_steps(Formulas0, Formulas, Options) :-
+    option(insert_causal_steps(true), Options),
+    !,
+    option(id_mapping(IdMapping), Options, #{}),
+    insert_causal_steps_(Formulas0, IdMapping, Formulas).
+insert_causal_steps(Formulas, Formulas, _).
+
+insert_causal_steps_(Formulas0, IdMapping, Formulas) :-
+    select(Q-formula(Expr0,Bindings), Formulas0, Formulas1),
+    is_integration(Q, Expr0, Bindings, IdMapping, F1, F2),
+    !,
+    insert_causal_steps_([F1,F2|Formulas1], IdMapping, Formulas).
+insert_causal_steps_(Formulas, _, Formulas).
+
+is_integration(Q, Expr0, Bindings, IdMapping,
+               Q-formula(Expr, Bindings1),
+               DQ-formula(C,Bindings)) :-
+    integration(Expr0, Expr, X, C, VDQ, Dt),
+    var_name(X,  Bindings, Q),
+    term_key('Δt', DtKey, IdMapping),
+    var_name(Dt, Bindings, DtKey),
+    term_key(QTerm, Q, IdMapping),
+    term_derivative(QTerm, DQTerm),
+    term_key(DQTerm, DQ, IdMapping),
+    \+ var_name(C, Bindings, DQ),
+    !,
+    Bindings1 = Bindings.put(DQ, VDQ).
+
+integration(X+C*Dt, Expr, X1, C1, VDQ, Dt1) =>
+    Expr = X+VDQ*Dt, X1 = X, C1 = C, Dt1 = Dt.
+integration(X-C*Dt, Expr, X1, C1, VDQ, Dt1) =>
+    Expr = X-VDQ*Dt, X1 = X, C1 = C, Dt1 = Dt.
+integration(_, _, _, _, _, _) =>
+    fail.
+
+var_name(Var, Bindings, Name) :-
+    get_dict(Name, Bindings, V),
+    V == Var,
+    !.
 
 %!  equation_quantities(+Equations, -Quantities) is det.
 
