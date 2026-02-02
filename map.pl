@@ -435,7 +435,7 @@ changed_at([First|_], Key, 0) :-     % number are @< atoms
 changed_at(_, _, infinite(arg)).     % compounds are @> atoms
 
 nextto(N, X, Y, List) :-
-    nextto(0, N, X, Y, List).
+    nextto(1, N, X, Y, List).
 
 nextto(N, N, X, Y, [X,Y|_]).
 nextto(N0, N, X, Y, [_|Zs]) :-
