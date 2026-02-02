@@ -30,6 +30,7 @@
 :- use_module(model).
 :- use_module(identifiers).
 :- use_module(debug).
+:- use_module(map).
 
 % :- set_prolog_flag(optimise, true).
 
@@ -653,11 +654,37 @@ q_layer(Layer, Layers, Q) :-
 %!                 semidet.
 %
 %   Organise Formulas into a list of   sub-sets of Formulas according to
-%   the causal ordering derived by Garp.
+%   the causal ordering derived by  Garp.  If   a  Garp  Quantity is the
+%   result of integration and starts at  point(zero) with ΔQ starting at
+%   zero, we normally see two Garp  states,   first  ΔQ moves and in the
+%   next  state  Q  moves.  This   requires  introducing  an  additional
+%   formaula, such that we can move the ΔQ in one layer and the Q in the
+%   next.  For example:
+%
+%   ```
+%   a := ...
+%   v := v + a*Δt
+%   ```
+%
+%   Should become
+%
+%   ```
+%   a := ...
+%   Δv := a,
+%   v := v + Δv*Δt.
+%   ```
+%
+%   We must do this transformation for any
+%
+%   @arg Formulas is a list of Q-formula(Expression,Bindings).
 
 layer_formulas(Formulas, Layers, Options) :-
     option(model(ModelId), Options),
-    q_partial_ordering(ModelId, QLayers, Options),
+    q_partial_ordering(ModelId, QLayers,
+                       [ %derivatives(true),
+                         constants(remove)
+                       | Options
+                       ]),
     $,
     select(t-formula(X+Dt,Bindings), Formulas, Formulas1),
     layer_formulas_(QLayers, Formulas1, Layers0),
