@@ -159,22 +159,22 @@ add_derivative_equations(Equations0, Equations) :-
     findall(DQ, dependent_derivative(Equations0, DQ), DQs0),
     sort(DQs0, DQs),
     ord_subtract(DQs, Quantities, Required),
-    insert_derirative_equations(Equations0, Required, Equations).
+    insert_derivative_equations(Equations0, Required, Equations).
 
 dependent_derivative(Equations, DQ) :-
     member(_Q := Expr, Equations),
     sub_term(DQ, Expr),
     is_derivative_term(DQ).
 
-insert_derirative_equations([], _, []).
-insert_derirative_equations([H|T0], Required, [H,DQ|T]) :-
+insert_derivative_equations([], _, []).
+insert_derivative_equations([H|T0], Required, [H,DQ|T]) :-
     quantity(H, Q),
     memberchk(Q, Required),
     !,
     d_equation(Q, DQ),
-    insert_derirative_equations(T0, Required, T).
-insert_derirative_equations([H|T0], Required, [H|T]) :-
-    insert_derirative_equations(T0, Required, T).
+    insert_derivative_equations(T0, Required, T).
+insert_derivative_equations([H|T0], Required, [H|T]) :-
+    insert_derivative_equations(T0, Required, T).
 
 d_equation(DQ, DQ := δ(Q)) :-
     term_derivative(Q, DQ).
