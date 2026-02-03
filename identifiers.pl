@@ -1,5 +1,5 @@
 :- module(identifiers,
-          [ term_key/3,                 % +Term, -Key, +IdMapping
+          [ term_key/3,                 % ?Term, ?Key, +IdMapping
             term_derivative/2,          % ?Term, ?DTerm
             key_derivative/3,           % ?Key, ?DKey, +IdMapping
             is_derivative_term/1        % ++Term

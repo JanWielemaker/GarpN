@@ -917,7 +917,8 @@ mapping_table(Request) :-
     mapping_table(SHA1, Time).
 
 mapping_table(SHA1, Time) :-
-    saved(SHA1, Model, Options),
+    saved(SHA1, Model, Options0),
+    Options = [formula_layers(_)|Options0],
     q_series(Model, QSeries,
              [ link_garp_states(true)
              | Options
@@ -1026,6 +1027,7 @@ interpolate_nq([H0|T0], [H1|T1], R) =>
 %   Print an HTML table of states.
 
 state_table(States, Options) -->
+    formula_layers(Options),
     { plain_rows(States, StatesPlain),
       option(id_mapping(IdMapping), Options, _{}),
       (   option(keys(Keys), Options)
@@ -1277,6 +1279,36 @@ h_label(value, '𝓥').
 v_label(plus) --> html(span(class(plus), '▲')).
 v_label(min)  --> html(span(class(min),  '▼')).
 v_label(zero) --> html(span(class(zero), '0')).
+
+%!  formula_layers(+Options)// is det.
+
+formula_layers(Options) -->
+    { option(formula_layers(Layers), Options),
+      option(id_mapping(IdMapping), Options, #{})
+    },
+    sequence(formula_layer(IdMapping), Layers).
+formula_layers(_) -->
+    [].
+
+formula_layer(IdMapping, Layer) -->
+    { maplist(ground_formula, Layer, Formulas)
+    },
+    html(div(class('formula-layer'), \sequence(formula(IdMapping), Formulas))).
+
+formula(IdMapping, Formula0) -->
+    { mapsubterms(key_term(IdMapping), Formula0, Formula)
+    },
+    code(Formula).
+
+code(Term) -->
+    { with_output_to(string(S),
+                     print_term(Term, [output(current_output)]))
+    },
+    html(pre(class(code), S)).
+
+key_term(IdMapping, Key, Term) :-
+    atom(Key),
+    term_key(Term, Key, IdMapping).
 
 %!  run_model(+Request)
 %

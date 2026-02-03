@@ -9,7 +9,8 @@
             normal_number/1,       % @Term
             min_list_normal/2,     % +List, -Min
             max_list_normal/2,     % +List, -Max
-            normal_mid/3           % +N1, +N2, -Ni
+            normal_mid/3,          % +N1, +N2, -Ni
+            ground_formula/2       % +Formula, -Grounded
           ]).
 :- use_module(library(apply)).
 :- use_module(library(error)).
@@ -204,13 +205,13 @@ is_integration(Q, Expr0, Bindings, IdMapping,
                Q-formula(Expr, Bindings1),
                DQ-formula(C,Bindings)) :-
     integration(Expr0, Expr, X, C, VDQ, Dt),
-    var_name(X,  Bindings, Q),
+    var_name(Bindings,  X, Q),
     term_key('Δt', DtKey, IdMapping),
-    var_name(Dt, Bindings, DtKey),
+    var_name(Bindings, Dt, DtKey),
     term_key(QTerm, Q, IdMapping),
     term_derivative(QTerm, DQTerm),
     term_key(DQTerm, DQ, IdMapping),
-    \+ var_name(C, Bindings, DQ),
+    \+ var_name(Bindings, C, DQ),
     !,
     Bindings1 = Bindings.put(DQ, VDQ).
 
@@ -221,10 +222,20 @@ integration(X-C*Dt, Expr, X1, C1, VDQ, Dt1) =>
 integration(_, _, _, _, _, _) =>
     fail.
 
-var_name(Var, Bindings, Name) :-
+var_name(Bindings, Var, Name) :-
+    var(Var),
     get_dict(Name, Bindings, V),
     V == Var,
     !.
+
+%!  ground_formula(+Formula, -Grounded) is det.
+%
+%   Given Var-formula(Expr, Bindings), bind each variable in Expr to its
+%   name, producing `Var := Expr`.
+
+ground_formula(Var-formula(Expr, Bindings), Result) =>
+    mapsubterms_var(var_name(Bindings), Expr, RExpr),
+    Result = (Var := RExpr).
 
 %!  equation_quantities(+Equations, -Quantities) is det.
 
@@ -890,7 +901,11 @@ order_formulas(Formulas, Layers, Options) :-
 %!  steps(+N, +Method, +Sample, +Formulas, +State, -Series,
 %!        +Options) is det.
 %
-%   Run the actual simulation.
+%   Run the actual simulation.   Options:
+%
+%     - formula_layers(-Layers)
+%       Unify Layers with a list of lists of the final formulas.
+%       Each formula takes the shape Var-formula(Expr, Bindings).
 %
 %   @arg Number of iterations
 %   @arg Method is one of `euler` or rk4(DTName, DT)
@@ -903,6 +918,7 @@ order_formulas(Formulas, Layers, Options) :-
 
 steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
     layer_formulas(Formulas, FormulaLayers, Options),
+    option(formula_layers(FormulaLayers), Options, _),
     complete_state(State0),
     dict_keys(State0, Keys),
     setup_call_cleanup(
