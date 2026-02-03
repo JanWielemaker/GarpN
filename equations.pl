@@ -2,7 +2,9 @@
           [ equations//2,               % +Term, +Options
             latex_to_prolog_source/2,   % +LaTeX:list(string), -Source:string
             latex_to_prolog/2,          % +LaTeX, -Prolog:list(term)
-            latex_to_prolog_ex/2        % +LaTeX, -Prolog:list(term)
+            latex_to_prolog_ex/2,       % +LaTeX, -Prolog:list(term)
+            ml_equation//1,
+            eq_quantities//1
           ]).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(http/html_write)).
@@ -52,10 +54,11 @@ equations(Equations, Options) -->
     eq_quantities(Options).
 
 eq_quantities(Options) -->
-    { quantities(Quantities, Options)
+    { quantities(Quantities, Options),
+      option(element(Elem), Options, "equations")
     },
-    js_script({|javascript(Quantities)||
-               ml_init(Quantities);
+    js_script({|javascript(Quantities, Elem)||
+               ml_init(Quantities, Elem);
               |}).
 
 eq_group(Options, Group-Equations) -->
@@ -95,18 +98,14 @@ eq_div(Equations, Options) -->
 
 
 eq_list(Eqs, _Options) -->
-    sequence(equation, Eqs),
+    sequence(equation_with_buttons, Eqs),
     html(div(class('add-equation'),
              [ +
              ])).
 
-equation(Eq) -->
-    { phrase(eq_to_mathjax(Eq), Codes),
-      string_codes(String, Codes),
-      debug(eq(to_latex), '~p --> ~p', [Eq, String])
-    },
+equation_with_buttons(Eq) -->
     html(div(class(equation),
-             [ 'math-field'(String),
+             [ \ml_equation(Eq),
                span([ class('sort-handle'),
                       title('Grab to reorder')
                     ], '\u2B0D'),
@@ -114,6 +113,18 @@ equation(Eq) -->
                       title('Click to delete')
                     ], '\u2716')
              ])).
+
+%!  ml_equation(+Equation)// is det.
+%
+%   Render an equation as HTML MathLive element.
+
+ml_equation(Eq) -->
+    { phrase(eq_to_mathjax(Eq), Codes),
+      string_codes(String, Codes),
+      debug(eq(to_latex), '~p --> ~p', [Eq, String])
+    },
+    html_requires(mathlive),
+    html('math-field'(String)).
 
 eq_to_mathjax(Left := Right) ==>
     !,
