@@ -3,8 +3,8 @@
             latex_to_prolog_source/2,   % +LaTeX:list(string), -Source:string
             latex_to_prolog/2,          % +LaTeX, -Prolog:list(term)
             latex_to_prolog_ex/2,       % +LaTeX, -Prolog:list(term)
-            ml_equation//1,
-            eq_quantities//1
+            ml_equation//2,             % +Equation, +Options
+            eq_quantities//1            % +Options
           ]).
 :- use_module(library(dcg/high_order)).
 :- use_module(library(http/html_write)).
@@ -52,6 +52,14 @@ equations(Equations, Options) -->
     html_requires(mathlive),
     eq_div(Equations, [id(equations)|Options]),
     eq_quantities(Options).
+
+%!  eq_quantities(+Options)//
+%
+%   Properly pass known quantities and initialise the MathLive elements.
+%   Options:
+%
+%     - element(+ElementId)
+%       Work on equations below the element with this `id`.
 
 eq_quantities(Options) -->
     { quantities(Quantities, Options),
@@ -105,7 +113,7 @@ eq_list(Eqs, _Options) -->
 
 equation_with_buttons(Eq) -->
     html(div(class(equation),
-             [ \ml_equation(Eq),
+             [ \ml_equation(Eq, []),
                span([ class('sort-handle'),
                       title('Grab to reorder')
                     ], '\u2B0D'),
@@ -114,17 +122,19 @@ equation_with_buttons(Eq) -->
                     ], '\u2716')
              ])).
 
-%!  ml_equation(+Equation)// is det.
+%!  ml_equation(+Equation, +Options)// is det.
 %
 %   Render an equation as HTML MathLive element.
 
-ml_equation(Eq) -->
-    { phrase(eq_to_mathjax(Eq), Codes),
+ml_equation(Eq, Options) -->
+    { option(ml_component(Component), Options, 'math-field'),
+      phrase(eq_to_mathjax(Eq), Codes),
       string_codes(String, Codes),
-      debug(eq(to_latex), '~p --> ~p', [Eq, String])
+      debug(eq(to_latex), '~p --> ~p', [Eq, String]),
+      HTMLTerm =.. [Component,String]
     },
     html_requires(mathlive),
-    html('math-field'(String)).
+    html(HTMLTerm).
 
 eq_to_mathjax(Left := Right) ==>
     !,

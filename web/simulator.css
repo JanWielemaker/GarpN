@@ -413,9 +413,11 @@ div.links div.title {
 }
 
 div.formula-layer {
+    width: 70%;
     border: 1px solid #888;
     padding-left: 1ex;
+    margin-top: 10px;
     margin-bottom: 10px;
-    box-shadow: 2px 2px #888;
+    box-shadow: 3px 3px #444;
     border-radius: 10px;
 }

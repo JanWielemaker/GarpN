@@ -1284,9 +1284,12 @@ v_label(zero) --> html(span(class(zero), '0')).
 
 formula_layers(Options) -->
     { option(formula_layers(Layers), Options),
-      option(id_mapping(IdMapping), Options, #{})
+      option(id_mapping(IdMapping), Options, #{}),
+      ElemId = "eq-layers"
     },
-    sequence(formula_layer(IdMapping), Layers).
+    html(div(id(ElemId),
+             \sequence(formula_layer(IdMapping), Layers))),
+    eq_quantities([element(ElemId)|Options]).
 formula_layers(_) -->
     [].
 
@@ -1298,13 +1301,10 @@ formula_layer(IdMapping, Layer) -->
 formula(IdMapping, Formula0) -->
     { mapsubterms(key_term(IdMapping), Formula0, Formula)
     },
-    code(Formula).
-
-code(Term) -->
-    { with_output_to(string(S),
-                     print_term(Term, [output(current_output)]))
-    },
-    html(pre(class(code), S)).
+    html(div(class(equation),
+             \ml_equation(Formula,
+                          [ ml_component('math-div')
+                          ]))).
 
 key_term(IdMapping, Key, Term) :-
     atom(Key),

@@ -126,24 +126,28 @@ function eql_changed(from)
     eql.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function ml_prep(mf, quantities)
-{
-  mf.macros = { ... mf.macros, ... my_macros };
-  const shortcuts = { ... mf.inlineShortcuts };
-  for(sc of del_shortcuts)
-    delete shortcuts[sc];
-  mf.inlineShortcuts = shortcuts;
+function ml_prep(mf, quantities) {
+  if ( mf.tagName == "MATH-FIELD" ) {
+    mf.macros = { ... mf.macros, ... my_macros };
+    const shortcuts = { ... mf.inlineShortcuts };
+    for(sc of del_shortcuts)
+      delete shortcuts[sc];
+    mf.inlineShortcuts = shortcuts;
 
-  ml_update_menu(mf, quantities);
+    ml_update_menu(mf, quantities);
 
-  mf.addEventListener("input", (ev) => {
-    eql_changed(ev.target);
-  });
+    mf.addEventListener("input", (ev) => {
+      eql_changed(ev.target);
+    });
+  } else {		/* The static versions want a JSON __string__ */
+    mf.macros = JSON.stringify(my_macros);
+  }
 }
 
 function eq_prep(eq, quantities)
-{ const mf  = eq.querySelector("math-field");
+{ const mf  = eq.querySelector("math-field,math-span,math-div");
   const del = eq.querySelector("span.delete-equation");
+
   if ( mf )
     ml_prep(mf, quantities);
 
@@ -167,8 +171,8 @@ function allow_resize(grp) {
   }
 }
 
-function ml_init(quantities)
-{ const eql = document.getElementById("equations");
+function ml_init(quantities, elemid)
+{ const eql = document.getElementById(elemid||"equations");
   state.quantities = quantities;
 
   for(eq of eql.querySelectorAll("div.equation")) {
@@ -207,47 +211,54 @@ function
 activatePlusButtons(eql)
 { const els = eql.querySelectorAll("div.add-equation");
 
-  function add_eq(ev) {
-    const me = ev.target.closest("div.add-equation");
-    const div = document.createElement("div");
-    div.classList.add("equation");
-    div.innerHTML = "<math-field></math-field>"+
-      '<span class="delete-equation">✖</span>';
-    me.parentNode.insertBefore(div, me);
-    eq_prep(div);
-  }
+  if ( els ) {
+    function add_eq(ev) {
+      const me = ev.target.closest("div.add-equation");
+      const div = document.createElement("div");
+      div.classList.add("equation");
+      div.innerHTML = "<math-field></math-field>"+
+	'<span class="delete-equation">✖</span>';
+      me.parentNode.insertBefore(div, me);
+      eq_prep(div);
+    }
 
-  for(el of els) {
-    el.addEventListener("click", add_eq);
+    for(el of els) {
+      el.addEventListener("click", add_eq);
+    }
   }
 }
 
 function activateCollapse(eql) {
   const hdrs = eql.querySelectorAll("div.eq-group-header");
 
-  function collapse(ev) {
-    const me = ev.target.closest("div.eq-group");
-    me.classList.toggle("collapsed");
-    if ( !me.classList.contains("collapsed") )
-      allow_resize(me.querySelector("div.equations"));
-  }
+  if ( hdrs ) {
+    function collapse(ev) {
+      const me = ev.target.closest("div.eq-group");
+      me.classList.toggle("collapsed");
+      if ( !me.classList.contains("collapsed") )
+	allow_resize(me.querySelector("div.equations"));
+    }
 
-  for(hdr of hdrs) {
-    hdr.addEventListener("click", collapse);
+    for(hdr of hdrs) {
+      hdr.addEventListener("click", collapse);
+    }
   }
 }
 
 function activateSortable(eql) {
   const targets = eql.querySelectorAll(".sortable");
-  for(el of targets) {
-    new Sortable(el, {
-      animation: 150,
-      handle: '.sort-handle',
-      onEnd: (ev) => {
-	eq_prep(ev.item, state.quantities);
-	eql_changed(ev.item);
-      }
-    });
+
+  if ( targets ) {
+    for(el of targets) {
+      new Sortable(el, {
+	animation: 150,
+	handle: '.sort-handle',
+	onEnd: (ev) => {
+	  eq_prep(ev.item, state.quantities);
+	  eql_changed(ev.item);
+	}
+      });
+    }
   }
 }
 
