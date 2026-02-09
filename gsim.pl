@@ -594,21 +594,6 @@ add_key_to_state(Key, State0, State) :-
 add_key_to_state(Key, State0, State) :-
     put_dict(Key, State0, _, State).
 
-%!  complete_state(?State) is det.
-%
-%   Fill remaining missing values with  NaN.   These  will  be filled in
-%   subsequent  iteration  steps  with  real   values.  Note  that  IEEE
-%   arithmetic  used  for  the  series   evaluation  (still)  raises  an
-%   instantiation error on variables, but proceeds happily using NaN.
-
-complete_state(State) :-
-    mapdict(set_var_to_nan, State).
-
-set_var_to_nan(_, V), var(V) =>
-%    V is nan.
-    V = 0.			% dubious
-set_var_to_nan(_, _) => true.
-
 %!  formulas_partial_ordering(+Formulas:pairs, -Layers, -SelfLoops,
 %!                            +Options) is det.
 %
@@ -1022,7 +1007,6 @@ steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
     insert_propagation_formulas(FormulaLayers0, FormulaLayers, Options),
     option(formula_layers(FormulaLayers), Options, _),
     extend_state(FormulaLayers, State0, State1),
-    complete_state(State1),
     dict_keys(State1, Keys),
     setup_call_cleanup(
         foldl(compile_formulas(Method, Keys), FormulaLayers, Refs, 0, _),
@@ -1036,7 +1020,6 @@ steps(Count, Method, Sample, Formulas, State0, Series, _Options) :-
     flat_steps(0, Count, Method, Sample, Formulas, State0, Series).
 
 flat_steps(I, Count, Method, Sample, Formulas, State0, Series) :-
-    complete_state(State0),
     dict_keys(State0, Keys),
     setup_call_cleanup(
         compile_formulas(Method, Keys, Formulas, Ref, 0, _),
@@ -1079,7 +1062,31 @@ step(N, rk4(DT,H), Ys, Y) =>
     slope(Y0, K, H6, Yt),
     Y = Yt.put(t, Te).
 step(N, euler, S0, S) =>
-    euler_step(N, S0, S).
+    run_euler_step(N, S0, S).
+
+run_euler_step(N, S0, S) :-
+    catch(euler_step(N, S0, S), error(instantiation_error,_), fail),
+    !.
+run_euler_step(N, S0, S) :-
+    copy_term(S0, S1),
+    complete_state(S1),
+    euler_step(N, S1, S).
+
+%!  complete_state(?State) is det.
+%
+%   If  we  cannot  execute  the  state  because  it  is  insufficiently
+%   instantiated, set the variables to zero   (0).  This is not entirely
+%   obvious. Ideally, some state variables will   start unknown and they
+%   will eventually be filled. If a first  iteration we used NaN for the
+%   initial  value.  Unfortunately  on  some    models   the  NaN  keeps
+%   propagating.
+
+complete_state(State) :-
+    mapdict(set_var_to_zero, State).
+
+set_var_to_zero(_, V), var(V) =>
+    V = 0.			% dubious
+set_var_to_zero(_, _) => true.
 
 :- thread_local euler_step/3.                      % +SubStep, +State0, -State
 
@@ -1316,7 +1323,7 @@ is_delta_formula(_) => fail.
 eval_d(N, T, DT, H, Y0, K) :-
     dict_pairs(Extra, _, [DT-H,t-T]),
     Y1 = Y0.put(Extra),
-    euler_step(N, Y1, Y2),
+    run_euler_step(N, Y1, Y2),
     del_dict(DT, Y2, _, Y2a),
     del_dict(t, Y2a, _, Y2b),
     derivative_(Y0,Y2b,H,K).
