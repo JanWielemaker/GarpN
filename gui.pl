@@ -1825,8 +1825,9 @@ sample(Series, Sample) :-
 download_map(SHA1, _Request) :-
     saved(SHA1, Model, Options),
     q_series(Model, QSeries, [link_garp_states(true)|Options]),
-    option(id_mapping(IdMapping), Options, _{}),
-    q_series_table(Model, QSeries, Table, IdMapping, Options),
+    option(id_mapping(IdMapping), Options, #{}),
+    option(model(ModelId), Options, _),
+    q_series_table(ModelId, QSeries, Table, IdMapping, Options),
     mapsubterms(csv_map, Table, CSVTable),
     format('Content-type: text/csv~n~n'),
     csv_write_stream(current_output, CSVTable,

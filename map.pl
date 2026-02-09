@@ -1473,17 +1473,17 @@ point_name(N, Name), atom(N) => Name = N.
 		 *              CSV		*
 		 *******************************/
 
-%!  q_series_table(+Model, +Qseries, -Table, +IdMapping, +Options)
+%!  q_series_table(+ModelId, +Qseries, -Table, +IdMapping, +Options)
 %
 %   Translate a qualitative series into CSV format.
 
-q_series_table(Model, QSeries, [Title|Rows], IdMapping, Options) :-
+q_series_table(ModelId, QSeries, [Title|Rows], IdMapping, Options) :-
     (   QSeries = [_,Sample|_]
     ->  true
     ;   QSeries = [Sample|_]
     ),
     dict_keys(Sample, Keys0),
-    order_keys(Model, IdMapping, Keys0, Keys),
+    order_keys(ModelId, IdMapping, Keys0, Keys),
     option(match(Match), Options, #{}),
     phrase(q_title_row(Keys, Sample, IdMapping, Match), TitleCells),
     Title =.. [row|TitleCells],

@@ -47,11 +47,11 @@ attr_symbol(Attr, Id) :-
     atom_string(Id, SId).
 attr_symbol(Attr, Attr).
 
-%!  order_keys(+Model, +IdMapping, +Keys, -Ordered) is det.
+%!  order_keys(+ModelId, +IdMapping, +Keys, -Ordered) is det.
 
-order_keys(Model, IdMapping, Keys0, Keys) :-
-    (   nonvar(Model),
-        q_partial_ordering(Model, Ordering, [])
+order_keys(ModelId, IdMapping, Keys0, Keys) :-
+    (   nonvar(ModelId),
+        q_partial_ordering(ModelId, Ordering, [])
     ->  true
     ;   Ordering = []
     ),
