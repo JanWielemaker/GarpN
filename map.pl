@@ -941,31 +941,41 @@ link_garp_states(QSeries0, QSeries, Options) :-
     option(model(Model), Options, engine),
     findall(Id-State, qstate(Model, Id, State, Options), GarpStates),
     option(garp_states(GarpStates), Options, _),
-    maplist(add_state(GarpStates), QSeries0, QSeries1),
+    foldl(add_state(GarpStates), QSeries0, QSeries1, 0, _),
     merge_states(QSeries1, GarpStates, QSeries, Options).
 
-%!  add_state(+GarpStates, +State0, -State) is det.
+%!  add_state(+GarpStates, +State0, -State, +N0, -N) is det.
 %
 %   Add a property `garp_states` holding a  list of (numeric) Garp state
 %   Ids for Garp states that match State0.
 
-add_state(GarpStates, State0, State) :-
+add_state(GarpStates, State0, State, N, N1) :-
+    N1 is N+1,
     include(matching_state(State0), GarpStates, Matching),
-    remove_less_instantiated_maps(Matching, Matching1),
+    remove_less_instantiated_maps(Matching, Matching1, N),
     pairs_keys(Matching1, StateIds),
     State = State0.put(garp_states, StateIds).
 
 matching_state(State, _Id-GarpState) :-
     \+ \+ State >:< GarpState.
 
-remove_less_instantiated_maps(Pairs0, Pairs) :-
+%!  remove_less_instantiated_maps(+PairsIn, -Pairs, +Nth0State) is det.
+%
+%   If multiple Garp states match, take the most instantiated (complete)
+%   one, except for the initial state. If that matches, use it.
+
+remove_less_instantiated_maps(Pairs0, Pairs, 0) :-
+    member(0-S, Pairs0),
+    !,
+    Pairs = [0-S].
+remove_less_instantiated_maps(Pairs0, Pairs, N) :-
     select(_Q1-S1, Pairs0, Pairs1),
     select(Q2-S2, Pairs1, Pairs2),
     dicts_to_same_keys([S1,S2], add_var_value, [S1b, S2b]),
     subsumes_term(S1b, S2b),
     !,
-    remove_less_instantiated_maps([Q2-S2|Pairs2], Pairs).
-remove_less_instantiated_maps(Pairs, Pairs).
+    remove_less_instantiated_maps([Q2-S2|Pairs2], Pairs, N).
+remove_less_instantiated_maps(Pairs, Pairs, _).
 
 add_var_value(_Key, _Dict, _Var).
 
