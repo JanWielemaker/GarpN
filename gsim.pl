@@ -1018,6 +1018,7 @@ order_formulas(Formulas, Layers, Options) :-
 
 steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
     layer_formulas(Formulas, FormulaLayers0, Options),
+    !,
     insert_propagation_formulas(FormulaLayers0, FormulaLayers, Options),
     option(formula_layers(FormulaLayers), Options, _),
     extend_state(FormulaLayers, State0, State1),
