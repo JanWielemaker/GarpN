@@ -201,19 +201,26 @@ insert_causal_steps_(Formulas0, IdMapping, Formulas) :-
     insert_causal_steps_([F1,F2|Formulas1], IdMapping, Formulas).
 insert_causal_steps_(Formulas, _, Formulas).
 
+%!  is_integration(+Q, +Expr0, +Bindings, +IdMapping,
+%!                 -F1, -F2) is semidet.
+%
+%   True when Q-formula(Expr0,Bindings) expresses and integration and F1
+%   is the modified version of this formula using   ΔQ  and F2 is a link
+%   formula that computes ΔQ. The  idea  is   that  F2  must go into the
+%   _layer_ before F1.
+
 is_integration(Q, Expr0, Bindings, IdMapping,
-               Q-formula(Expr, Bindings1),
-               DQ-formula(C,Bindings)) :-
+               Q-formula(Expr,QBindings),
+               DQ-formula(C,CBindings)) :-
     integration(Expr0, Expr, X, C, VDQ, Dt),
     var_name(Bindings,  X, Q),
     term_key('Δt', DtKey, IdMapping),
     var_name(Bindings, Dt, DtKey),
-    term_key(QTerm, Q, IdMapping),
-    term_derivative(QTerm, DQTerm),
-    term_key(DQTerm, DQ, IdMapping),
+    key_derivative(Q, DQ, IdMapping),
     \+ var_name(Bindings, C, DQ),
     !,
-    Bindings1 = Bindings.put(DQ, VDQ).
+    canonical_formula_bindings(Expr, Bindings.put(DQ, VDQ), QBindings),
+    canonical_formula_bindings(C, Bindings, CBindings).
 
 integration(X+C*Dt, Expr, X1, C1, VDQ, Dt1) =>
     Expr = X+VDQ*Dt, X1 = X, C1 = C, Dt1 = Dt.
@@ -228,10 +235,25 @@ var_name(Bindings, Var, Name) :-
     V == Var,
     !.
 
+%!  canonical_formula_bindings(+Expression, +BindingDict,
+%!                             -MinimalBindingDict) is det.
+
+canonical_formula_bindings(Expr, Bindings0, Bindings) :-
+    term_variables(Expr, Vars),
+    dict_pairs(Bindings0, Tag, Pairs0),
+    include(var_in_expression(Vars), Pairs0, Pairs),
+    dict_pairs(Bindings, Tag, Pairs).
+
+var_in_expression(Vars, _Key-Var) :-
+    member(V2, Vars),
+    V2 == Var,
+    !.
+
 %!  ground_formula(+Formula, -Grounded) is det.
 %
 %   Given Var-formula(Expr, Bindings), bind each variable in Expr to its
-%   name, producing `Var := Expr`.
+%   name, producing `Var := Expr`. Note   that  the ariables in Grounded
+%   are _keys_ (as opposed to _terms_.
 
 ground_formula(Var-formula(Expr, Bindings), Result) =>
     mapsubterms_var(var_name(Bindings), Expr, RExpr),
@@ -556,6 +578,22 @@ formulas_needs_init(Formulas, NeedsInit) :-
     append(First, SelfLoops, NeedsInit0),
     sort(NeedsInit0, NeedsInit).
 
+%!  extend_state(+FormulaLayers:list(pairs), +State0, -State) is det.
+%
+%   Add possible new left hand side of formulas to State0.
+
+extend_state(FormulaLayers, State0, State) :-
+    append(FormulaLayers, Formulas),
+    pairs_keys(Formulas, Keys),
+    foldl(add_key_to_state, Keys, State0, State).
+
+add_key_to_state(Key, State0, State) :-
+    get_dict(Key, State0, _),
+    !,
+    State = State0.
+add_key_to_state(Key, State0, State) :-
+    put_dict(Key, State0, _, State).
+
 %!  complete_state(?State) is det.
 %
 %   Fill remaining missing values with  NaN.   These  will  be filled in
@@ -792,6 +830,68 @@ key_is_derivative_of(D, Q, Options) :-
     term_derivative(TQ, TDVar),
     TDVar == TD.
 
+%!  insert_propagation_formulas(+LayersIn, -Layers, +Options) is det.
+%
+%   If a layer has a formula with left-hand side ΔQ, search for formulas
+%   with a right hand side Q and   establish  ist derived form. Add this
+%   formula to the current layer.
+
+insert_propagation_formulas(Layers0, Layers, Options) :-
+    append(Layers0, Formulas),
+    maplist(insert_propagation_formulas_(Options, Formulas),
+            Layers0, Layers).
+
+insert_propagation_formulas_(Options, Formulas, Layer0, Layer) :-
+    append(Prefix, [DFormula|Postfix0], Layer0),
+    is_dformula(DFormula, Q, Options),
+    $,
+    propagates_to(Q, Formulas, Props, Options),
+    append(Props, Postfix0, Postfix1),
+    insert_propagation_formulas_(Options, Formulas, Postfix1, Postfix),
+    append([Prefix,[DFormula],Postfix], Layer).
+insert_propagation_formulas_(_, _, Layer, Layer).
+
+is_dformula(DQ-_, Q, Options) =>
+    option(id_mapping(IdMapping), Options),
+    term_key(DTerm, DQ, IdMapping),
+    term_derivative(Term, DTerm),
+    $,
+    term_key(Term, Q, IdMapping).
+is_dformula(_-_, _, _) =>
+    fail.
+
+propagates_to(Q, Formulas, [Prop|T], Options) :-
+    propagates_to_(Q, Formulas, Prop, Options), !,
+    Prop = Q2-_,
+    propagates_to(Q2, Formulas, T, Options).
+propagates_to(_, _, [], _).
+
+propagates_to_(Q, Formulas, Prop, Options) :-
+    Formula = formula(_,Bindings),
+    member(Q2-Formula, Formulas),
+    dict_keys(Bindings, Vars),
+    memberchk(Q, Vars),
+    derive_formula(Q, Q2-Formula, Prop, Options),
+    !.
+
+derive_formula(V, Q-formula(Expr,Bindings), Prop, Options),
+    get_dict(V, Bindings, VVar),
+    derivative(VVar, Expr, DVar, DExpr) =>
+    option(id_mapping(IdMapping), Options, #{}),
+    Prop = DQ-formula(DExpr, DBindings),
+    key_derivative(Q, DQ, IdMapping),
+    key_derivative(V, DV, IdMapping),
+    canonical_formula_bindings(DExpr, Bindings.put(DV, DVar), DBindings).
+derive_formula(_, _, _, _) =>
+    fail.
+
+derivative(V,   C*V, DV, Der) => Der =  C*DV.
+derivative(V, _+C*V, DV, Der) => Der =  C*DV.
+derivative(V, _-C*V, DV, Der) => Der = -C*DV.
+derivative(V, _+V,   DV, Der) => Der =  DV.
+derivative(V, _-V,   DV, Der) => Der = -DV.
+derivative(_, _, _, _)        => fail.
+
 %!  intern_constants(+Constants:pairs, -DTExpr, +FormualsIn:pairs,
 %!                   -Formuals:pairs) is det.
 %
@@ -917,18 +1017,20 @@ order_formulas(Formulas, Layers, Options) :-
 %        `State` but different values.
 
 steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
-    layer_formulas(Formulas, FormulaLayers, Options),
+    layer_formulas(Formulas, FormulaLayers0, Options),
+    insert_propagation_formulas(FormulaLayers0, FormulaLayers, Options),
     option(formula_layers(FormulaLayers), Options, _),
-    complete_state(State0),
-    dict_keys(State0, Keys),
+    extend_state(FormulaLayers, State0, State1),
+    complete_state(State1),
+    dict_keys(State1, Keys),
     setup_call_cleanup(
         foldl(compile_formulas(Method, Keys), FormulaLayers, Refs, 0, _),
         ( length(Refs, NLayers),
           steps_(0, NLayers, NLayers, Method, Sample,
-                 State0, State1, Series, TSeries)
+                 State1, State2, Series, TSeries)
         ),
         maplist(clean_formulas, Refs)),
-    flat_steps(NLayers, Count, Method, Sample, Formulas, State1, TSeries).
+    flat_steps(NLayers, Count, Method, Sample, Formulas, State2, TSeries).
 steps(Count, Method, Sample, Formulas, State0, Series, _Options) :-
     flat_steps(0, Count, Method, Sample, Formulas, State0, Series).
 
@@ -1000,7 +1102,7 @@ step(N, euler, S0, S) =>
 %   Sa, Sa*Eq2 -> S1.  With  the   Prolog  flag  `garp_eval_batch`,  all
 %   equations act on S0.
 
-:- set_prolog_flag(garp_eval_batch, true).
+:- set_prolog_flag(garp_eval_batch, false).
 
 compile_formulas(rk4(DTName, _DT), Keys, Formulas, Ref, N, N1) =>
     N1 is N+1,

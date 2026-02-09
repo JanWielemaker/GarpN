@@ -42,7 +42,6 @@ term_key(Term, Key, IdMapping), ground(Term) =>
 %   identifier for its 1st derivative by prepending   the  name with a Δ
 %   symbol.
 
-:- det(term_derivative/2).
 term_derivative(Term, DTerm), (atom(Term) ; atom(DTerm)) =>
     atom_concat('Δ', Term, DTerm).
 term_derivative(Term, DTerm), compound(Term) =>
