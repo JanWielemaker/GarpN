@@ -961,11 +961,13 @@ matching_state(State, _Id-GarpState) :-
 remove_less_instantiated_maps(Pairs0, Pairs) :-
     select(_Q1-S1, Pairs0, Pairs1),
     select(Q2-S2, Pairs1, Pairs2),
-    subsumes_term(S1, S2),
+    dicts_to_same_keys([S1,S2], add_var_value, [S1b, S2b]),
+    subsumes_term(S1b, S2b),
     !,
     remove_less_instantiated_maps([Q2-S2|Pairs2], Pairs).
 remove_less_instantiated_maps(Pairs, Pairs).
 
+add_var_value(_Key, _Dict, _Var).
 
 
 %!  merge_states(+QSeries0, +GarpStates, -QSeries, Options) is det.
