@@ -382,7 +382,8 @@ m_qstate_from_(Model, State, From) =>
 q_partial_ordering(ModelId, Ordering, Options) :-
     findall(State-Values,
             qstate(ModelId, State, Values, [d(1)|Options]),
-            Pairs),
+            Pairs0),
+    keysort(Pairs0, Pairs),
     maplist(state_into_dict, Pairs, Data0),
     dicts_to_same_keys(Data0, q_unknown, Data),
     Data = [Initial|_States],
