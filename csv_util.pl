@@ -35,7 +35,7 @@ key_label(_, Key, Key).
 one_object_attr(Key, IdMapping, Attr) :-
     Term = IdMapping.get(Key),
     Term =.. [Attr,Obj],
-    forall(T2 = IdMapping.get(Key),
+    forall(T2 = IdMapping.get(_Key),
            (   compound(T2)
            ->  T2 =.. [_,Obj]
            ;   true
