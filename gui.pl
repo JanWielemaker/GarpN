@@ -943,7 +943,8 @@ full_garp_states(GarpStates, Options) :-
     mapdict(d2, Match, Match1),
     findall(Id-QState, qstate(ModelName, Id, QState,
                               [match(Match1)|Options1]),
-            GarpStates).
+            GarpStates0),
+    keysort(GarpStates0, GarpStates).
 
 d2(_Key, _V, [0,1]).
 
