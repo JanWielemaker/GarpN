@@ -39,6 +39,7 @@
 :- use_module(csv_util).
 :- use_module(model, [correspondences/2]).
 :- use_module(identifiers).
+:- use_module(library(time), [call_with_time_limit/2]).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -999,17 +1000,24 @@ merge_states(QSeries, GarpStates, Options) -->
       ;   \+ garp_valid_transition(ATo, ZTo, Options),
           \+ (member(X, ATo), memberchk(X, ZTo))        % not a real transition
       ),
-      member(A, ATo),
-      member(Z, ZTo),
-      garp_gap(A, Z, GarpStateNums, Options),
-      sync_states(GarpStateNums, GarpStates, Before, Unmatched, After, Synced, Options),
-      !,
+      catch(call_with_time_limit(0.01,
+                                 state_path(ATo, ZTo, GarpStates, Before, Unmatched, After, Synced, Options)),
+            time_limit_exceeded,
+            fail),
       append([BSeq, [Before], Synced], Replaced),
       append(Replaced, Rest, QSeries)
     },
     merge_states(Rest, GarpStates, Options).
 merge_states(QSeries, _GarpStates, _Options) -->
     remainder(QSeries).
+
+state_path(ATo, ZTo, GarpStates, Before, Unmatched, After, Synced, Options) :-
+    member(A, ATo),
+    member(Z, ZTo),
+    garp_gap(A, Z, GarpStateNums, Options),
+    sync_states(GarpStateNums, GarpStates, Before, Unmatched, After, Synced, Options),
+    !.
+
 
 seq([]) --> [].
 seq([H|T]) --> [H], seq(T).
