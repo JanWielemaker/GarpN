@@ -759,7 +759,7 @@ q_layer(Layer, Layers, Q) :-
 %
 %   @arg Formulas is a list of Q-formula(Expression,Bindings).
 
-layer_formulas(Formulas, Layers, Options) :-
+layer_formulas(Method, Formulas, Layers, Options) :-
     option(model(ModelId), Options),
     q_partial_ordering(ModelId, QLayers,
                        [ %derivatives(true),
@@ -767,13 +767,20 @@ layer_formulas(Formulas, Layers, Options) :-
                        | Options
                        ]),
     $,
-    select(t-formula(X+Dt,Bindings), Formulas, Formulas1),
+    extract_time_formula(Method, Formulas, TVar, Dt, Bindings, Formulas1),
     layer_formulas_(QLayers, Formulas1, Layers0, Options),
     flatten_layers(Layers0, Layers1),
     delete(Layers1, [], Layers2), % delete empty layers
     length(Layers2, NLayers),
     Dt1 is Dt/NLayers,
-    maplist(append([t-formula(X+Dt1,Bindings)]), Layers2, Layers).
+    maplist(append([t-formula(TVar+Dt1,Bindings)]), Layers2, Layers).
+
+extract_time_formula(euler, Formulas0, TVar, Dt, Bindings, Formulas) :-
+    !,
+    select(t-formula(TVar+Dt,Bindings), Formulas0, Formulas).
+extract_time_formula(rk4(_DTName,Dt), Formulas, TVar, Dt,
+                     Bindings, Formulas) :-
+    dict_pairs(Bindings, #, [t-TVar]).
 
 layer_formulas_([], [], [], _) :-
     !.
@@ -1002,7 +1009,7 @@ order_formulas(Formulas, Layers, Options) :-
 %        `State` but different values.
 
 steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
-    layer_formulas(Formulas, FormulaLayers0, Options),
+    layer_formulas(Method, Formulas, FormulaLayers0, Options),
     !,
     insert_propagation_formulas(FormulaLayers0, FormulaLayers, Options),
     option(formula_layers(FormulaLayers), Options, _),
