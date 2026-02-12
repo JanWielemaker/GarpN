@@ -1008,21 +1008,24 @@ steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
     option(formula_layers(FormulaLayers), Options, _),
     extend_state(FormulaLayers, State0, State1),
     dict_keys(State1, Keys),
+    % Deal with the model initialization steps.  Do _not_ user RK4 here.
     setup_call_cleanup(
-        foldl(compile_formulas_eq(Method, Keys), FormulaLayers, Refs, 0, _),
+        foldl(compile_formulas_layer(euler, Keys), FormulaLayers, Refs, 0, _),
         ( length(Refs, NLayers),
-          steps_(0, NLayers, NLayers, Method, Sample,
+          steps_(0, NLayers, NLayers, euler, Sample,
                  State1, State2, Series, TSeries)
         ),
         maplist(clean_formulas, Refs)),
-    flat_steps(NLayers, Count, Method, Sample, Formulas, State2, TSeries).
-steps(Count, Method, Sample, Formulas, State0, Series, _Options) :-
-    flat_steps(0, Count, Method, Sample, Formulas, State0, Series).
+    % Deal with the rest of the simulation.
+    flat_steps(NLayers, Count, Method, Sample, Formulas, State2,
+               TSeries, Options).
+steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
+    flat_steps(0, Count, Method, Sample, Formulas, State0, Series, Options).
 
-flat_steps(I, Count, Method, Sample, Formulas, State0, Series) :-
+flat_steps(I, Count, Method, Sample, Formulas, State0, Series, Options) :-
     dict_keys(State0, Keys),
     setup_call_cleanup(
-        compile_formulas_eq(Method, Keys, Formulas, Ref, 0, _),
+        compile_formulas_full(Method, Keys, Formulas, Ref, Options),
         steps_(I, Count, 1, Method, Sample, State0, _State, Series, []),
         clean_formulas(Ref)).
 
@@ -1090,12 +1093,77 @@ set_var_to_zero(_, _) => true.
 
 :- thread_local euler_step/3.                      % +SubStep, +State0, -State
 
-%!  compile_formulas(+Method, +Keys, +Formulas:pairs, -ClauseRef) is
-%!                   det.
+%!  compile_formulas_layer(+Method, +Keys, +Formulas:pairs, -ClauseRef,
+%!                         +N, -N1) is det.
 %
-%   Compile Formulas to a clause for   euler_step/2.  When using RK4, we
-%   must re-add the time formulas for  eval_d/5   to  work.  We have two
-%   modes.  For RK4, we use the first.
+%   Used to compile a _layer_. This implies  that the state keys that do
+%   not appear as left hand side of one of the formulas are copied (kept
+%   identical).
+
+compile_formulas_layer(Method, Keys, Formulas, Ref, N, N1) :-
+    N1 is N+1,
+    compile_formulas(Method, Keys, Formulas, Eval, S0, S),
+    equal_keys(Keys, Formulas, S0, S),
+    assert_step(N, S0, S, Eval, Ref).
+
+equal_keys([], _, _, _).
+equal_keys([H|T], Formulas, S0, S) :-
+    memberchk(H-_, Formulas),
+    !,
+    equal_keys(T, Formulas, S0, S).
+equal_keys([H|T], Formulas, S0, S) :-
+    get_dict(H, S0, Var),
+    get_dict(H, S, Var),
+    equal_keys(T, Formulas, S0, S).
+
+%!  compile_formulas_full(+Method, +Keys, +Formulas, -Ref, +Options) is
+%!                        det.
+%
+%   Similar to compile_formulas_layer/6, put executes  a full step. Some
+%   of the state variables may not be   covered by Formulas because they
+%   are inserted derivation steps. We add additional explicit derivation
+%   steps to deal with this. Note that  this is called after the initial
+%   causal chain step and all variables should now be instantiated.
+
+compile_formulas_full(Method, Keys, Formulas, Ref, Options) :-
+    compile_formulas(Method, Keys, Formulas, Eval0, S0, S),
+    option(id_mapping(IdMapping), Options, #{}),
+    derivative_keys(Keys, Formulas, S0, S, IdMapping, DEval),
+    append(Eval0, DEval, Eval),
+    assert_step(0, S0, S, Eval, Ref).
+
+derivative_keys([], _, _, _, _, []).
+derivative_keys([H|T], Formulas, S0, S, IdMapping, DEval) :-
+    memberchk(H-_, Formulas),
+    !,
+    derivative_keys(T, Formulas, S0, S, IdMapping, DEval).
+derivative_keys([DKey|T], Formulas, S0, S, IdMapping,
+                [D is V-V0|DEval]) :-
+    term_key(DTerm, DKey, IdMapping),
+    is_derivative_term(DTerm),
+    term_derivative(Term, DTerm),
+    term_key(Term, Key, IdMapping),
+    get_dict(DKey, S,  D),
+    get_dict(Key,  S0, V0),
+    get_dict(Key,  S,  V),
+    !,
+    derivative_keys(T, Formulas, S0, S, IdMapping, DEval).
+derivative_keys([H|T], Formulas, S0, S, IdMapping, DEval) :-
+    print_message(warning, derivative_keys(H)),
+    get_dict(H, S0, Var),
+    get_dict(H, S, Var),
+    derivative_keys(T, Formulas, S0, S, IdMapping, DEval).
+
+
+%!  compile_formulas(+Method, +Keys, +Formulas:pairs, -Eval,
+%!                   -S0, -S) is det.
+%
+%   Eval is a Prolog body term stepping S0   to S1 for Formulas. Keys in
+%   S0/S1 that are not at the left  hand   of  some  formula are left as
+%   variable.
+%
+%   When using RK4, we must re-add  the   time  formulas for eval_d/5 to
+%   work. We have two modes. For RK4, we use the first.
 %
 %     - Evaluate all formulas relative to S0 to create S1
 %     - Evaluate the formulas in order, where the next formula
@@ -1110,13 +1178,7 @@ set_var_to_zero(_, _) => true.
 %   Sa, Sa*Eq2 -> S1.  With  the   Prolog  flag  `garp_eval_batch`,  all
 %   equations act on S0.
 
-:- set_prolog_flag(garp_eval_batch, false).
-
-compile_formulas_eq(Method, Keys, Formulas, Ref, N, N1) :-
-    N1 is N+1,
-    compile_formulas(Method, Keys, Formulas, Eval, S0, S),
-    equal_keys(Keys, Formulas, S0, S),
-    assert_step(N, S0, S, Eval, Ref).
+:- create_prolog_flag(garp_eval_batch, false, [keep(true)]).
 
 compile_formulas(rk4(DTName, _DT), Keys, Formulas, Eval, S0, S) =>
     step_state_dicts([DTName, t|Keys], S0, S),
@@ -1144,16 +1206,6 @@ step_state_dicts(Keys, S0, S) :-
     dict_same_keys(S0, S).
 
 var_pair(Key, Key-_).
-
-equal_keys([], _, _, _).
-equal_keys([H|T], Formulas, S0, S) :-
-    memberchk(H-_, Formulas),
-    !,
-    equal_keys(T, Formulas, S0, S).
-equal_keys([H|T], Formulas, S0, S) :-
-    get_dict(H, S0, Var),
-    get_dict(H, S, Var),
-    equal_keys(T, Formulas, S0, S).
 
 %!  assert_step(+N, +S0, +S, +Eval, -Ref) is det.
 %
