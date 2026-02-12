@@ -1009,7 +1009,7 @@ steps(Count, Method, Sample, Formulas, State0, Series, Options) :-
     extend_state(FormulaLayers, State0, State1),
     dict_keys(State1, Keys),
     setup_call_cleanup(
-        foldl(compile_formulas(Method, Keys), FormulaLayers, Refs, 0, _),
+        foldl(compile_formulas_eq(Method, Keys), FormulaLayers, Refs, 0, _),
         ( length(Refs, NLayers),
           steps_(0, NLayers, NLayers, Method, Sample,
                  State1, State2, Series, TSeries)
@@ -1022,7 +1022,7 @@ steps(Count, Method, Sample, Formulas, State0, Series, _Options) :-
 flat_steps(I, Count, Method, Sample, Formulas, State0, Series) :-
     dict_keys(State0, Keys),
     setup_call_cleanup(
-        compile_formulas(Method, Keys, Formulas, Ref, 0, _),
+        compile_formulas_eq(Method, Keys, Formulas, Ref, 0, _),
         steps_(I, Count, 1, Method, Sample, State0, _State, Series, []),
         clean_formulas(Ref)).
 
@@ -1112,28 +1112,25 @@ set_var_to_zero(_, _) => true.
 
 :- set_prolog_flag(garp_eval_batch, false).
 
-compile_formulas(rk4(DTName, _DT), Keys, Formulas, Ref, N, N1) =>
+compile_formulas_eq(Method, Keys, Formulas, Ref, N, N1) :-
     N1 is N+1,
+    compile_formulas(Method, Keys, Formulas, Eval, S0, S),
+    equal_keys(Keys, Formulas, S0, S),
+    assert_step(N, S0, S, Eval, Ref).
+
+compile_formulas(rk4(DTName, _DT), Keys, Formulas, Eval, S0, S) =>
     step_state_dicts([DTName, t|Keys], S0, S),
     partition(is_delta_formula, Formulas, Deltas, Normal),
     maplist(eval(S0, S), Normal, EvalNormal),
     maplist(eval_delta(S0, S), Deltas, EvalDelta),
-    append(EvalNormal, EvalDelta, Eval),
-    equal_keys(Keys, Formulas, S0, S),
-    assert_step(N, S0, S, Eval, Ref).
-compile_formulas(euler, Keys, Formulas, Ref, N, N1),
+    append(EvalNormal, EvalDelta, Eval).
+compile_formulas(euler, Keys, Formulas, Eval, S0, S),
     current_prolog_flag(garp_eval_batch, true) =>
-    N1 is N+1,
     step_state_dicts(Keys, S0, S),
-    maplist(eval_batch(S0,S), Formulas, Eval),
-    equal_keys(Keys, Formulas, S0, S),
-    assert_step(N, S0, S, Eval, Ref).
-compile_formulas(euler, Keys, Formulas, Ref, N, N1) =>
-    N1 is N+1,
+    maplist(eval_batch(S0,S), Formulas, Eval).
+compile_formulas(euler, Keys, Formulas, Eval, S0, S) =>
     step_state_dicts(Keys, S0, S),
-    foldl(eval_seq(S0,S), Formulas, Eval, #{}, _),
-    equal_keys(Keys, Formulas, S0, S),
-    assert_step(N, S0, S, Eval, Ref).
+    foldl(eval_seq(S0,S), Formulas, Eval, #{}, _).
 
 %!  step_state_dicts(+Keys:list, -S0, -S) is det.
 %
