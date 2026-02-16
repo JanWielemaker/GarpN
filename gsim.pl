@@ -1156,7 +1156,10 @@ derivative_keys([DKey|T], Formulas, S0, S, IdMapping,
     !,
     derivative_keys(T, Formulas, S0, S, IdMapping, DEval).
 derivative_keys([H|T], Formulas, S0, S, IdMapping, DEval) :-
-    print_message(warning, derivative_keys(H)),
+    (   H == t
+    ->  true
+    ;   print_message(warning, derivative_keys(H))
+    ),
     get_dict(H, S0, Var),
     get_dict(H, S, Var),
     derivative_keys(T, Formulas, S0, S, IdMapping, DEval).
@@ -1188,7 +1191,8 @@ derivative_keys([H|T], Formulas, S0, S, IdMapping, DEval) :-
 :- create_prolog_flag(garp_eval_batch, false, [keep(true)]).
 
 compile_formulas(rk4(DTName, _DT), Keys, Formulas, Eval, S0, S) =>
-    step_state_dicts([DTName, t|Keys], S0, S),
+    sort([DTName, t|Keys], Keys1),
+    step_state_dicts(Keys1, S0, S),
     partition(is_delta_formula, Formulas, Deltas, Normal),
     maplist(eval(S0, S), Normal, EvalNormal),
     maplist(eval_delta(S0, S), Deltas, EvalDelta),
