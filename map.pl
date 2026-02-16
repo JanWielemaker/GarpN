@@ -17,7 +17,8 @@
             linked_state//2,            % ?State, ?To
             not_linked_states//1,       % -States
             validate_correspondences/3, % +QSeriesIn, -QSeries, +Options
-            q_partial_ordering/3        % +ModelId, -Ordering, +Options
+            q_partial_ordering/3,       % +ModelId, -Ordering, +Options
+            q_terminal/2                % +ModelId, -Terminal
           ]).
 :- if(\+current_prolog_flag(dynalearn, true)).
 :- export(save_garp_results/1).
@@ -34,12 +35,13 @@
 :- use_module(library(aggregate)).
 :- use_module(library(pprint)).
 :- use_module(library(dcg/basics)).
+:- use_module(library(time), [call_with_time_limit/2]).
+:- use_module(library(solution_sequences), [distinct/2]).
 
 :- use_module(gsim).
 :- use_module(csv_util).
 :- use_module(model, [correspondences/2]).
 :- use_module(identifiers).
-:- use_module(library(time), [call_with_time_limit/2]).
 
 /** <module> Map qualitative and quantitative (simulation) model
 */
@@ -367,6 +369,61 @@ m_qstate_from_(Model, State, From) =>
     ensure_loaded_model(Model, qstate_from/2),
     Model:qstate_from(State, From).
 :- endif.
+
+%!  q_terminal(+ModelId, -Terminal) is nondet.
+%
+%   Find how the simulation can end. It can end  in a leaf state or in a
+%   cycle of states. We use this for two purposes:
+%
+%     - Determine we have enough iterations in the simulation.  This is
+%       the case if we are in a leaf or repeatedly cycle through a state
+%       that appears in a cycle.
+%     - Help identifying asymphotic states.   If we are close enough to
+%       assympthotic state and this state is a leaf of the Garp state
+%       graph we can be pretty sure we simulated far enough.
+%
+%   @arg Terminal is  one  of   leaf(State)  or  cycle(ListOfStates) and
+%   represents how the simulation can terminate.
+
+q_terminal(ModelId, Terminal) :-
+    findall(From-To,
+            ( m_qstate_from(ModelId, To, FromList),
+              member(From, FromList) ),
+            Graph),
+    graph_terminal(Graph, Terminal).
+
+graph_terminal(Graph, Terminal) :-
+    pairs_keys_values(Graph, Froms, Tos),
+    append(Froms, Tos, AllVertices),
+    sort(AllVertices, Vertices),
+    (   Terminal = leaf(Leaf),
+        distinct(Leaf, q_state_leaf(Vertices, Graph, Leaf))
+    ;   Terminal = cycle(Cycle),
+        distinct(Cycle, q_state_cycle(Graph, Cycle))
+    ).
+
+q_state_leaf(Vertices, Edges, Leaf) :-
+    member(Leaf, Vertices),
+    \+ member(Leaf-_, Edges).
+
+q_state_cycle(Pairs, Cycle) :-
+    member(From-To, Pairs),
+    q_state_cycle(To, From, Pairs, [To,From], Cycle0),
+    reverse(Cycle0, Cycle1),
+    canonical_cycle(Cycle1, Cycle).
+
+q_state_cycle(Here, Start, Pairs, Path0, Path) :-
+    member(Here-To, Pairs),
+    (   To == Start
+    ->  Path = Path0
+    ;   \+ memberchk(To, Path0),
+        q_state_cycle(To, Start, Pairs, [To|Path0], Path)
+    ).
+
+canonical_cycle(Cycle0, Cycle) :-
+    min_member(Min, Cycle0),
+    append(Pre, [Min|Post], Cycle0),
+    append([Min|Post], Pre, Cycle).
 
 %!  q_partial_ordering(+ModelId, -Ordering:list(list(atom)), +Options)
 %!                     is det.
