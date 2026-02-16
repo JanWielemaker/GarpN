@@ -1351,10 +1351,12 @@ run_model(Request) :-
     call_time(simulate(terms(Equations), Series0, Options), Time),
     init_derivatives(Series0, Series, IdMapping),
     nq_series(Series, QSeries, [link_garp_states(true)|Options]),
+    eval_series(QSeries, Evaluation, Options),
     annotate_garp_states(QSeries, Shapes, Options),
     plotly_traces(Model, Series, Traces, IdMapping),
     reply_htmx([ hr([]),
                  \stats(Series, Time),
+                 \evaluation(Evaluation),
                  div([ id(plot),
                        'hx-vals'('js:{time: plotly_clicked_at.x, sha1:SHA1}'),
                        'hx-post'('/garp/htmx/mapping-table'),
@@ -1748,6 +1750,59 @@ stats(Series, Time) -->
     },
     html(div(class([stats,narrow]),
              'Generated ~D samples in ~3f seconds'-[Count, Time.cpu])).
+
+%!  evaluation(+Evaluation:list)//
+
+evaluation(Evaluation) -->
+    html(div(class([narrow]), \evaluation_c(Evaluation))).
+
+:- html_meta
+    advice(html, ?, ?).
+
+evaluation_c([]) -->
+    !,
+    html('No remarks').
+evaluation_c(List) -->
+    sequence(evaluation_1, List).
+
+evaluation_1(Eval) -->
+    html(div(\evaluation_2(Eval))).
+
+evaluation_2(leaf(QState, [])) ==>
+    html("The simulation ends correctly in state ~p.  No alternatives"-[QState]).
+evaluation_2(leaf(QState, Alts)) ==>
+    html("The simulation ends correctly in state ~p.  Alternatives:"-[QState]),
+    sequence(ending, Alts).
+evaluation_2(on_track([_-[Path]])) ==>
+    html("The simulation does not end in an expected end state.  However, \c
+          the following state  can lead to an expected end state: "),
+    state_path(Path),
+    advice("Consider enlarging the number of iterations").
+% Fallback for debugging
+evaluation_2(Term) ==>
+    { with_output_to(string(String),
+                     print_term(Term, [output(current_output)]))
+    },
+    html(pre(String)).
+
+ending(leaf(State)) ==>
+    html("The qualitative model can also end in state ~p"-[State]).
+ending(cycle(Cycle)) ==>
+    html("The qualitative model can also end in a cycle: "),
+    state_path(Cycle).
+
+state_path(Cycle) ==>
+    sequence(state, html(' → '), Cycle).
+
+state(State) ==>
+    html("~p"-[State]).
+
+advice(HTML) -->
+    html(div(class(advice), ['👉 ', HTML])).
+
+%!  links//
+%
+%   Display page body with links.
 
 links -->
     { http_link_to_id(show_tests, [], TestLink)

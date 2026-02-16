@@ -18,7 +18,8 @@
             not_linked_states//1,       % -States
             validate_correspondences/3, % +QSeriesIn, -QSeries, +Options
             q_partial_ordering/3,       % +ModelId, -Ordering, +Options
-            q_terminal/2                % +ModelId, -Terminal
+            q_terminal/2,               % +ModelId, -Terminal
+            eval_series/3               % +QSeries, -Eval, +Options
           ]).
 :- if(\+current_prolog_flag(dynalearn, true)).
 :- export(save_garp_results/1).
@@ -370,6 +371,48 @@ m_qstate_from_(Model, State, From) =>
     Model:qstate_from(State, From).
 :- endif.
 
+%!  eval_series(+QSeries, -Eval:list, +Options) is det.
+%
+%   Evaluate the qualitative series. This predicate returns zero or more
+%   annotations about the quality of the match.  Possible evaluations:
+%
+%     - leaf(QState, Alternatives)
+%     Simulation ends correctly in a Garp terminal state. Alternatives
+%     is a list of alternative ending that Garp sees as possible.
+%     - on_track(List)
+%     List is a list of LastState-Paths, where LastState is one of the
+%     (possible ambiguous) last states and Paths list a list of Paths
+%     leading to a garp end state.
+
+eval_series(QSeries, Evals, Options) :-
+    findall(Eval, eval_series_(QSeries, Eval, Options), Evals).
+
+eval_series_(QSeries, Eval, Options) :-
+    option(model(ModelId), Options),
+    qstate_graph(ModelId, Graph),
+    findall(End, graph_terminal(Graph, End), Endings),
+    eval_series(QSeries, Graph, Endings, Eval, Options).
+
+% Ending in a stable (leaf) state
+eval_series(QSeries, _Graph, Endings, leaf(QState, Alternatives), _Options) :-
+    last(QSeries, GarpState),
+    GarpState.garp_states = [QState],
+    select(leaf(QState), Endings, Alternatives).
+% Last reached state has path to a terminal state
+eval_series(QSeries, Graph, Endings, on_track(Tracks), _Options) :-
+    last(QSeries, GarpState),
+    GarpState.garp_states = LastStates,
+    findall(LastState-Paths,
+            ( member(LastState, LastStates),
+              findall(Path,
+                      ( \+ memberchk(leaf(LastState), Endings),
+                        member(leaf(TerminalState), Endings),
+                        shortest_path(LastState, TerminalState, Graph, Path)
+                      ), Paths),
+              Paths \== []
+            ), Tracks),
+    Tracks \== [].
+
 %!  q_terminal(+ModelId, -Terminal) is nondet.
 %
 %   Find how the simulation can end. It can end  in a leaf state or in a
@@ -386,11 +429,14 @@ m_qstate_from_(Model, State, From) =>
 %   represents how the simulation can terminate.
 
 q_terminal(ModelId, Terminal) :-
+    qstate_graph(ModelId, Graph),
+    graph_terminal(Graph, Terminal).
+
+qstate_graph(ModelId, Graph) :-
     findall(From-To,
             ( m_qstate_from(ModelId, To, FromList),
               member(From, FromList) ),
-            Graph),
-    graph_terminal(Graph, Terminal).
+            Graph).
 
 graph_terminal(Graph, Terminal) :-
     pairs_keys_values(Graph, Froms, Tos),
@@ -423,7 +469,26 @@ q_state_cycle(Here, Start, Pairs, Path0, Path) :-
 canonical_cycle(Cycle0, Cycle) :-
     min_member(Min, Cycle0),
     append(Pre, [Min|Post], Cycle0),
+    !,
     append([Min|Post], Pre, Cycle).
+
+%!  shortest_path(+From, +To, +Graph, -Path) is semidet.
+%
+%   True if Path is the sortest path from   From to To n Graph. Fails if
+%   there is no connection.
+
+shortest_path(From, To, Graph, Path) :-
+    findall(Len-Path,
+            ( path(From, To, Graph, [], Path),
+              length(Path, Len)
+            ), Pairs),
+    sort(1, <, Pairs, [_-Path|_]).
+
+path(To, To, _Graph, _, [To]).
+path(From, To, Graph, Visited, [From|Path]) :-
+    member(From-Next, Graph),
+    \+ memberchk(Next, Visited),
+    path(Next, To, Graph, [Next|Visited], Path).
 
 %!  q_partial_ordering(+ModelId, -Ordering:list(list(atom)), +Options)
 %!                     is det.
