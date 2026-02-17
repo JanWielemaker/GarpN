@@ -1144,6 +1144,7 @@ merge_states(QSeries, GarpStates, Options) -->
       append([BSeq, [Before], Synced], Replaced),
       append(Replaced, Rest, QSeries)
     },
+    !,
     merge_states(Rest, GarpStates, Options).
 merge_states(QSeries, _GarpStates, _Options) -->
     remainder(QSeries).
