@@ -41,6 +41,7 @@
 
 :- use_module(gsim).
 :- use_module(csv_util).
+:- use_module(patterns).
 :- use_module(model, [correspondences/2]).
 :- use_module(identifiers).
 
@@ -377,12 +378,12 @@ m_qstate_from_(Model, State, From) =>
 %   annotations about the quality of the match.  Possible evaluations:
 %
 %     - leaf(QState, Alternatives)
-%     Simulation ends correctly in a Garp terminal state. Alternatives
-%     is a list of alternative ending that Garp sees as possible.
+%       Simulation ends correctly in a Garp terminal state. Alternatives
+%       is a list of alternative ending that Garp sees as possible.
 %     - on_track(List)
-%     List is a list of LastState-Paths, where LastState is one of the
-%     (possible ambiguous) last states and Paths list a list of Paths
-%     leading to a garp end state.
+%       List is a list of LastState-Paths, where LastState is one of the
+%       (possible ambiguous) last states and Paths list a list of Paths
+%       leading to a garp end state.
 
 eval_series(QSeries, Evals, Options) :-
     findall(Eval, eval_series_(QSeries, Eval, Options), Evals).
@@ -412,6 +413,15 @@ eval_series(QSeries, Graph, Endings, on_track(Tracks), _Options) :-
               Paths \== []
             ), Tracks),
     Tracks \== [].
+% We end in a cycle
+eval_series(QSeries, _Graph, Endings, cycle(QCycle, Alternatives), _Options) :-
+    maplist(get_dict(garp_states),QSeries, QStates),
+    final_cycle(QStates, QCycle, CycleCount),
+    length(QCycle, CycleLength),
+    CycleLength*CycleCount > 10,
+    select(cycle(QCycle), Endings, Alternatives).
+
+
 
 %!  q_terminal(+ModelId, -Terminal) is nondet.
 %
@@ -465,12 +475,6 @@ q_state_cycle(Here, Start, Pairs, Path0, Path) :-
     ;   \+ memberchk(To, Path0),
         q_state_cycle(To, Start, Pairs, [To|Path0], Path)
     ).
-
-canonical_cycle(Cycle0, Cycle) :-
-    min_member(Min, Cycle0),
-    append(Pre, [Min|Post], Cycle0),
-    !,
-    append([Min|Post], Pre, Cycle).
 
 %!  shortest_path(+From, +To, +Graph, -Path) is semidet.
 %
