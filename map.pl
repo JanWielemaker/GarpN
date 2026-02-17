@@ -391,18 +391,27 @@ eval_series(QSeries, Evals, Options) :-
 eval_series_(QSeries, Eval, Options) :-
     option(model(ModelId), Options),
     qstate_graph(ModelId, Graph),
-    findall(End, graph_terminal(Graph, End), Endings),
-    eval_series(QSeries, Graph, Endings, Eval, Options).
+    ends(QSeries, FoundEnd),
+    findall(ExpectedEnd, graph_terminal(Graph, ExpectedEnd), ExpectedEndings),
+    eval_series(QSeries, FoundEnd, Graph, ExpectedEndings, Eval, Options).
+
+ends(QSeries, cycle(QCycle)) :-
+    maplist(get_dict(garp_states),QSeries, QStates),
+    final_cycle(QStates, QCycle, CycleCount),
+    length(QCycle, CycleLength),
+    CycleLength*CycleCount > 10,
+    !.
+ends(QSeries, leaf(QStates)) :-
+    last(QSeries, GarpState),
+    GarpState.garp_states = QStates.
 
 % Ending in a stable (leaf) state
-eval_series(QSeries, _Graph, Endings, leaf(QState, Alternatives), _Options) :-
-    last(QSeries, GarpState),
-    GarpState.garp_states = [QState],
+eval_series(_QSeries, leaf([QState]), _Graph, Endings,
+            leaf(QState, Alternatives), _Options) :-
     select(leaf(QState), Endings, Alternatives).
 % Last reached state has path to a terminal state
-eval_series(QSeries, Graph, Endings, on_track(Tracks), _Options) :-
-    last(QSeries, GarpState),
-    GarpState.garp_states = LastStates,
+eval_series(_QSeries, leaf(LastStates), Graph, Endings,
+            on_track(Tracks), _Options) :-
     findall(LastState-Paths,
             ( member(LastState, LastStates),
               findall(Path,
@@ -414,14 +423,16 @@ eval_series(QSeries, Graph, Endings, on_track(Tracks), _Options) :-
             ), Tracks),
     Tracks \== [].
 % We end in a cycle
-eval_series(QSeries, _Graph, Endings, cycle(QCycle, Alternatives), _Options) :-
-    maplist(get_dict(garp_states),QSeries, QStates),
-    final_cycle(QStates, QCycle, CycleCount),
-    length(QCycle, CycleLength),
-    CycleLength*CycleCount > 10,
+eval_series(_QSeries, cycle(QCycle), _Graph, Endings,
+            cycle(QCycle, Alternatives), _Options) :-
     select(cycle(QCycle), Endings, Alternatives).
+% We expect a cycle
+eval_series(_QSeries, FoundEnd, _Graph, Endings,
+            expect_cycle(Cycles), _Options) :-
+    FoundEnd \= cycle(_),
+    maplist(is_cycle, Endings, Cycles).
 
-
+is_cycle(cycle(Cycle), Cycle).
 
 %!  q_terminal(+ModelId, -Terminal) is nondet.
 %

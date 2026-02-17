@@ -1778,6 +1778,17 @@ evaluation_2(on_track([_-[Path]])) ==>
           the following state  can lead to an expected end state: "),
     state_path(Path),
     advice("Consider enlarging the number of iterations").
+evaluation_2(cycle(QCycle, [])) ==>
+    html("The simulation ends correctly in cycle "),
+    state_path(QCycle).
+evaluation_2(cycle(QCycle, Alts)) ==>
+    html("The simulation ends correctly in cycle "),
+    state_path(QCycle),
+    html(". Alternatives:"),
+    sequence(ending, Alts).
+evaluation_2(expect_cycle(_Cycles)) ==>
+    html("The simulation should end in a cycle."),
+    advice("Consider enlarging the number of iterations").
 % Fallback for debugging
 evaluation_2(Term) ==>
     { with_output_to(string(String),
