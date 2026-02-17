@@ -886,13 +886,20 @@ numeric_expression(Expr) :-
 order_equations(Equations, Formulas, Ordered, Options) :-
     map_list_to_pairs(equation_class, Equations, Classified),
     keysort(Classified, ByClass),
-    group_pairs_by_key(ByClass, Grouped),
+    group_pairs_by_key(ByClass, Grouped0),
+    foldl(add_group_key, [model, time, constant, init], Grouped0, Grouped),
     selectchk(model-ModelEq, Grouped, GroupedRest),
     map_list_to_pairs(equation_term_id(Options), ModelEq, IdPaired),
     order_formulas(Formulas, Layers, Options),
     maplist(layer_equations(IdPaired), Layers, LayeredEquations0),
     exclude(==([]), LayeredEquations0, LayeredEquations),
     dict_pairs(Ordered, #, [model-LayeredEquations|GroupedRest]).
+
+add_group_key(Key, Pairs0, Pairs) :-
+    (   memberchk(Key-_, Pairs0)
+    ->  Pairs = Pairs0
+    ;   Pairs = [Key-[]|Pairs0]
+    ).
 
 :- det(equation_term_id/3).
 equation_term_id(Options, (QTerm := _), QId) =>
