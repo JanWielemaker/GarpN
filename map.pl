@@ -389,14 +389,15 @@ eval_series(QSeries, Evals, Options) :-
     findall(Eval, eval_series_(QSeries, Eval, Options), Evals).
 
 eval_series_(QSeries, Eval, Options) :-
+    q_non_instantaneous_series(QSeries, QSeries1),
     option(model(ModelId), Options),
-    qstate_graph(ModelId, Graph),
-    ends(QSeries, FoundEnd),
+    non_instantenous_garp_states(ModelId, _States, Graph, Options),
+    ends(QSeries1, FoundEnd),
     findall(ExpectedEnd, graph_terminal(Graph, ExpectedEnd), ExpectedEndings),
-    eval_series(QSeries, FoundEnd, Graph, ExpectedEndings, Eval, Options).
+    eval_series(QSeries1, FoundEnd, Graph, ExpectedEndings, Eval, Options).
 
 ends(QSeries, cycle(QCycle)) :-
-    maplist(get_dict(garp_states), QSeries, QStates),
+    maplist(q_state_to_garp_states, QSeries, QStates),
     final_cycle(QStates, QCycle, CycleCount),
     length(QCycle, CycleLength),
     CycleLength*CycleCount > 10,
@@ -404,6 +405,32 @@ ends(QSeries, cycle(QCycle)) :-
 ends(QSeries, leaf(QStates)) :-
     last(QSeries, GarpState),
     GarpState.garp_states = QStates.
+
+%!  q_state_to_garp_states(+QState, -GarpStates) is det.
+%
+%   Find the garp state related to  a   qstate  from the simulator. This
+%   produces a cycle or leaf that is short   and easy to match. If there
+%   is no corresponding Garp state we  use the qualitative state itself,
+%   after removing `garp_states` and `t`.
+
+q_state_to_garp_states(QState, GarpStates) :-
+    GarpStates = QState.get(garp_states),
+    GarpStates \== [],
+    !.
+q_state_to_garp_states(QState, State) :-
+    copy_term(QState, State0),
+    is_dict(State0, Tag),
+    ignore(Tag = #),
+    del_keys([garph_states,t], State0, State),
+    term_variables(State, Vars),
+    maplist(=(*), Vars).
+
+del_keys([], Dict, Dict).
+del_keys([H|T], Dict0, Dict) :-
+    (   del_dict(H, Dict0, _, Dict1)
+    ->  del_keys(T, Dict1, Dict)
+    ;   del_keys(T, Dict0, Dict)
+    ).
 
 % Ending in a stable (leaf) state
 eval_series(_QSeries, leaf([QState]), _Graph, Endings,
@@ -1472,23 +1499,31 @@ new_edges_(From, State, [State-To|TT], GarpStates) ==>
     new_edges_(From, State, TT, GarpStates).
 
 
-%!  instantaneous_states(+States, -Instantiatious:list(integer)) is det.
+%!  q_non_instantaneous_series(+QSeriesIn, -QSeriesOut) is det.
 %
-%   Add `instantaneous: true` to states that  are instantaneous. A state
-%   is instantaneous if the  value  or   one  of  its derivatives passes
-%   through a point. A point is point(_)   for  the value and `zero` for
-%   derivatives.
+%   True when QSeriesOut is  a  list   of  qualitative  states  where we
+%   removed all instantaneous transitions.
 %
 %   @see non_instantenous_garp_states/4 to  reduce  the   state  map  as
 %   produced by Graph. This reduces a _sequence_ rather than a _graph_.
+%   @tbd Should we also remove states that last too short?
 
-instantaneous_states([], []).
-instantaneous_states([I0-S0,I1-S1,I2-S2|T], [I1|IT]) :-
-    is_instantaneous(S0,S1,S2),
-    !,
-    instantaneous_states([I0-S0,I2-S2|T], IT).
-instantaneous_states([_|T], I) :-
-    instantaneous_states(T, I).
+q_non_instantaneous_series([], QSeries) =>
+    QSeries = [].
+q_non_instantaneous_series([S0,S1,S2|T], QSeries),
+    is_instantaneous(S0,S1,S2) =>
+    q_non_instantaneous_series([S0,S2|T], QSeries).
+q_non_instantaneous_series([S0,S1|T], QSeries),
+    is_single_step(S0,S1) =>
+    q_non_instantaneous_series([S1|T], QSeries).
+q_non_instantaneous_series([H|T], QSeries) =>
+    QSeries = [H|QSeries1],
+    q_non_instantaneous_series(T, QSeries1).
+
+is_single_step(S0, S1) :-
+    d(T0,_,_,_) = S0.get(t),
+    d(T1,DT,_,_) = S1.get(t),
+    T1-T0-DT < DT/10.
 
 %!  is_instantaneous(State0:dict, State1:dict, State2:dict) is semidet.
 %
