@@ -1768,24 +1768,27 @@ evaluation_c(List) -->
 evaluation_1(Eval) -->
     html(div(\evaluation_2(Eval))).
 
-evaluation_2(leaf(QState, [])) ==>
-    html("The simulation ends correctly in state ~p.  No alternatives"-[QState]).
 evaluation_2(leaf(QState, Alts)) ==>
-    html("The simulation ends correctly in state ~p.  Alternatives:"-[QState]),
-    sequence(ending, Alts).
+    html("The simulation ends correctly in state ~p"-[QState]),
+    alternative_endings(Alts).
 evaluation_2(on_track([_-[Path]])) ==>
     html("The simulation does not end in an expected end state.  However, \c
           the following state  can lead to an expected end state: "),
     state_path(Path),
     advice("Consider enlarging the number of iterations").
-evaluation_2(cycle(QCycle, [])) ==>
-    html("The simulation ends correctly in cycle "),
-    state_path(QCycle).
 evaluation_2(cycle(QCycle, Alts)) ==>
     html("The simulation ends correctly in cycle "),
     state_path(QCycle),
-    html(". Alternatives:"),
-    sequence(ending, Alts).
+    alternative_endings(Alts).
+evaluation_2(near_cycle(QCycle, _ScoreTerm, Garp, Alts)) ==>
+    html(table([ tr([ td("The simulation ends in cycle "),
+                      td(\state_path(QCycle))
+                    ]),
+                 tr([ td("The nearest Garp cycle is "),
+                      td(\state_path(Garp))
+                    ])
+               ])),
+    alternative_endings(Alts).
 evaluation_2(expect_cycle(_Cycles)) ==>
     html("The simulation should end in a cycle."),
     advice("Consider enlarging the number of iterations").
@@ -1796,17 +1799,32 @@ evaluation_2(Term) ==>
     },
     html(pre(String)).
 
-ending(leaf(State)) ==>
-    html("The qualitative model can also end in state ~p"-[State]).
-ending(cycle(Cycle)) ==>
-    html("The qualitative model can also end in a cycle: "),
-    state_path(Cycle).
-
 state_path(Cycle) ==>
     sequence(state, html(' → '), Cycle).
 
+state([State]) ==>                      % matched Garp state
+    html(span(class(state), "~p"-[State])).
+state(States), is_list(States) ==>      % ambiguously matched Garp state
+    html(span(class(state), \sequence(state, html("|"), States))).
+state(State), is_dict(State) ==>        % unmatched Garp state
+    html(span(class(state), "?")).
 state(State) ==>
-    html("~p"-[State]).
+    html(span(class(state), "~p"-[State])).
+
+alternative_endings([]) ==>
+    html([br([]), 'There are no alternatives']).
+alternative_endings(Alts) ==>
+    html([ br([]),
+           'Qualitative reasoning gives the following alternatives endings',
+           ol(\sequence(ending, Alts))
+         ]).
+
+ending(leaf(State)) ==>
+    html(li("The qualitative model can end in state ~p"-[State])).
+ending(cycle(Cycle)) ==>
+    html(li([ "The qualitative model can end in a cycle: ",
+              \state_path(Cycle)
+            ])).
 
 advice(HTML) -->
     html(div(class(advice), ['👉 ', HTML])).

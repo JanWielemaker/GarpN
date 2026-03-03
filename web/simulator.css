@@ -421,3 +421,9 @@ div.formula-layer {
     box-shadow: 3px 3px #444;
     border-radius: 10px;
 }
+
+span.state {
+    display: inline-block;
+    text-align: center;
+    width: 2em;
+}
