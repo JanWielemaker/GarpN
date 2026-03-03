@@ -396,7 +396,7 @@ eval_series_(QSeries, Eval, Options) :-
     eval_series(QSeries, FoundEnd, Graph, ExpectedEndings, Eval, Options).
 
 ends(QSeries, cycle(QCycle)) :-
-    maplist(get_dict(garp_states),QSeries, QStates),
+    maplist(get_dict(garp_states), QSeries, QStates),
     final_cycle(QStates, QCycle, CycleCount),
     length(QCycle, CycleLength),
     CycleLength*CycleCount > 10,
@@ -1416,6 +1416,53 @@ not_linked_states([H|T]) -->
 not_linked_state(State) -->
     [State],
     { \+ State.get(garp_states) = [_|_] }.
+
+%!  instantaneous_states(+States, -Instantiatious:list(integer)) is det.
+%
+%   Add `instantaneous: true` to states that  are instantaneous. A state
+%   is instantaneous if the  value  or   one  of  its derivatives passes
+%   through a point. A point is point(_)   for  the value and `zero` for
+%   derivatives. Note that this  works  both   for  Garp  states and for
+%   simulation states mapped to the qualitative world (q_series).
+
+instantaneous_states([], []).
+instantaneous_states([I0-S0,I1-S1,I2-S2|T], [I1|IT]) :-
+    is_instantaneous(S0,S1,S2),
+    !,
+    instantaneous_states([I0-S0,I2-S2|T], IT).
+instantaneous_states([_|T], I) :-
+    instantaneous_states(T, I).
+
+is_instantaneous(S0,S1,S2) :-
+    V0 = S0.Key,
+    V1 = S1.Key,
+    V2 = S2.Key,
+    is_dn_instantaneous(V0,V1,V2),
+    !.
+
+is_dn_instantaneous(d(V0,Da0,Db0,Dc0),
+                    d(V1,Da1,Db1,Dc1),
+                    d(V2,Da2,Db2,Dc2)) :-
+    (   is_v_instantaneous(V0, V1, V2)
+    ;   is_d_instantaneous(Da0, Da1, Da2)
+    ;   is_d_instantaneous(Db0, Db1, Db2)
+    ;   is_d_instantaneous(Dc0, Dc1, Dc2)
+    ),
+    !.
+
+is_v_instantaneous(V0, V1, V2),
+    V0 \== V1,
+    V2 \== V1,
+    is_point(V1) => true.
+is_v_instantaneous(_, _, _) => false.
+
+is_point(point(_)) => true.
+is_point(_) => false.
+
+is_d_instantaneous(D0, zero, D2), D0 \== zero, D2 \== zero => true.
+is_d_instantaneous(_, _, _) => false.
+
+
 
 %!  q_series(+Source, -QSeries, +Options) is det.
 %
