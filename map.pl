@@ -38,6 +38,7 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(time), [call_with_time_limit/2]).
 :- use_module(library(solution_sequences), [distinct/2]).
+:- use_module(library(ordsets), [ord_intersection/3, ord_union/3]).
 
 :- use_module(gsim).
 :- use_module(csv_util).
@@ -384,6 +385,16 @@ m_qstate_from_(Model, State, From) =>
 %       List is a list of LastState-Paths, where LastState is one of the
 %       (possible ambiguous) last states and Paths list a list of Paths
 %       leading to a garp end state.
+%     - cycle(QCycle, Alternatives)
+%       Simulation ends correctly in a Garp compatible cycle.  Alternatives
+%       is a list of alternative ending that Garp sees as possible.
+%     - near_cycle(QCycle, ScoreTerm, Garp, Alternatives)
+%       Found cyclic ending QCycle matches best to Garp cycle with score
+%       ScoreTerm. ScoreTerm is `TransitionScore-StateScore`,
+%       representing the _Jaccard score_ of the set differences.
+%     - expect_cycle(Cycles)
+%       The simulation does not end in a cycle, but should end in one of
+%       the given Cycles.
 
 eval_series(QSeries, Evals, Options) :-
     findall(Eval, eval_series_(QSeries, Eval, Options), Evals).
@@ -432,6 +443,9 @@ del_keys([H|T], Dict0, Dict) :-
     ;   del_keys(T, Dict0, Dict)
     ).
 
+%!  eval_series(+QSeries, +Ends, +PossibleStateGraphs, +PossibleEndings,
+%!              -Evaluation) is nondet.
+
 % Ending in a stable (leaf) state
 eval_series(_QSeries, leaf([QState]), _Graph, Endings,
             leaf(QState, Alternatives), _Options) :-
@@ -453,6 +467,19 @@ eval_series(_QSeries, leaf(LastStates), Graph, Endings,
 eval_series(_QSeries, cycle(QCycle), _Graph, Endings,
             cycle(QCycle, Alternatives), _Options) :-
     select(cycle(QCycle), Endings, Alternatives).
+% We end in a cycle and there are cycles in the possible endings
+eval_series(_QSeries, cycle(QCycle), _Graph, Endings,
+            near_cycle(QCycleOut, ScoreTerm, GarpOut, Alternatives),
+            _Options) :-
+    maplist(flatten_state, QCycle, QCycle1),
+    aggregate_all(max(Score,Garp-ScoreTerm),
+                  ( member(cycle(Garp), Endings),
+                    cycle_score(Garp, QCycle1, ScoreTerm),
+                    ScoreTerm = TransitionScore-StateScore,
+                    Score is TransitionScore*100+StateScore
+                  ), max(_MaxScore,Garp-ScoreTerm)),
+    select(cycle(Garp), Endings, Alternatives),
+    align_cycles(QCycle, Garp, QCycleOut, GarpOut).
 % We expect a cycle
 eval_series(_QSeries, FoundEnd, _Graph, Endings,
             expect_cycle(Cycles), _Options) :-
@@ -460,6 +487,52 @@ eval_series(_QSeries, FoundEnd, _Graph, Endings,
     maplist(is_cycle, Endings, Cycles).
 
 is_cycle(cycle(Cycle), Cycle).
+
+flatten_state([H|_], S) => S = H.
+flatten_state(S0,    S) => S = S0.   % unmatched Garp state
+
+%!  cycle_score(+Garp, +GarpN, -Score) is det.
+%!  cycle_state_score(+Garp, +GarpN, -StateScore) is det.
+%!  cycle_transition_score(+Garp, +GarpN, -StateScore) is det.
+%
+%   Score how well a cycle matches. There   are two evaluations: (1) the
+%   number of states that are common and   (2) the number of transitions
+%   that are common.
+
+cycle_score(Garp, GarpN, TransitionScore-StateScore) :-
+    cycle_state_score(Garp, GarpN, StateScore),
+    cycle_transition_score(Garp, GarpN, TransitionScore).
+
+cycle_state_score(Garp, GarpN, Score) :-
+    sort(Garp, GarpS),
+    sort(GarpN, GarpNS),
+    jaccard_score(GarpS, GarpNS, Score).
+
+cycle_transition_score(Garp, GarpN, Score) :-
+    cycle_transitions(Garp, GarpT),
+    cycle_transitions(GarpN, GarpNT),
+    sort(GarpT, GarpS),
+    sort(GarpNT, GarpNS),
+    jaccard_score(GarpS, GarpNS, Score).
+
+jaccard_score(GarpS, GarpNS, Score) :-
+    ord_intersection(GarpS, GarpNS, Intersection),
+    ord_union(GarpS, GarpNS, Union),
+    length(Intersection, ILen),
+    length(Union, ULen),
+    Score is float(ILen)/ULen.
+
+cycle_transitions([], []) :-
+    !.
+cycle_transitions(Cycle, Transitions) :-
+    Cycle = [H|_],
+    cycle_transitions(Cycle, H, Transitions).
+
+cycle_transitions([Last], Head, [Last-Head]) :-
+    !.
+cycle_transitions([H1,H2|T0], Head, [H1-H2|T]) :-
+    cycle_transitions([H2|T0], Head, T).
+
 
 %!  q_terminal(+ModelId, -Terminal) is nondet.
 %
