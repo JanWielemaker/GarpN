@@ -1417,13 +1417,70 @@ not_linked_state(State) -->
     [State],
     { \+ State.get(garp_states) = [_|_] }.
 
+%!  non_instantenous_garp_states(+ModelId, -States, -Graph:pairs,
+%!                               +Options) is det.
+%
+%   Derive the Garp states  that  are   not  instantaneous  (last for an
+%   infinitely short time) and  a  list   of  pairs  that represents the
+%   possible state transition graph. The idea   behind  this is that the
+%   instantaneous states will not reliably   reproduce  in the numerical
+%   simulation and should thus be ignored   when  matching the numerical
+%   result to the qualitative result.
+%
+%   @arg States is a list of `StateId-StateDict`.
+%   @arg Graph is a list of `FromStateId-ToStateId`
+
+:- det(non_instantenous_garp_states/4).
+non_instantenous_garp_states(ModelId, States, Graph, Options) :-
+    findall(Id-State, qstate(ModelId, Id, State, Options), FullGarpStates),
+    qstate_graph(ModelId, FullGraph),                  % list(From-To)
+    pairs_keys_values(FullGraph, Froms, Tos),
+    append(Froms, Tos, Vertices0),
+    sort(Vertices0, Vertices),
+    remove_instantaneous(Vertices, FullGarpStates, FullGraph, States, Graph).
+
+remove_instantaneous(Vertices, FullGarpStates, FullGraph, States, Graph) :-
+    append(_, [State|Rest], Vertices),
+    partition(from_edge(State), FullGraph, FromEdges, Graph1),
+    partition(to_edge(State),   Graph1,    ToEdges,   Graph2),
+    phrase(new_edges(FromEdges, ToEdges, FullGarpStates), Edges),
+    !,
+    append(Graph2, Edges, Graph3),
+    sort(Graph3, Graph4),
+    delete(FullGarpStates, State-_, GarpStates1),
+    remove_instantaneous(Rest, GarpStates1, Graph4, States, Graph).
+remove_instantaneous(_, States, Graph, States, Graph).
+
+from_edge(State, _-State).
+to_edge(State, State-_).
+
+new_edges([], _, _) ==>
+    [].
+new_edges([From-State|FT], ToEdges, GarpStates) ==>
+    new_edges_(From, State, ToEdges, GarpStates),
+    new_edges(FT, ToEdges, GarpStates).
+
+new_edges_(_, _, [], _) ==>
+    [].
+new_edges_(From, State, [State-To|TT], GarpStates) ==>
+    { memberchk(From-FromState, GarpStates),
+      memberchk(State-InstantaneousState, GarpStates),
+      memberchk(To-ToState, GarpStates),
+      is_instantaneous(FromState, InstantaneousState, ToState)
+    },
+    [From-To],
+    new_edges_(From, State, TT, GarpStates).
+
+
 %!  instantaneous_states(+States, -Instantiatious:list(integer)) is det.
 %
 %   Add `instantaneous: true` to states that  are instantaneous. A state
 %   is instantaneous if the  value  or   one  of  its derivatives passes
 %   through a point. A point is point(_)   for  the value and `zero` for
-%   derivatives. Note that this  works  both   for  Garp  states and for
-%   simulation states mapped to the qualitative world (q_series).
+%   derivatives.
+%
+%   @see non_instantenous_garp_states/4 to  reduce  the   state  map  as
+%   produced by Graph. This reduces a _sequence_ rather than a _graph_.
 
 instantaneous_states([], []).
 instantaneous_states([I0-S0,I1-S1,I2-S2|T], [I1|IT]) :-
@@ -1432,6 +1489,13 @@ instantaneous_states([I0-S0,I1-S1,I2-S2|T], [I1|IT]) :-
     instantaneous_states([I0-S0,I2-S2|T], IT).
 instantaneous_states([_|T], I) :-
     instantaneous_states(T, I).
+
+%!  is_instantaneous(State0:dict, State1:dict, State2:dict) is semidet.
+%
+%   True when State1 is  an  instanteneous   state  between  State0  and
+%   State2. This is the case iff there is a quantity that passes through
+%   a _point_ or a  derivative  (can   be  higher  order) passes through
+%   `zero`.
 
 is_instantaneous(S0,S1,S2) :-
     V0 = S0.Key,
