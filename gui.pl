@@ -926,7 +926,9 @@ mapping_table(SHA1, Time) :-
     full_garp_states(GarpStates, Options),
     (   phrase(info_seq(Time, States0), QSeries, _)
     ->  add_garp_states(States0, GarpStates, States, Cmp),
-        reply_htmx(\state_table(States, [Cmp|Options]))
+        reply_htmx([ \state_table(States, [Cmp|Options]),
+                     \formula_layers(Options)
+                   ])
     ;   phrase((...,timed(Time,State),...), QSeries, _)
     ->  add_garp_states(State, GarpStates, States, Cmp),
         reply_htmx(\state_table(States, [Cmp|Options]))
@@ -1028,7 +1030,6 @@ interpolate_nq([H0|T0], [H1|T1], R) =>
 %   Print an HTML table of states.
 
 state_table(States, Options) -->
-    formula_layers(Options),
     { plain_rows(States, StatesPlain),
       option(id_mapping(IdMapping), Options, _{}),
       (   option(keys(Keys), Options)
