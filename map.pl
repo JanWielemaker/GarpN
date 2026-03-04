@@ -354,6 +354,9 @@ se_isa(Instance, Super, SEList) :-
 %
 %   True when State can be reached from FromList.
 
+m_qstate_from(none, _, _) :-
+    !,
+    fail.
 m_qstate_from(ModelId, State, FromList) :-
     m_qstate_from_(ModelId, State, FromList0),
     add_initial_state(FromList0, FromList).
@@ -1711,7 +1714,10 @@ max_derivative_used(Options, D) :-
     dict_pairs(Match, _, Pairs),
     pairs_values(Pairs, Values),
     append(Values, AllValues),
-    max_list(AllValues, D).
+    (   max_list(AllValues, D)
+    ->  true
+    ;   D = 1
+    ).
 
 %!  strip_derivatives(+Match, +State0, -State) is det.
 %
