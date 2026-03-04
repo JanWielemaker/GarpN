@@ -418,7 +418,7 @@ ends(QSeries, cycle(QCycle)) :-
     !.
 ends(QSeries, leaf(QStates)) :-
     last(QSeries, GarpState),
-    GarpState.garp_states = QStates.
+    q_state_to_garp_states(GarpState, QStates).
 
 %!  q_state_to_garp_states(+QState, -GarpStates) is det.
 %
@@ -435,7 +435,7 @@ q_state_to_garp_states(QState, State) :-
     copy_term(QState, State0),
     is_dict(State0, Tag),
     ignore(Tag = #),
-    del_keys([garph_states,t], State0, State),
+    del_keys([garp_states,t], State0, State),
     term_variables(State, Vars),
     maplist(=(*), Vars).
 
@@ -487,6 +487,7 @@ eval_series(_QSeries, cycle(QCycle), _Graph, Endings,
 eval_series(_QSeries, FoundEnd, _Graph, Endings,
             expect_cycle(Cycles), _Options) :-
     FoundEnd \= cycle(_),
+    Endings \== [],
     maplist(is_cycle, Endings, Cycles).
 
 is_cycle(cycle(Cycle), Cycle).
@@ -1545,7 +1546,9 @@ non_instantenous_garp_states(ModelId, States, Graph, Options) :-
 remove_instantaneous(Vertices, FullGarpStates, FullGraph, States, Graph) :-
     append(_, [State|Rest], Vertices),
     partition(from_edge(State), FullGraph, FromEdges, Graph1),
+    FromEdges \== [],
     partition(to_edge(State),   Graph1,    ToEdges,   Graph2),
+    ToEdges \== [],
     phrase(new_edges(FromEdges, ToEdges, FullGarpStates), Edges),
     !,
     append(Graph2, Edges, Graph3),
@@ -1599,6 +1602,7 @@ q_non_instantaneous_series([H|T], QSeries) =>
 is_single_step(S0, S1) :-
     d(T0,_,_,_) = S0.get(t),
     d(T1,DT,_,_) = S1.get(t),
+    normal_number(DT),
     T1-T0-DT < DT/10.
 
 %!  is_instantaneous(State0:dict, State1:dict, State2:dict) is semidet.
@@ -1610,8 +1614,8 @@ is_single_step(S0, S1) :-
 
 is_instantaneous(S0,S1,S2) :-
     V0 = S0.Key,
-    V1 = S1.Key,
-    V2 = S2.Key,
+    V1 = S1.get(Key),
+    V2 = S2.get(Key),
     is_dn_instantaneous(V0,V1,V2),
     !.
 
