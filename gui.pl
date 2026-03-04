@@ -1579,7 +1579,7 @@ get_value(d3(Key), Dict, Value), atom(Key) =>
 
 rescale(_, Min-Max, Scale), Min =:= 0, Max =:= 0 =>
     Scale = 1.
-rescale(GMin-GMax, Min-Max, Scale), Min =:= Max =>
+rescale(GMin-GMax, Min-Max, Scale), Max-Min < (abs(Min)+abs(Max))/10 =>
     Mid is (GMax-GMin)/2,
     scale(Scale),
     Val is Min*Scale,
