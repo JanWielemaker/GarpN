@@ -585,7 +585,8 @@ group_equations(Eql, Groups) :-
     map_list_to_pairs(classify_equation(Eql), Eql, Pairs),
     keysort(Pairs, Sorted),
     group_pairs_by_key(Sorted, Groups0),
-    maplist(label_group, Groups0, Groups).
+    add_empty_groups(Groups0, Groups1),
+    maplist(label_group, Groups1, Groups).
 
 classify_equation(_, t := _, Order) =>
     eq_type_order(time, Order).
@@ -605,6 +606,16 @@ classify_equation(_, _, Order) =>
 label_group(Order-Eql, Type-Eql) :-
     eq_type_order(Type, Order),
     !.
+
+add_empty_groups(Pairs0, Pairs) :-
+    findall(Order-[],
+            ( eq_type_order(Type, Order),
+              Type \== init_value,
+              \+ memberchk(Order-_, Pairs0)
+            ),
+            Missing),
+    append(Missing, Pairs0, Pairs1),
+    keysort(Pairs1, Pairs).
 
 eq_type_order(formula,    1).
 eq_type_order(constant,   2).
