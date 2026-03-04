@@ -210,6 +210,9 @@ test_eq :-
     read_line_to_string(user_input, LaTeX),
     asserta(user:latex(LaTeX)),
     gtrace,
+    test_eq(LaTeX).
+
+test_eq(LaTeX) :-
     latex_prolog(LaTeX, Prolog),
     print_term(Prolog, []).
 
@@ -296,10 +299,9 @@ latex_expression(Expr, MaxPri, Pri) -->
     latex_expression(Right, MaxPriRight, _),
     { Expr =.. [Op,Left,Right]
     }.
-latex_expression(L/R, MaxPri, 400) -->
+latex_expression(L/R, _, 0) -->         % use as implicitly embraced
     [frac(EL, ER)],
-    { 400 =< MaxPri,
-      phrase(latex_expression(L), EL),
+    { phrase(latex_expression(L), EL),
       phrase(latex_expression(R), ER)
     }.
 latex_expression(Expr, _, 0) -->
