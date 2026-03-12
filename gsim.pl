@@ -784,7 +784,7 @@ extract_time_formula(rk4(_DTName,Dt), Formulas, TVar, Dt,
 
 layer_formulas_([], [], [], _) :-
     !.
-layer_formulas_([], Formulas, [Formulas], _Options).
+layer_formulas_([], Formulas, [d([], Formulas)], _Options).
 layer_formulas_([H|T], Formulas0, [d(DerLayer,Layer)|LayerT], Options) :-
     partition(formula_targets(H), Formulas0, Layer, Formulas1),
     partition(derivatives_first(Layer, Options),
